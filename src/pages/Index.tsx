@@ -1,12 +1,25 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React from 'react';
+import SpotifyHeader from '@/components/SpotifyHeader';
+import StatsOverview from '@/components/StatsOverview';
+import MetadataExtractor from '@/components/MetadataExtractor';
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-spotify-dark via-gray-900 to-black">
+      <SpotifyHeader />
+      
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-white mb-2">Dashboard</h2>
+          <p className="text-gray-400">
+            Extract metadata from your Spotify liked songs and sync with your MP3 collection for Serato DJ Pro
+          </p>
+        </div>
+        
+        <StatsOverview />
+        <MetadataExtractor />
+      </main>
     </div>
   );
 };
