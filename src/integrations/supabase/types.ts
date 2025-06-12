@@ -9,7 +9,105 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      local_mp3s: {
+        Row: {
+          album: string | null
+          artist: string | null
+          bpm: number | null
+          comment: string | null
+          created_at: string | null
+          date_added: string | null
+          file_path: string
+          genre: string | null
+          hash: string | null
+          id: string
+          key: string | null
+          last_modified: string | null
+          play_count: number | null
+          rating: number | null
+          title: string | null
+          year: number | null
+        }
+        Insert: {
+          album?: string | null
+          artist?: string | null
+          bpm?: number | null
+          comment?: string | null
+          created_at?: string | null
+          date_added?: string | null
+          file_path: string
+          genre?: string | null
+          hash?: string | null
+          id?: string
+          key?: string | null
+          last_modified?: string | null
+          play_count?: number | null
+          rating?: number | null
+          title?: string | null
+          year?: number | null
+        }
+        Update: {
+          album?: string | null
+          artist?: string | null
+          bpm?: number | null
+          comment?: string | null
+          created_at?: string | null
+          date_added?: string | null
+          file_path?: string
+          genre?: string | null
+          hash?: string | null
+          id?: string
+          key?: string | null
+          last_modified?: string | null
+          play_count?: number | null
+          rating?: number | null
+          title?: string | null
+          year?: number | null
+        }
+        Relationships: []
+      }
+      spotify_liked: {
+        Row: {
+          added_at: string | null
+          album: string | null
+          artist: string
+          bpm: number | null
+          created_at: string | null
+          genre: string | null
+          id: string
+          key: string | null
+          spotify_id: string
+          title: string
+          year: number | null
+        }
+        Insert: {
+          added_at?: string | null
+          album?: string | null
+          artist: string
+          bpm?: number | null
+          created_at?: string | null
+          genre?: string | null
+          id?: string
+          key?: string | null
+          spotify_id: string
+          title: string
+          year?: number | null
+        }
+        Update: {
+          added_at?: string | null
+          album?: string | null
+          artist?: string
+          bpm?: number | null
+          created_at?: string | null
+          genre?: string | null
+          id?: string
+          key?: string | null
+          spotify_id?: string
+          title?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

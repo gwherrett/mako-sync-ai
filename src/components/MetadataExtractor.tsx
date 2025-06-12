@@ -12,7 +12,7 @@ const MetadataExtractor = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Mock data for demonstration
+  // Mock data with genre information for demonstration
   const mockSongs = [
     {
       id: 1,
@@ -22,6 +22,7 @@ const MetadataExtractor = () => {
       duration: "5:55",
       bpm: 72,
       key: "Bb Major",
+      genre: "Rock",
       energy: 0.7,
       danceability: 0.6
     },
@@ -33,6 +34,7 @@ const MetadataExtractor = () => {
       duration: "4:54",
       bpm: 117,
       key: "F# Minor",
+      genre: "Pop",
       energy: 0.8,
       danceability: 0.9
     },
@@ -44,6 +46,7 @@ const MetadataExtractor = () => {
       duration: "6:30",
       bpm: 75,
       key: "B Minor",
+      genre: "Classic Rock",
       energy: 0.6,
       danceability: 0.4
     }
@@ -72,7 +75,7 @@ const MetadataExtractor = () => {
         body: JSON.stringify({
           songs: mockSongs,
           timestamp: new Date().toISOString(),
-          source: "spotify-metadata-sync",
+          source: "serato-metadata-sync",
           total_songs: mockSongs.length
         }),
       });
@@ -97,7 +100,7 @@ const MetadataExtractor = () => {
     const dataStr = JSON.stringify(mockSongs, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
-    const exportFileDefaultName = 'spotify-metadata.json';
+    const exportFileDefaultName = 'serato-metadata.json';
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -113,10 +116,10 @@ const MetadataExtractor = () => {
   return (
     <div className="space-y-6">
       {/* Make Integration */}
-      <Card className="glass-card border-white/10">
+      <Card className="glass-card border-serato-cyan/20">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2 text-white">
-            <Zap className="w-5 h-5 text-purple-400" />
+            <Zap className="w-5 h-5 text-serato-cyan" />
             <span>Make Integration</span>
           </CardTitle>
         </CardHeader>
@@ -130,14 +133,14 @@ const MetadataExtractor = () => {
                 placeholder="https://hook.integromat.com/your-webhook-url"
                 value={webhookUrl}
                 onChange={(e) => setWebhookUrl(e.target.value)}
-                className="bg-white/5 border-white/20 text-white placeholder-gray-400"
+                className="bg-serato-dark/30 border-serato-cyan/30 text-white placeholder-gray-400"
               />
             </div>
             <div className="flex space-x-3">
               <Button 
                 onClick={handleMakeWebhook}
                 disabled={isLoading}
-                className="spotify-gradient text-black font-medium hover:opacity-90"
+                className="serato-gradient text-serato-dark font-medium hover:opacity-90"
               >
                 <Zap className="w-4 h-4 mr-2" />
                 {isLoading ? "Sending..." : "Send to Make"}
@@ -145,7 +148,7 @@ const MetadataExtractor = () => {
               <Button 
                 onClick={exportToJSON}
                 variant="outline" 
-                className="border-white/20 text-white hover:bg-white/10"
+                className="border-serato-cyan/30 text-serato-cyan hover:bg-serato-cyan/10"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Export JSON
@@ -156,36 +159,40 @@ const MetadataExtractor = () => {
       </Card>
 
       {/* Songs List */}
-      <Card className="glass-card border-white/10">
+      <Card className="glass-card border-serato-cyan/20">
         <CardHeader>
           <CardTitle className="text-white">Extracted Metadata</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {mockSongs.map((song) => (
-              <div key={song.id} className="p-4 bg-white/5 rounded-lg border border-white/10 hover:border-white/20 transition-all duration-300">
+              <div key={song.id} className="p-4 bg-serato-dark/20 rounded-lg border border-serato-cyan/20 hover:border-serato-cyan/40 transition-all duration-300">
                 <div className="flex justify-between items-start mb-3">
                   <div>
                     <h3 className="font-semibold text-white text-lg">{song.title}</h3>
                     <p className="text-gray-300">{song.artist} • {song.album}</p>
                   </div>
-                  <Button size="sm" variant="outline" className="border-white/20 text-white hover:bg-white/10">
+                  <Button size="sm" variant="outline" className="border-serato-cyan/30 text-serato-cyan hover:bg-serato-cyan/10">
                     <Play className="w-4 h-4" />
                   </Button>
                 </div>
                 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-3">
                   <div>
                     <span className="text-xs text-gray-400 block">Duration</span>
                     <span className="text-sm text-white">{song.duration}</span>
                   </div>
                   <div>
                     <span className="text-xs text-gray-400 block">BPM</span>
-                    <span className="text-sm text-white">{song.bpm}</span>
+                    <span className="text-sm text-serato-cyan font-semibold">{song.bpm}</span>
                   </div>
                   <div>
                     <span className="text-xs text-gray-400 block">Key</span>
-                    <span className="text-sm text-white">{song.key}</span>
+                    <span className="text-sm text-serato-cyan font-semibold">{song.key}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-400 block">Genre</span>
+                    <span className="text-sm text-serato-orange font-semibold">{song.genre}</span>
                   </div>
                   <div>
                     <span className="text-xs text-gray-400 block">Energy</span>
@@ -194,10 +201,10 @@ const MetadataExtractor = () => {
                 </div>
 
                 <div className="flex space-x-2">
-                  <Badge variant="outline" className="border-green-400/30 text-green-400">
+                  <Badge variant="outline" className="border-serato-cyan/30 text-serato-cyan">
                     Danceability: {(song.danceability * 100).toFixed(0)}%
                   </Badge>
-                  <Badge variant="outline" className="border-blue-400/30 text-blue-400">
+                  <Badge variant="outline" className="border-serato-orange/30 text-serato-orange">
                     Serato Ready
                   </Badge>
                 </div>

@@ -16,31 +16,32 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 142 76% 36%;
-    --primary-foreground: 355.7 100% 97.3%;
+    --primary: 200 100% 50%;
+    --primary-foreground: 210 100% 15%;
 
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 208 25% 35%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
+    --muted: 208 25% 35%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 208 25% 35%;
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 142 76% 36%;
+    --border: 208 25% 35%;
+    --input: 208 25% 35%;
+    --ring: 200 100% 50%;
 
     --radius: 0.5rem;
 
-    --spotify-green: 142 76% 36%;
-    --spotify-green-hover: 142 76% 42%;
-    --spotify-dark: 0 0% 7%;
-    --spotify-dark-elevated: 0 0% 10%;
+    --serato-blue: 200 100% 50%;
+    --serato-cyan: 185 100% 50%;
+    --serato-orange: 15 100% 60%;
+    --serato-dark: 210 100% 15%;
+    --serato-dark-elevated: 210 90% 20%;
   }
 
   * {
@@ -54,13 +55,17 @@
 }
 
 @layer utilities {
-  .spotify-gradient {
-    background: linear-gradient(135deg, hsl(var(--spotify-green)) 0%, hsl(142 76% 42%) 100%);
+  .serato-gradient {
+    background: linear-gradient(135deg, hsl(var(--serato-blue)) 0%, hsl(var(--serato-cyan)) 100%);
+  }
+  
+  .serato-orange-gradient {
+    background: linear-gradient(135deg, hsl(var(--serato-orange)) 0%, #ff8c42 100%);
   }
   
   .glass-card {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(27, 54, 93, 0.1);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(0, 212, 255, 0.2);
   }
 }

@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,12 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				'serato-blue': 'hsl(var(--serato-blue))',
+				'serato-cyan': 'hsl(var(--serato-cyan))',
+				'serato-orange': 'hsl(var(--serato-orange))',
+				'serato-dark': 'hsl(var(--serato-dark))',
+				'serato-dark-elevated': 'hsl(var(--serato-dark-elevated))'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
