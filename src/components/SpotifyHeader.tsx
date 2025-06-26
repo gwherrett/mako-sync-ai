@@ -1,11 +1,13 @@
 
 import React from 'react';
-import { Music2, Settings, Loader2 } from 'lucide-react';
+import { Music2, Settings, Loader2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
+import { useAuth } from '@/contexts/AuthContext';
 
 const SpotifyHeader = () => {
   const { isConnected, isLoading, connectSpotify, disconnectSpotify } = useSpotifyAuth();
+  const { user, signOut } = useAuth();
 
   return (
     <header className="bg-spotify-dark border-b border-white/10 p-4">
@@ -26,6 +28,10 @@ const SpotifyHeader = () => {
         </div>
         
         <div className="flex items-center space-x-3">
+          <div className="text-sm text-gray-400">
+            Welcome, {user?.email}
+          </div>
+          
           <Button variant="outline" size="sm" className="text-white border-white/20 hover:bg-white/10">
             <Settings className="w-4 h-4 mr-2" />
             Settings
@@ -52,6 +58,16 @@ const SpotifyHeader = () => {
               Connect Spotify
             </Button>
           )}
+          
+          <Button
+            onClick={signOut}
+            variant="outline"
+            size="sm"
+            className="text-white border-white/20 hover:bg-white/10"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out
+          </Button>
         </div>
       </div>
     </header>
