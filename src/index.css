@@ -63,6 +63,10 @@
     background: linear-gradient(135deg, hsl(var(--serato-orange)) 0%, #ff8c42 100%);
   }
   
+  .spotify-gradient {
+    background: linear-gradient(135deg, #1DB954 0%, #1ED760 100%);
+  }
+  
   .glass-card {
     background: rgba(27, 54, 93, 0.1);
     backdrop-filter: blur(10px);

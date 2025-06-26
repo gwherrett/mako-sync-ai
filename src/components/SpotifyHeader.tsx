@@ -1,9 +1,12 @@
 
 import React from 'react';
-import { Music2, Settings } from 'lucide-react';
+import { Music2, Settings, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 
 const SpotifyHeader = () => {
+  const { isConnected, isLoading, connectSpotify, disconnectSpotify } = useSpotifyAuth();
+
   return (
     <header className="bg-spotify-dark border-b border-white/10 p-4">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -13,7 +16,12 @@ const SpotifyHeader = () => {
           </div>
           <div>
             <h1 className="text-xl font-bold text-white">Spotify Metadata Sync</h1>
-            <p className="text-sm text-gray-400">Extract & sync your liked songs for Serato</p>
+            <p className="text-sm text-gray-400">
+              {isConnected 
+                ? "Connected to Spotify - Ready to sync your liked songs" 
+                : "Extract & sync your liked songs for Serato"
+              }
+            </p>
           </div>
         </div>
         
@@ -22,9 +30,28 @@ const SpotifyHeader = () => {
             <Settings className="w-4 h-4 mr-2" />
             Settings
           </Button>
-          <Button className="spotify-gradient text-black font-medium hover:opacity-90 transition-opacity">
-            Connect Spotify
-          </Button>
+          
+          {isLoading ? (
+            <Button disabled className="spotify-gradient text-black font-medium">
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Checking...
+            </Button>
+          ) : isConnected ? (
+            <Button 
+              onClick={disconnectSpotify}
+              variant="outline" 
+              className="text-white border-white/20 hover:bg-red-500/20 hover:border-red-500/50"
+            >
+              Disconnect Spotify
+            </Button>
+          ) : (
+            <Button 
+              onClick={connectSpotify}
+              className="spotify-gradient text-black font-medium hover:opacity-90 transition-opacity"
+            >
+              Connect Spotify
+            </Button>
+          )}
         </div>
       </div>
     </header>

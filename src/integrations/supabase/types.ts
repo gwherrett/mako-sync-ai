@@ -66,6 +66,41 @@ export type Database = {
         }
         Relationships: []
       }
+      metadata_sync_log: {
+        Row: {
+          fields_updated: Json | null
+          id: string
+          mp3_id: string | null
+          notes: string | null
+          sync_status: string | null
+          synced_at: string | null
+        }
+        Insert: {
+          fields_updated?: Json | null
+          id?: string
+          mp3_id?: string | null
+          notes?: string | null
+          sync_status?: string | null
+          synced_at?: string | null
+        }
+        Update: {
+          fields_updated?: Json | null
+          id?: string
+          mp3_id?: string | null
+          notes?: string | null
+          sync_status?: string | null
+          synced_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metadata_sync_log_mp3_id_fkey"
+            columns: ["mp3_id"]
+            isOneToOne: false
+            referencedRelation: "local_mp3s"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spotify_liked: {
         Row: {
           added_at: string | null
@@ -107,6 +142,51 @@ export type Database = {
           year?: number | null
         }
         Relationships: []
+      }
+      track_matches: {
+        Row: {
+          id: string
+          is_confirmed: boolean | null
+          match_confidence: number | null
+          match_method: string | null
+          matched_at: string | null
+          mp3_id: string
+          spotify_track_id: string
+        }
+        Insert: {
+          id?: string
+          is_confirmed?: boolean | null
+          match_confidence?: number | null
+          match_method?: string | null
+          matched_at?: string | null
+          mp3_id: string
+          spotify_track_id: string
+        }
+        Update: {
+          id?: string
+          is_confirmed?: boolean | null
+          match_confidence?: number | null
+          match_method?: string | null
+          matched_at?: string | null
+          mp3_id?: string
+          spotify_track_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "track_matches_mp3_id_fkey"
+            columns: ["mp3_id"]
+            isOneToOne: false
+            referencedRelation: "local_mp3s"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "track_matches_spotify_track_id_fkey"
+            columns: ["spotify_track_id"]
+            isOneToOne: false
+            referencedRelation: "spotify_liked"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
