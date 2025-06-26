@@ -6,12 +6,16 @@ import { useToast } from '@/hooks/use-toast';
 interface SpotifyConnection {
   id: string;
   user_id: string;
+  spotify_user_id: string;
   access_token: string;
-  refresh_token: string;
+  refresh_token: string | null;
   expires_at: string;
-  scope: string;
-  created_at: string;
-  updated_at: string;
+  scope: string | null;
+  token_type: string | null;
+  display_name: string | null;
+  email: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export const useSpotifyAuth = () => {
@@ -40,7 +44,7 @@ export const useSpotifyAuth = () => {
         console.error('Error checking Spotify connection:', error);
         setIsConnected(false);
       } else if (data) {
-        setConnection(data);
+        setConnection(data as SpotifyConnection);
         setIsConnected(true);
       } else {
         setIsConnected(false);
@@ -77,7 +81,7 @@ export const useSpotifyAuth = () => {
     const authUrl = new URL('https://accounts.spotify.com/authorize');
     authUrl.searchParams.append('client_id', '3bac088a26d64ddfb49d57fb5d451d71');
     authUrl.searchParams.append('response_type', 'code');
-    authUrl.searchParams.append('redirect_uri', `${supabase.supabaseUrl}/functions/v1/spotify-callback`);
+    authUrl.searchParams.append('redirect_uri', 'https://bzzstdpfmyqttnzhgaoa.supabase.co/functions/v1/spotify-callback');
     authUrl.searchParams.append('scope', scopes);
     authUrl.searchParams.append('state', state);
 

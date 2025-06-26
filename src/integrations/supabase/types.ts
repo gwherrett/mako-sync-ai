@@ -101,6 +101,51 @@ export type Database = {
           },
         ]
       }
+      spotify_connections: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          display_name: string | null
+          email: string | null
+          expires_at: string
+          id: string
+          refresh_token: string | null
+          scope: string | null
+          spotify_user_id: string
+          token_type: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          expires_at: string
+          id?: string
+          refresh_token?: string | null
+          scope?: string | null
+          spotify_user_id: string
+          token_type?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          expires_at?: string
+          id?: string
+          refresh_token?: string | null
+          scope?: string | null
+          spotify_user_id?: string
+          token_type?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       spotify_liked: {
         Row: {
           added_at: string | null
