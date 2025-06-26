@@ -53,15 +53,35 @@ serve(async (req) => {
       )
     }
 
-    // Store tokens in database
+    // Get user profile from Spotify
+    const profileResponse = await fetch('https://api.spotify.com/v1/me', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+      },
+    })
+
+    const profileData = await profileResponse.json()
+
+    if (profileResponse.status !== 200) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to get Spotify profile' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Store tokens and profile in database
     const { error: dbError } = await supabaseClient
       .from('spotify_connections')
       .upsert({
         user_id: user.id,
+        spotify_user_id: profileData.id,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
         expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
         scope: tokenData.scope,
+        token_type: tokenData.token_type || 'Bearer',
+        display_name: profileData.display_name,
+        email: profileData.email,
       })
 
     if (dbError) {
