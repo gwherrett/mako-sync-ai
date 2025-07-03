@@ -85,11 +85,16 @@ export const useSpotifyAuth = () => {
     authUrl.searchParams.append('scope', scopes);
     authUrl.searchParams.append('state', state);
 
+    console.log('Opening Spotify auth URL:', authUrl.toString());
     const popup = window.open(authUrl.toString(), 'spotify-auth', 'width=600,height=700');
 
     const handleMessage = async (event: MessageEvent) => {
+      console.log('Received message:', event.data);
+      
       if (event.data.type === 'spotify-auth') {
         const { code, state: returnedState } = event.data;
+        
+        console.log('Processing Spotify auth callback with code:', code);
         
         if (returnedState !== state) {
           toast({
@@ -102,15 +107,19 @@ export const useSpotifyAuth = () => {
 
         try {
           const { data: { session } } = await supabase.auth.getSession();
+          console.log('Got session for edge function call:', !!session);
           
           const response = await supabase.functions.invoke('spotify-auth', {
-            body: { code, state },
+            body: { code, state: returnedState },
             headers: {
               Authorization: `Bearer ${session?.access_token}`,
             },
           });
 
+          console.log('Edge function response:', response);
+
           if (response.error) {
+            console.error('Edge function error:', response.error);
             throw new Error(response.error.message);
           }
 
@@ -124,9 +133,14 @@ export const useSpotifyAuth = () => {
           console.error('Spotify auth error:', error);
           toast({
             title: "Connection Failed",
-            description: "Failed to connect to Spotify. Please try again.",
+            description: `Failed to connect to Spotify: ${error.message}`,
             variant: "destructive",
           });
+        } finally {
+          window.removeEventListener('message', handleMessage);
+          if (popup && !popup.closed) {
+            popup.close();
+          }
         }
       }
     };
