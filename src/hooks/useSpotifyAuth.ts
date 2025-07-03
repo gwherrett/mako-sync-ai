@@ -21,6 +21,7 @@ interface SpotifyConnection {
 export const useSpotifyAuth = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [connection, setConnection] = useState<SpotifyConnection | null>(null);
   const { toast } = useToast();
 
@@ -127,6 +128,46 @@ export const useSpotifyAuth = () => {
     }
   };
 
+  const syncLikedSongs = async () => {
+    setIsSyncing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to sync liked songs",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await supabase.functions.invoke('spotify-sync-liked', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      toast({
+        title: "Sync Complete",
+        description: `${response.data.message}`,
+      });
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      toast({
+        title: "Sync Failed",
+        description: `Failed to sync liked songs: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
     checkConnection();
   }, []);
@@ -134,9 +175,11 @@ export const useSpotifyAuth = () => {
   return {
     isConnected,
     isLoading,
+    isSyncing,
     connection,
     connectSpotify,
     disconnectSpotify,
+    syncLikedSongs,
     checkConnection,
   };
 };
