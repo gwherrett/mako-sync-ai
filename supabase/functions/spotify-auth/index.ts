@@ -40,7 +40,7 @@ serve(async (req) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: `${Deno.env.get('SUPABASE_URL')}/functions/v1/spotify-callback`,
+        redirect_uri: 'https://35081466-afa9-452e-a327-4407ade38c42.lovableproject.com/spotify-callback',
       }),
     })
 
