@@ -70,6 +70,10 @@ export const useSpotifyAuth = () => {
     }
 
     const state = Math.random().toString(36).substring(7);
+    
+    // Store state in localStorage for validation after redirect
+    localStorage.setItem('spotify_auth_state', state);
+    
     const scopes = [
       'user-read-private',
       'user-read-email',
@@ -81,78 +85,14 @@ export const useSpotifyAuth = () => {
     const authUrl = new URL('https://accounts.spotify.com/authorize');
     authUrl.searchParams.append('client_id', '3bac088a26d64ddfb49d57fb5d451d71');
     authUrl.searchParams.append('response_type', 'code');
-    authUrl.searchParams.append('redirect_uri', 'https://bzzstdpfmyqttnzhgaoa.supabase.co/functions/v1/spotify-callback');
+    authUrl.searchParams.append('redirect_uri', window.location.origin + '/spotify-callback');
     authUrl.searchParams.append('scope', scopes);
     authUrl.searchParams.append('state', state);
 
-    console.log('Opening Spotify auth URL:', authUrl.toString());
-    const popup = window.open(authUrl.toString(), 'spotify-auth', 'width=600,height=700');
-
-    const handleMessage = async (event: MessageEvent) => {
-      console.log('Received message:', event.data);
-      
-      if (event.data.type === 'spotify-auth') {
-        const { code, state: returnedState } = event.data;
-        
-        console.log('Processing Spotify auth callback with code:', code);
-        
-        if (returnedState !== state) {
-          toast({
-            title: "Authentication Error",
-            description: "Invalid state parameter",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          console.log('Got session for edge function call:', !!session);
-          
-          const response = await supabase.functions.invoke('spotify-auth', {
-            body: { code, state: returnedState },
-            headers: {
-              Authorization: `Bearer ${session?.access_token}`,
-            },
-          });
-
-          console.log('Edge function response:', response);
-
-          if (response.error) {
-            console.error('Edge function error:', response.error);
-            throw new Error(response.error.message);
-          }
-
-          toast({
-            title: "Spotify Connected",
-            description: "Successfully connected to Spotify!",
-          });
-
-          await checkConnection();
-        } catch (error) {
-          console.error('Spotify auth error:', error);
-          toast({
-            title: "Connection Failed",
-            description: `Failed to connect to Spotify: ${error.message}`,
-            variant: "destructive",
-          });
-        } finally {
-          window.removeEventListener('message', handleMessage);
-          if (popup && !popup.closed) {
-            popup.close();
-          }
-        }
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
+    console.log('Redirecting to Spotify auth URL:', authUrl.toString());
     
-    const checkClosed = setInterval(() => {
-      if (popup?.closed) {
-        window.removeEventListener('message', handleMessage);
-        clearInterval(checkClosed);
-      }
-    }, 1000);
+    // Direct redirect instead of popup
+    window.location.href = authUrl.toString();
   };
 
   const disconnectSpotify = async () => {
