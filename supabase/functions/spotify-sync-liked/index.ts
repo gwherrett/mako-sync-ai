@@ -50,7 +50,7 @@ serve(async (req) => {
     }
 
     // Get valid access token (refresh if needed)
-    const accessToken = await getValidAccessToken(connection as SpotifyConnection, supabaseClient, user.id)
+    let accessToken = await getValidAccessToken(connection as SpotifyConnection, supabaseClient, user.id)
 
     // Fetch all liked songs from Spotify
     const allTracks = await fetchAllLikedSongs(accessToken)
@@ -58,8 +58,30 @@ serve(async (req) => {
     // Get track IDs for audio features
     const trackIds = allTracks.map(item => item.track.id)
     
-    // Fetch audio features (danceability, BPM, key)
-    const audioFeatures = await fetchAudioFeatures(trackIds, accessToken)
+    // Fetch audio features (danceability, BPM, key) with token refresh retry
+    let audioFeatures: { [key: string]: any } = {}
+    try {
+      audioFeatures = await fetchAudioFeatures(trackIds, accessToken)
+    } catch (error: any) {
+      if (error.message.includes('Spotify token invalid')) {
+        console.log('Token expired during audio features fetch, refreshing...')
+        // Refresh connection data and get new token
+        const { data: refreshedConnection } = await supabaseClient
+          .from('spotify_connections')
+          .select('*')
+          .eq('user_id', user.id)
+          .single()
+        
+        if (refreshedConnection) {
+          accessToken = await getValidAccessToken(refreshedConnection as SpotifyConnection, supabaseClient, user.id)
+          audioFeatures = await fetchAudioFeatures(trackIds, accessToken)
+        } else {
+          throw new Error('Failed to refresh Spotify connection')
+        }
+      } else {
+        throw error
+      }
+    }
 
     // Process and prepare songs for database insertion
     const songsToInsert = processSongsData(allTracks, audioFeatures, user.id)

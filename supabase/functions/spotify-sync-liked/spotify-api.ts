@@ -74,6 +74,9 @@ export async function fetchAudioFeatures(trackIds: string[], accessToken: string
           }
         })
       }
+    } else if (featuresResponse.status === 401 || featuresResponse.status === 403) {
+      console.error(`Token invalid (${featuresResponse.status}), need to refresh token`)
+      throw new Error(`Spotify token invalid: ${featuresResponse.status}`)
     } else {
       console.error(`Failed to fetch audio features batch: ${featuresResponse.status} ${featuresResponse.statusText}`)
       const errorText = await featuresResponse.text()
