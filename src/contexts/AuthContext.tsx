@@ -77,8 +77,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               
               console.log('=== OAUTH HANDLER RESPONSE ===', {
                 error: response.error,
-                data: response.data,
-                status: response.status
+                data: response.data
               });
               
               if (response.error) {
