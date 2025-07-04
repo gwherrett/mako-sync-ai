@@ -32,10 +32,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.id);
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // When user signs in via OAuth, store their Spotify connection
+        if (event === 'SIGNED_IN' && session?.user?.app_metadata?.provider === 'spotify') {
+          setTimeout(async () => {
+            try {
+              const response = await supabase.functions.invoke('spotify-oauth-handler', {
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+              });
+              
+              if (response.error) {
+                console.error('Failed to store Spotify connection:', response.error);
+              } else {
+                console.log('Spotify connection stored successfully');
+              }
+            } catch (error) {
+              console.error('Error storing Spotify connection:', error);
+            }
+          }, 0);
+        }
       }
     );
 

@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,84 +11,39 @@ const SpotifyCallback = () => {
 
   useEffect(() => {
     const processCallback = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const state = urlParams.get('state');
-      const error = urlParams.get('error');
-
-      if (error) {
-        toast({
-          title: "Spotify Connection Failed",
-          description: `Error: ${error}`,
-          variant: "destructive",
-        });
-        navigate('/');
-        return;
-      }
-
-      if (!code || !state) {
-        toast({
-          title: "Authentication Error",
-          description: "Missing authorization code or state",
-          variant: "destructive",
-        });
-        navigate('/');
-        return;
-      }
-
-      // Verify state matches what we stored
-      const storedState = localStorage.getItem('spotify_auth_state');
-      if (state !== storedState) {
-        toast({
-          title: "Authentication Error",
-          description: "Invalid state parameter",
-          variant: "destructive",
-        });
-        navigate('/');
-        return;
-      }
-
-      // Clean up stored state
-      localStorage.removeItem('spotify_auth_state');
-
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // The OAuth flow should be handled automatically by Supabase
+        // We just need to check if the user is now authenticated
+        const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (!session) {
+        if (error) {
+          throw error;
+        }
+
+        if (session) {
+          // User is authenticated via Spotify OAuth
           toast({
-            title: "Authentication Required",
-            description: "Please log in to connect Spotify",
+            title: "Welcome!",
+            description: "Successfully signed in with Spotify",
+          });
+          navigate('/');
+        } else {
+          // No session found, redirect to auth
+          toast({
+            title: "Sign In Required",
+            description: "Please sign in with your Spotify account",
             variant: "destructive",
           });
           navigate('/auth');
-          return;
         }
-
-        const response = await supabase.functions.invoke('spotify-auth', {
-          body: { code, state },
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        });
-
-        if (response.error) {
-          throw new Error(response.error.message);
-        }
-
-        toast({
-          title: "Spotify Connected",
-          description: "Successfully connected to Spotify!",
-        });
-
-        navigate('/');
       } catch (error: any) {
-        console.error('Spotify auth error:', error);
+        console.error('Auth callback error:', error);
         toast({
-          title: "Connection Failed",
-          description: `Failed to connect to Spotify: ${error.message}`,
+          title: "Authentication Error",
+          description: `Failed to complete sign in: ${error.message}`,
           variant: "destructive",
         });
-        navigate('/');
+        navigate('/auth');
       }
     };
 
@@ -98,8 +54,8 @@ const SpotifyCallback = () => {
     <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black flex items-center justify-center">
       <div className="text-center">
         <Loader2 className="w-8 h-8 animate-spin text-green-400 mx-auto mb-4" />
-        <h1 className="text-xl font-bold text-white mb-2">Connecting to Spotify...</h1>
-        <p className="text-gray-400">Please wait while we complete your Spotify connection.</p>
+        <h1 className="text-xl font-bold text-white mb-2">Completing sign in...</h1>
+        <p className="text-gray-400">Please wait while we finish setting up your account.</p>
       </div>
     </div>
   );

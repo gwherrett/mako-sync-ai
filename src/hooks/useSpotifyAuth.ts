@@ -99,74 +99,24 @@ export const useSpotifyAuth = () => {
     }
   };
 
-  const connectSpotify = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to connect Spotify",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const state = Math.random().toString(36).substring(7);
-    
-    // Store state in localStorage for validation after redirect
-    localStorage.setItem('spotify_auth_state', state);
-    
-    const scopes = [
-      'user-read-private',
-      'user-read-email',
-      'user-library-read',
-      'playlist-read-private',
-      'playlist-read-collaborative'
-    ].join(' ');
-
-    const authUrl = new URL('https://accounts.spotify.com/authorize');
-    authUrl.searchParams.append('client_id', '3bac088a26d64ddfb49d57fb5d451d71');
-    authUrl.searchParams.append('response_type', 'code');
-    authUrl.searchParams.append('redirect_uri', window.location.origin + '/spotify-callback');
-    authUrl.searchParams.append('scope', scopes);
-    authUrl.searchParams.append('state', state);
-
-    console.log('Redirecting to Spotify auth URL:', authUrl.toString());
-    
-    // Direct redirect instead of popup
-    window.location.href = authUrl.toString();
-  };
-
   const disconnectSpotify = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) return;
 
-      const { error } = await supabase
-        .from('spotify_connections')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (error) {
-        throw error;
-      }
-
-      setIsConnected(false);
-      setConnection(null);
-      
-      // Clear any stored state
-      localStorage.removeItem('spotify_auth_state');
+      // Sign out completely since Spotify is the auth provider
+      await supabase.auth.signOut();
       
       toast({
-        title: "Spotify Disconnected",
-        description: "Successfully disconnected from Spotify. Please reconnect to get fresh tokens.",
+        title: "Signed Out",
+        description: "You have been signed out of the application",
       });
     } catch (error) {
-      console.error('Error disconnecting Spotify:', error);
+      console.error('Error signing out:', error);
       toast({
-        title: "Disconnect Failed",
-        description: "Failed to disconnect from Spotify",
+        title: "Sign Out Failed",
+        description: "Failed to sign out",
         variant: "destructive",
       });
     }
@@ -221,7 +171,6 @@ export const useSpotifyAuth = () => {
     isLoading,
     isSyncing,
     connection,
-    connectSpotify,
     disconnectSpotify,
     syncLikedSongs,
     checkConnection,
