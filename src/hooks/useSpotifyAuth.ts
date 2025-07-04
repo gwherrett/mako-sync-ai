@@ -30,13 +30,15 @@ export const useSpotifyAuth = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
+        console.log('No authenticated user found');
         setIsConnected(false);
         setIsLoading(false);
         return;
       }
 
-      // For OAuth users, we should always have a connection
-      // Let's check if it exists, and if not, try to create it from the session
+      console.log('Checking connection for user:', user.id);
+
+      // Check if connection exists in database
       const { data, error } = await supabase
         .from('spotify_connections')
         .select('*')
@@ -44,23 +46,19 @@ export const useSpotifyAuth = () => {
         .single();
 
       if (error && error.code === 'PGRST116') {
-        // No connection found, but user is authenticated via Spotify OAuth
-        // This means we need to create the connection from the session data
-        console.log('No Spotify connection found, checking session for OAuth data...');
-        
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.app_metadata?.provider === 'spotify') {
-          console.log('User authenticated via Spotify OAuth, connection should be created by edge function');
-          // Connection should be created by the oauth handler, let's wait a moment and check again
-          setTimeout(checkConnection, 1000);
+        console.log('No Spotify connection found in database');
+        // Connection should be created by the oauth handler, let's wait a moment and check again
+        if (user.app_metadata?.provider === 'spotify') {
+          console.log('User authenticated via Spotify OAuth, retrying connection check...');
+          setTimeout(checkConnection, 2000);
           return;
         }
-        
         setIsConnected(false);
       } else if (error) {
         console.error('Error checking Spotify connection:', error);
         setIsConnected(false);
       } else if (data) {
+        console.log('Spotify connection found:', data.id);
         setConnection(data as SpotifyConnection);
         setIsConnected(true);
       } else {
@@ -100,9 +98,12 @@ export const useSpotifyAuth = () => {
   const syncLikedSongs = async () => {
     setIsSyncing(true);
     try {
+      console.log('=== STARTING SYNC PROCESS ===');
+      
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
+        console.error('No session found');
         toast({
           title: "Authentication Required",
           description: "Please log in to sync liked songs",
@@ -111,7 +112,33 @@ export const useSpotifyAuth = () => {
         return;
       }
 
-      console.log('Starting sync with session:', session.user?.id);
+      console.log('Session found, user ID:', session.user?.id);
+      console.log('Session access token present:', !!session.access_token);
+
+      // Check if we have a connection in the database
+      if (!connection) {
+        console.log('No connection found, checking database...');
+        const { data: connData, error: connError } = await supabase
+          .from('spotify_connections')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (connError || !connData) {
+          console.error('No Spotify connection found in database:', connError);
+          toast({
+            title: "Connection Error",
+            description: "Spotify connection not found. Please sign out and sign back in.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        console.log('Connection found in database:', connData.id);
+        setConnection(connData as SpotifyConnection);
+      }
+
+      console.log('Calling spotify-sync-liked function...');
 
       const response = await supabase.functions.invoke('spotify-sync-liked', {
         headers: {
@@ -119,12 +146,19 @@ export const useSpotifyAuth = () => {
         },
       });
 
-      console.log('Sync response:', response);
+      console.log('Sync response received:', response);
 
       if (response.error) {
-        console.error('Sync error:', response.error);
+        console.error('Sync error response:', response.error);
         throw new Error(response.error.message || 'Sync failed');
       }
+
+      if (response.data?.error) {
+        console.error('Sync data error:', response.data.error);
+        throw new Error(response.data.error);
+      }
+
+      console.log('Sync completed successfully:', response.data);
 
       toast({
         title: "Sync Complete",
@@ -134,7 +168,7 @@ export const useSpotifyAuth = () => {
       // Refresh connection status after successful sync
       await checkConnection();
     } catch (error: any) {
-      console.error('Sync error:', error);
+      console.error('=== SYNC ERROR ===', error);
       toast({
         title: "Sync Failed",
         description: `Failed to sync liked songs: ${error.message}`,
