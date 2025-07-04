@@ -16,26 +16,25 @@ const Auth = () => {
   const { user, session, loading } = useAuth();
   const signedOut = searchParams.get('signedOut') === 'true';
 
-  console.log('Auth page render:', { 
+  console.log('🔐 Auth page state:', { 
     hasUser: !!user, 
     hasSession: !!session, 
     loading, 
     signedOut,
-    currentPath: window.location.pathname 
+    currentPath: window.location.pathname,
+    userId: user?.id
   });
 
   // Redirect if already authenticated
   useEffect(() => {
-    console.log('Auth page useEffect:', { loading, user: !!user, session: !!session });
-    
     if (!loading && user && session) {
-      console.log('User already authenticated, redirecting to home');
+      console.log('✅ User already authenticated, redirecting to home');
       navigate('/', { replace: true });
     }
   }, [user, session, loading, navigate]);
 
   const handleSpotifySignIn = async () => {
-    console.log('Starting Spotify sign in process...');
+    console.log('🎵 Starting Spotify sign in process...');
     setIsLoading(true);
 
     try {
@@ -48,13 +47,13 @@ const Auth = () => {
       });
       
       if (error) {
-        console.error('OAuth error:', error);
+        console.error('❌ OAuth error:', error);
         throw error;
       }
       
-      console.log('OAuth redirect initiated...');
+      console.log('🔄 OAuth redirect initiated...');
     } catch (error: any) {
-      console.error('Sign in error:', error);
+      console.error('❌ Sign in error:', error);
       toast({
         title: "Sign in failed",
         description: error.message,
