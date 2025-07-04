@@ -73,6 +73,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
           }, 2000); // Increased delay to 2 seconds
         }
+
+        // Handle sign out event
+        if (event === 'SIGNED_OUT') {
+          console.log('=== USER SIGNED OUT ===');
+          setSession(null);
+          setUser(null);
+        }
       }
     );
 
@@ -100,15 +107,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const signOut = async () => {
-    console.log('=== SIGNING OUT ===');
+    console.log('=== CONTEXT SIGNING OUT ===');
     try {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error during sign out:', error);
+        throw error;
+      }
+      
       // Clear local state
       setSession(null);
       setUser(null);
-      console.log('=== SIGN OUT COMPLETE ===');
+      
+      console.log('=== CONTEXT SIGN OUT COMPLETE ===');
+      
+      // Force redirect to auth page
+      window.location.href = '/auth';
     } catch (error) {
       console.error('Error during sign out:', error);
+      throw error;
     }
   };
 
