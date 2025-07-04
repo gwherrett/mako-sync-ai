@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,7 +47,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('Setting session and user state...');
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
+        
+        // Keep loading state a bit longer for SIGNED_IN to allow session to fully establish
+        if (event === 'SIGNED_IN') {
+          console.log('User signed in, allowing extra time for session establishment...');
+          setTimeout(() => {
+            console.log('Completing loading state after sign in');
+            setLoading(false);
+          }, 1000);
+        } else {
+          setLoading(false);
+        }
 
         // When user signs in via OAuth, store their Spotify connection
         if (event === 'SIGNED_IN' && session?.user?.app_metadata?.provider === 'spotify') {
@@ -93,7 +102,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               console.error('Error calling spotify-oauth-handler:', error);
               // Don't throw - this shouldn't block the user experience
             }
-          }, 1000);
+          }, 1500);
         }
 
         // Handle sign out event
@@ -101,6 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.log('=== USER SIGNED OUT ===');
           setSession(null);
           setUser(null);
+          setLoading(false);
         }
       }
     );
@@ -110,6 +120,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         console.error('Error getting session:', error);
+        setLoading(false);
       } else {
         console.log('Initial session check:', {
           hasSession: !!session,
@@ -118,10 +129,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           hasProviderToken: !!session?.provider_token,
           currentPath: window.location.pathname
         });
+        setSession(session);
+        setUser(session?.user ?? null);
+        // Give a bit more time if there's an existing session
+        setTimeout(() => {
+          setLoading(false);
+        }, session ? 1000 : 0);
       }
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
     });
 
     return () => {
