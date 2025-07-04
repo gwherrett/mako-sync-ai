@@ -73,8 +73,13 @@ serve(async (req) => {
           .single()
         
         if (refreshedConnection) {
-          accessToken = await getValidAccessToken(refreshedConnection as SpotifyConnection, supabaseClient, user.id)
-          audioFeatures = await fetchAudioFeatures(trackIds, accessToken)
+          try {
+            accessToken = await getValidAccessToken(refreshedConnection as SpotifyConnection, supabaseClient, user.id)
+            audioFeatures = await fetchAudioFeatures(trackIds, accessToken)
+          } catch (retryError: any) {
+            console.error('Token refresh retry also failed:', retryError)
+            throw new Error('Spotify connection appears to be invalid. Please disconnect and reconnect your Spotify account to get fresh tokens.')
+          }
         } else {
           throw new Error('Failed to refresh Spotify connection')
         }
