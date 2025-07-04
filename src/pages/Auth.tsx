@@ -5,12 +5,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Music2, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const signedOut = searchParams.get('signedOut') === 'true';
 
   useEffect(() => {
     // Check if user is already logged in
@@ -77,10 +79,13 @@ const Auth = () => {
             <Music2 className="w-8 h-8 text-black" />
           </div>
           <CardTitle className="text-2xl text-white">
-            Welcome to Groove Sync
+            {signedOut ? 'You\'ve been signed out' : 'Welcome to Groove Sync'}
           </CardTitle>
           <CardDescription className="text-gray-400">
-            Sign in with your Spotify account to sync your music library and extract metadata for Serato
+            {signedOut 
+              ? 'Thanks for using Groove Sync. Sign in again to continue syncing your music library.'
+              : 'Sign in with your Spotify account to sync your music library and extract metadata for Serato'
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -97,7 +102,7 @@ const Auth = () => {
             ) : (
               <>
                 <Music2 className="w-4 h-4 mr-2" />
-                Sign in with Spotify
+                {signedOut ? 'Sign in again with Spotify' : 'Sign in with Spotify'}
               </>
             )}
           </Button>

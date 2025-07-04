@@ -149,15 +149,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Don't throw - continue with redirect even if this fails
       }
       
-      console.log('=== SIGN OUT COMPLETE, REDIRECTING ===');
+      console.log('=== SIGN OUT COMPLETE ===');
       
-      // Force a complete page refresh to /auth to ensure clean state
-      window.location.replace('/auth');
+      // Instead of redirecting immediately, just reload the current page
+      // This will trigger the auth state change and redirect naturally
+      window.location.reload();
       
     } catch (error) {
       console.error('Error during sign out process:', error);
-      // Even if there's an error, still redirect to auth page
-      window.location.replace('/auth');
+      // Even if there's an error, still reload to ensure clean state
+      window.location.reload();
     }
   };
 
