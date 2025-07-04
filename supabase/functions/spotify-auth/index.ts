@@ -13,6 +13,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== SPOTIFY AUTH FUNCTION STARTED ===')
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -22,89 +24,121 @@ serve(async (req) => {
     const { data: { user } } = await supabaseClient.auth.getUser()
     
     if (!user) {
+      console.error('No authenticated user found')
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const { code, state } = await req.json()
+    console.log('User authenticated:', user.id)
+
+    const requestBody = await req.json()
+    console.log('Request body received:', { code: requestBody.code ? 'present' : 'missing', state: requestBody.state })
+    
+    const { code, state } = requestBody
 
     // Get the dynamic redirect URI from the request origin
     const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/')
     const redirectUri = `${origin}/spotify-callback`
 
     console.log('Using redirect URI:', redirectUri)
+    console.log('Using client ID:', Deno.env.get('SPOTIFY_CLIENT_ID') ? 'present' : 'missing')
+    console.log('Using client secret:', Deno.env.get('SPOTIFY_CLIENT_SECRET') ? 'present' : 'missing')
 
     // Exchange code for access token
+    const tokenRequestBody = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+    })
+
+    console.log('Making token request to Spotify...')
     const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Authorization': `Basic ${btoa(`${Deno.env.get('SPOTIFY_CLIENT_ID')}:${Deno.env.get('SPOTIFY_CLIENT_SECRET')}`)}`,
       },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: redirectUri,
-      }),
+      body: tokenRequestBody,
     })
 
+    console.log('Token response status:', tokenResponse.status)
     const tokenData = await tokenResponse.json()
+    console.log('Token response data:', { 
+      error: tokenData.error, 
+      access_token: tokenData.access_token ? 'present' : 'missing',
+      refresh_token: tokenData.refresh_token ? 'present' : 'missing'
+    })
 
     if (tokenData.error) {
+      console.error('Spotify token exchange failed:', tokenData)
       return new Response(
-        JSON.stringify({ error: tokenData.error }),
+        JSON.stringify({ error: `Spotify auth failed: ${tokenData.error} - ${tokenData.error_description}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     // Get user profile from Spotify
+    console.log('Making profile request to Spotify...')
     const profileResponse = await fetch('https://api.spotify.com/v1/me', {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
       },
     })
 
+    console.log('Profile response status:', profileResponse.status)
     const profileData = await profileResponse.json()
+    console.log('Profile response data:', { 
+      id: profileData.id, 
+      display_name: profileData.display_name,
+      email: profileData.email ? 'present' : 'missing'
+    })
 
     if (profileResponse.status !== 200) {
+      console.error('Failed to get Spotify profile:', profileData)
       return new Response(
-        JSON.stringify({ error: 'Failed to get Spotify profile' }),
+        JSON.stringify({ error: `Failed to get Spotify profile: ${profileData.error?.message || 'Unknown error'}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     // Store tokens and profile in database
+    console.log('Storing connection in database...')
+    const connectionData = {
+      user_id: user.id,
+      spotify_user_id: profileData.id,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
+      scope: tokenData.scope,
+      token_type: tokenData.token_type || 'Bearer',
+      display_name: profileData.display_name,
+      email: profileData.email,
+    }
+
     const { error: dbError } = await supabaseClient
       .from('spotify_connections')
-      .upsert({
-        user_id: user.id,
-        spotify_user_id: profileData.id,
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
-        scope: tokenData.scope,
-        token_type: tokenData.token_type || 'Bearer',
-        display_name: profileData.display_name,
-        email: profileData.email,
-      })
+      .upsert(connectionData)
 
     if (dbError) {
+      console.error('Database error:', dbError)
       return new Response(
-        JSON.stringify({ error: dbError.message }),
+        JSON.stringify({ error: `Database error: ${dbError.message}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    console.log('=== SPOTIFY AUTH COMPLETED SUCCESSFULLY ===')
     return new Response(
       JSON.stringify({ success: true, message: 'Spotify connected successfully' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
+    console.error('=== SPOTIFY AUTH ERROR ===', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: `Server error: ${error.message}` }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
