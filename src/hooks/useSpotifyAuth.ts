@@ -27,29 +27,25 @@ export const useSpotifyAuth = () => {
 
   const checkConnection = async () => {
     console.log('=== CHECKING SPOTIFY CONNECTION ===');
+    setIsLoading(true);
+    
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError) {
         console.error('Error getting user:', userError);
         setIsConnected(false);
-        setIsLoading(false);
         return;
       }
 
       if (!user) {
         console.log('No authenticated user found');
         setIsConnected(false);
-        setIsLoading(false);
         return;
       }
 
       console.log('Checking connection for user:', user.id);
       console.log('User provider:', user.app_metadata?.provider);
-      console.log('User metadata has tokens:', {
-        provider_token: !!user.user_metadata?.provider_token,
-        access_token: !!user.user_metadata?.access_token
-      });
 
       // Check if connection exists in database
       const { data, error } = await supabase
@@ -60,33 +56,15 @@ export const useSpotifyAuth = () => {
 
       if (error && error.code === 'PGRST116') {
         console.log('No Spotify connection found in database');
-        console.log('User signed up at:', user.created_at);
-        console.log('Time since signup:', new Date().getTime() - new Date(user.created_at).getTime(), 'ms');
         
-        // If user authenticated via Spotify OAuth but no connection, try to trigger handler
         if (user.app_metadata?.provider === 'spotify') {
-          console.log('User authenticated via Spotify OAuth, triggering OAuth handler...');
-          
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-              const response = await supabase.functions.invoke('spotify-oauth-handler', {
-                headers: {
-                  Authorization: `Bearer ${session.access_token}`,
-                },
-              });
-              
-              console.log('Manual OAuth handler response:', response);
-              
-              if (!response.error) {
-                // Wait a moment and check again
-                setTimeout(checkConnection, 2000);
-                return;
-              }
-            }
-          } catch (handlerError) {
-            console.error('Error calling OAuth handler manually:', handlerError);
-          }
+          console.log('User authenticated via Spotify OAuth but no connection found');
+          // Set a small timeout to allow for the OAuth handler to process
+          setTimeout(() => {
+            console.log('Retrying connection check after OAuth handler delay...');
+            checkConnection();
+          }, 3000);
+          return;
         }
         
         setIsConnected(false);
@@ -115,8 +93,6 @@ export const useSpotifyAuth = () => {
       setIsLoading(false);
     }
   };
-
-  // Remove the disconnectSpotify function - we'll use the AuthContext signOut instead
 
   const syncLikedSongs = async () => {
     console.log('=== STARTING SYNC PROCESS ===');
