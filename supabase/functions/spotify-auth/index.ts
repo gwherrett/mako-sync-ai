@@ -14,60 +14,37 @@ serve(async (req) => {
 
   try {
     console.log('=== SPOTIFY AUTH FUNCTION STARTED ===')
-    console.log('Request method:', req.method)
-    console.log('Request URL:', req.url)
     
-    const url = new URL(req.url)
-    const code = url.searchParams.get('code')
-    const state = url.searchParams.get('state')
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    )
+
+    const { data: { user } } = await supabaseClient.auth.getUser()
     
-    console.log('URL parameters:', { 
-      code: code ? 'present' : 'missing', 
-      state,
-    })
-
-    // Use a fixed redirect URI that matches your Spotify app settings
-    const redirectUri = 'https://bzzstdpfmyqttnzhgaoa.supabase.co/functions/v1/spotify-auth'
-
-    // If no code is present, this is the initial auth request - return the auth URL
-    if (!code) {
-      console.log('No code found, generating auth URL...')
-      
-      const clientId = Deno.env.get('SPOTIFY_CLIENT_ID')
-      if (!clientId) {
-        console.error('SPOTIFY_CLIENT_ID not configured')
-        return new Response(
-          JSON.stringify({ error: 'Spotify client ID not configured' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      const scopes = 'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative'
-      
-      const authUrl = `https://accounts.spotify.com/authorize?` +
-        `response_type=code&` +
-        `client_id=${clientId}&` +
-        `scope=${encodeURIComponent(scopes)}&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `state=${Math.random().toString(36).substring(7)}`
-
-      console.log('Generated auth URL with redirect URI:', redirectUri)
+    if (!user) {
+      console.error('No authenticated user found')
       return new Response(
-        JSON.stringify({ authUrl }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // If code is present, this is the callback from Spotify - handle token exchange
-    console.log('Code found, handling callback...')
-    
-    // Create a service role client for database operations
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    console.log('User authenticated:', user.id)
 
-    console.log('Using redirect URI for token exchange:', redirectUri)
+    const requestBody = await req.json()
+    console.log('Request body received:', { code: requestBody.code ? 'present' : 'missing', state: requestBody.state })
+    
+    const { code, state } = requestBody
+
+    // Get the dynamic redirect URI from the request origin
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/')
+    const redirectUri = `${origin}/spotify-callback`
+
+    console.log('Using redirect URI:', redirectUri)
+    console.log('Using client ID:', Deno.env.get('SPOTIFY_CLIENT_ID') ? 'present' : 'missing')
+    console.log('Using client secret:', Deno.env.get('SPOTIFY_CLIENT_SECRET') ? 'present' : 'missing')
 
     // Exchange code for access token
     const tokenRequestBody = new URLSearchParams({
@@ -97,11 +74,8 @@ serve(async (req) => {
     if (tokenData.error) {
       console.error('Spotify token exchange failed:', tokenData)
       return new Response(
-        `<html><body><script>
-          window.opener?.postMessage({ error: 'Spotify auth failed: ${tokenData.error}' }, '*');
-          window.close();
-        </script></body></html>`,
-        { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
+        JSON.stringify({ error: `Spotify auth failed: ${tokenData.error} - ${tokenData.error_description}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -124,68 +98,48 @@ serve(async (req) => {
     if (profileResponse.status !== 200) {
       console.error('Failed to get Spotify profile:', profileData)
       return new Response(
-        `<html><body><script>
-          window.opener?.postMessage({ error: 'Failed to get Spotify profile' }, '*');
-          window.close();
-        </script></body></html>`,
-        { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
+        JSON.stringify({ error: `Failed to get Spotify profile: ${profileData.error?.message || 'Unknown error'}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Return success response that triggers the popup to get user info from localStorage
+    // Store tokens and profile in database
+    console.log('Storing connection in database...')
+    const connectionData = {
+      user_id: user.id,
+      spotify_user_id: profileData.id,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
+      scope: tokenData.scope,
+      token_type: tokenData.token_type || 'Bearer',
+      display_name: profileData.display_name,
+      email: profileData.email,
+    }
+
+    const { error: dbError } = await supabaseClient
+      .from('spotify_connections')
+      .upsert(connectionData)
+
+    if (dbError) {
+      console.error('Database error:', dbError)
+      return new Response(
+        JSON.stringify({ error: `Database error: ${dbError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     console.log('=== SPOTIFY AUTH COMPLETED SUCCESSFULLY ===')
     return new Response(
-      `<html><body><script>
-        // Get user info from localStorage (set by the parent window)
-        const userId = window.localStorage?.getItem('spotify_auth_user_id') || 
-                      window.opener?.localStorage?.getItem('spotify_auth_user_id');
-        const userToken = window.localStorage?.getItem('spotify_auth_token') || 
-                         window.opener?.localStorage?.getItem('spotify_auth_token');
-        
-        if (userId && userToken) {
-          // Store the Spotify connection using the service role
-          fetch('${Deno.env.get('SUPABASE_URL')}/rest/v1/spotify_connections', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}',
-              'apikey': '${Deno.env.get('SUPABASE_ANON_KEY')}'
-            },
-            body: JSON.stringify({
-              user_id: userId,
-              spotify_user_id: '${profileData.id}',
-              access_token: '${tokenData.access_token}',
-              refresh_token: '${tokenData.refresh_token}',
-              expires_at: '${new Date(Date.now() + tokenData.expires_in * 1000).toISOString()}',
-              scope: '${tokenData.scope}',
-              token_type: '${tokenData.token_type || 'Bearer'}',
-              display_name: '${profileData.display_name || ''}',
-              email: '${profileData.email || ''}'
-            })
-          }).then(() => {
-            window.opener?.postMessage({ success: true, message: 'Spotify connected successfully' }, '*');
-            window.close();
-          }).catch(err => {
-            console.error('Database error:', err);
-            window.opener?.postMessage({ error: 'Failed to save connection' }, '*');
-            window.close();
-          });
-        } else {
-          window.opener?.postMessage({ error: 'Missing user authentication' }, '*');
-          window.close();
-        }
-      </script></body></html>`,
-      { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
+      JSON.stringify({ success: true, message: 'Spotify connected successfully' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
     console.error('=== SPOTIFY AUTH ERROR ===', error)
     return new Response(
-      `<html><body><script>
-        window.opener?.postMessage({ error: 'Server error: ${error.message}' }, '*');
-        window.close();
-      </script></body></html>`,
-      { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
+      JSON.stringify({ error: `Server error: ${error.message}` }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })
