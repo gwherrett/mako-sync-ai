@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -34,13 +35,14 @@ export const useSpotifyAuth = () => {
         return;
       }
 
+      // Use .maybeSingle() instead of .single() to avoid 406 error when no connection exists
       const { data, error } = await supabase
         .from('spotify_connections')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error checking Spotify connection:', error);
         setIsConnected(false);
       } else if (data) {
@@ -139,7 +141,7 @@ export const useSpotifyAuth = () => {
     console.log('Current origin:', window.location.origin);
     console.log('========================');
     
-    // Direct redirect instead of popup
+    // Use window.location.href for full page redirect (not popup) to avoid X-Frame-Options issue
     window.location.href = authUrl.toString();
   };
 
