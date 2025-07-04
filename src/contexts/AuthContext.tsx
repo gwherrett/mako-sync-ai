@@ -32,38 +32,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     console.log('AuthProvider: Initializing auth state...');
     
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log('Initial session check:', { 
-        hasSession: !!session, 
-        userId: session?.user?.id,
-        error: error?.message 
-      });
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    let mounted = true;
 
-    // Listen for auth changes
+    // Set up auth state change listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log('Auth state change:', event, { 
           hasSession: !!session,
           userId: session?.user?.id,
           provider: session?.user?.app_metadata?.provider
         });
         
+        if (!mounted) return;
+        
+        // Update state immediately
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (event === 'SIGNED_IN') {
+        if (event === 'SIGNED_IN' && session) {
           console.log('User signed in successfully');
           
           // Handle Spotify OAuth connection storage
-          if (session?.user?.app_metadata?.provider === 'spotify') {
+          if (session.user?.app_metadata?.provider === 'spotify') {
             console.log('Spotify OAuth detected, calling handler...');
             
+            // Use setTimeout to prevent potential deadlocks
             setTimeout(async () => {
               try {
                 const response = await supabase.functions.invoke('spotify-oauth-handler', {
@@ -84,7 +77,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               } catch (error) {
                 console.error('Error calling spotify-oauth-handler:', error);
               }
-            }, 500);
+            }, 100);
           }
         } else if (event === 'SIGNED_OUT') {
           console.log('User signed out');
@@ -96,7 +89,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     );
 
+    // Get initial session after setting up the listener
+    const getInitialSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        console.log('Initial session check:', { 
+          hasSession: !!session, 
+          userId: session?.user?.id,
+          error: error?.message 
+        });
+        
+        if (!mounted) return;
+        
+        if (session) {
+          setSession(session);
+          setUser(session.user);
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error getting initial session:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    getInitialSession();
+
     return () => {
+      mounted = false;
       console.log('Cleaning up auth subscription');
       subscription.unsubscribe();
     };
@@ -109,7 +132,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setSession(null);
       setUser(null);
       
-      // Clear local storage
+      // Clear all auth-related storage
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
           localStorage.removeItem(key);
