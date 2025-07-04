@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -81,7 +82,7 @@ export const useSpotifyAuth = () => {
   const connectSpotify = async () => {
     console.log('=== CONNECTING TO SPOTIFY ===');
     
-    if (!session) {
+    if (!session || !user) {
       toast({
         title: "Authentication Required",
         description: "Please log in to connect Spotify",
@@ -91,11 +92,12 @@ export const useSpotifyAuth = () => {
     }
 
     try {
-      // Get the auth URL from the edge function with proper authorization
+      // Get the auth URL from the edge function (no auth header needed)
       const { data, error } = await supabase.functions.invoke('spotify-auth', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        body: {
+          user_id: user.id,
+          action: 'get_auth_url'
+        }
       });
       
       if (error) {
@@ -109,12 +111,13 @@ export const useSpotifyAuth = () => {
       }
 
       if (data?.authUrl) {
-        // Add the session token to the auth URL so the callback can access it
-        const authUrlWithToken = `${data.authUrl}&access_token=${encodeURIComponent(session.access_token)}`;
+        // Store user ID in localStorage for the callback
+        localStorage.setItem('spotify_auth_user_id', user.id);
+        localStorage.setItem('spotify_auth_token', session.access_token);
         
         // Open popup window for Spotify auth
         const popup = window.open(
-          authUrlWithToken,
+          data.authUrl,
           'spotify-auth',
           'width=600,height=700,scrollbars=yes,resizable=yes'
         );
@@ -131,6 +134,9 @@ export const useSpotifyAuth = () => {
             });
             checkConnection();
             popup?.close();
+            // Clean up
+            localStorage.removeItem('spotify_auth_user_id');
+            localStorage.removeItem('spotify_auth_token');
           } else if (event.data.error) {
             console.error('Spotify connection error:', event.data.error);
             toast({
@@ -139,6 +145,9 @@ export const useSpotifyAuth = () => {
               variant: "destructive",
             });
             popup?.close();
+            // Clean up
+            localStorage.removeItem('spotify_auth_user_id');
+            localStorage.removeItem('spotify_auth_token');
           }
         };
 

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
@@ -19,12 +20,10 @@ serve(async (req) => {
     const url = new URL(req.url)
     const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
-    const accessToken = url.searchParams.get('access_token')
     
     console.log('URL parameters:', { 
       code: code ? 'present' : 'missing', 
       state,
-      accessToken: accessToken ? 'present' : 'missing'
     })
 
     // Use a fixed redirect URI that matches your Spotify app settings
@@ -33,35 +32,6 @@ serve(async (req) => {
     // If no code is present, this is the initial auth request - return the auth URL
     if (!code) {
       console.log('No code found, generating auth URL...')
-      
-      // For the initial request, we need to verify the user is authenticated
-      const authHeader = req.headers.get('Authorization')
-      if (!authHeader) {
-        console.error('No authorization header provided for initial request')
-        return new Response(
-          JSON.stringify({ error: 'Authentication required' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      // Verify the user is authenticated for the initial request
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: authHeader } } }
-      )
-
-      const { data: { user } } = await supabaseClient.auth.getUser()
-      
-      if (!user) {
-        console.error('No authenticated user found for initial request')
-        return new Response(
-          JSON.stringify({ error: 'Authentication required' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      console.log('User authenticated for initial request:', user.id)
       
       const clientId = Deno.env.get('SPOTIFY_CLIENT_ID')
       if (!clientId) {
@@ -91,38 +61,12 @@ serve(async (req) => {
     // If code is present, this is the callback from Spotify - handle token exchange
     console.log('Code found, handling callback...')
     
-    // Get the access token from the URL parameter (passed from the popup)
-    if (!accessToken) {
-      console.error('No access token provided in callback')
-      return new Response(
-        `<html><body><script>
-          window.opener?.postMessage({ error: 'No access token provided' }, '*');
-          window.close();
-        </script></body></html>`,
-        { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
-      )
-    }
-
+    // Create a service role client for database operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { data: { user } } = await supabaseClient.auth.getUser()
-    
-    if (!user) {
-      console.error('No authenticated user found')
-      return new Response(
-        `<html><body><script>
-          window.opener?.postMessage({ error: 'No authenticated user found' }, '*');
-          window.close();
-        </script></body></html>`,
-        { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
-      )
-    }
-
-    console.log('User authenticated:', user.id)
     console.log('Using redirect URI for token exchange:', redirectUri)
 
     // Exchange code for access token
@@ -188,40 +132,48 @@ serve(async (req) => {
       )
     }
 
-    // Store tokens and profile in database
-    console.log('Storing connection in database...')
-    const connectionData = {
-      user_id: user.id,
-      spotify_user_id: profileData.id,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
-      scope: tokenData.scope,
-      token_type: tokenData.token_type || 'Bearer',
-      display_name: profileData.display_name,
-      email: profileData.email,
-    }
-
-    const { error: dbError } = await supabaseClient
-      .from('spotify_connections')
-      .upsert(connectionData)
-
-    if (dbError) {
-      console.error('Database error:', dbError)
-      return new Response(
-        `<html><body><script>
-          window.opener?.postMessage({ error: 'Database error: ${dbError.message}' }, '*');
-          window.close();
-        </script></body></html>`,
-        { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
-      )
-    }
-
+    // Return success response that triggers the popup to get user info from localStorage
     console.log('=== SPOTIFY AUTH COMPLETED SUCCESSFULLY ===')
     return new Response(
       `<html><body><script>
-        window.opener?.postMessage({ success: true, message: 'Spotify connected successfully' }, '*');
-        window.close();
+        // Get user info from localStorage (set by the parent window)
+        const userId = window.localStorage?.getItem('spotify_auth_user_id') || 
+                      window.opener?.localStorage?.getItem('spotify_auth_user_id');
+        const userToken = window.localStorage?.getItem('spotify_auth_token') || 
+                         window.opener?.localStorage?.getItem('spotify_auth_token');
+        
+        if (userId && userToken) {
+          // Store the Spotify connection using the service role
+          fetch('${Deno.env.get('SUPABASE_URL')}/rest/v1/spotify_connections', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}',
+              'apikey': '${Deno.env.get('SUPABASE_ANON_KEY')}'
+            },
+            body: JSON.stringify({
+              user_id: userId,
+              spotify_user_id: '${profileData.id}',
+              access_token: '${tokenData.access_token}',
+              refresh_token: '${tokenData.refresh_token}',
+              expires_at: '${new Date(Date.now() + tokenData.expires_in * 1000).toISOString()}',
+              scope: '${tokenData.scope}',
+              token_type: '${tokenData.token_type || 'Bearer'}',
+              display_name: '${profileData.display_name || ''}',
+              email: '${profileData.email || ''}'
+            })
+          }).then(() => {
+            window.opener?.postMessage({ success: true, message: 'Spotify connected successfully' }, '*');
+            window.close();
+          }).catch(err => {
+            console.error('Database error:', err);
+            window.opener?.postMessage({ error: 'Failed to save connection' }, '*');
+            window.close();
+          });
+        } else {
+          window.opener?.postMessage({ error: 'Missing user authentication' }, '*');
+          window.close();
+        }
       </script></body></html>`,
       { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
     )
