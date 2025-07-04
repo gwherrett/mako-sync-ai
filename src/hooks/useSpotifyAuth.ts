@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -92,7 +91,7 @@ export const useSpotifyAuth = () => {
     }
 
     try {
-      // Get the auth URL from the edge function
+      // Get the auth URL from the edge function with proper authorization
       const { data, error } = await supabase.functions.invoke('spotify-auth', {
         headers: {
           Authorization: `Bearer ${session.access_token}`,

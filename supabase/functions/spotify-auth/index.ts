@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
@@ -34,6 +33,35 @@ serve(async (req) => {
     // If no code is present, this is the initial auth request - return the auth URL
     if (!code) {
       console.log('No code found, generating auth URL...')
+      
+      // For the initial request, we need to verify the user is authenticated
+      const authHeader = req.headers.get('Authorization')
+      if (!authHeader) {
+        console.error('No authorization header provided for initial request')
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Verify the user is authenticated for the initial request
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
+      )
+
+      const { data: { user } } = await supabaseClient.auth.getUser()
+      
+      if (!user) {
+        console.error('No authenticated user found for initial request')
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      console.log('User authenticated for initial request:', user.id)
       
       const clientId = Deno.env.get('SPOTIFY_CLIENT_ID')
       if (!clientId) {
