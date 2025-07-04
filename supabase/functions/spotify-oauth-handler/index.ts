@@ -14,6 +14,7 @@ serve(async (req) => {
 
   try {
     console.log('=== SPOTIFY OAUTH HANDLER STARTED ===')
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()))
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -31,8 +32,8 @@ serve(async (req) => {
       )
     }
 
-    console.log('User authenticated via OAuth:', user.id)
-    console.log('User metadata:', JSON.stringify(user.user_metadata, null, 2))
+    console.log('User authenticated:', user.id)
+    console.log('User metadata keys:', Object.keys(user.user_metadata || {}))
     console.log('App metadata:', JSON.stringify(user.app_metadata, null, 2))
 
     // Get Spotify access token from user metadata
@@ -40,23 +41,27 @@ serve(async (req) => {
     const spotifyRefreshToken = user.user_metadata?.provider_refresh_token 
     const spotifyData = user.user_metadata
 
+    console.log('Spotify token present:', !!spotifyToken)
+    console.log('Spotify refresh token present:', !!spotifyRefreshToken)
+
     if (!spotifyToken) {
       console.error('No Spotify token found in user metadata')
-      console.log('Available metadata keys:', Object.keys(user.user_metadata || {}))
+      console.log('Full user metadata:', JSON.stringify(user.user_metadata, null, 2))
       return new Response(
         JSON.stringify({ 
           error: 'No Spotify token found',
           debug: {
             hasUserMetadata: !!user.user_metadata,
             metadataKeys: Object.keys(user.user_metadata || {}),
-            provider: user.app_metadata?.provider
+            provider: user.app_metadata?.provider,
+            fullMetadata: user.user_metadata
           }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log('Spotify token found, storing connection...')
+    console.log('Spotify token found, preparing connection data...')
 
     // Store the Spotify connection data
     const connectionData = {
@@ -67,28 +72,55 @@ serve(async (req) => {
       expires_at: new Date(Date.now() + 3600 * 1000).toISOString(), // 1 hour from now
       scope: 'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative',
       token_type: 'Bearer',
-      display_name: spotifyData?.name || spotifyData?.display_name,
+      display_name: spotifyData?.name || spotifyData?.display_name || spotifyData?.full_name,
       email: user.email,
     }
 
-    console.log('Connection data to store:', {
+    console.log('Connection data prepared (tokens redacted):', {
       ...connectionData,
       access_token: '[REDACTED]',
       refresh_token: spotifyRefreshToken ? '[REDACTED]' : null
     })
 
-    const { error: dbError } = await supabaseClient
+    // Check if connection already exists
+    const { data: existingConnection } = await supabaseClient
       .from('spotify_connections')
-      .upsert(connectionData, {
-        onConflict: 'user_id'
-      })
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
 
-    if (dbError) {
-      console.error('Database error:', dbError)
-      return new Response(
-        JSON.stringify({ error: `Database error: ${dbError.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (existingConnection) {
+      console.log('Updating existing connection...')
+      const { error: updateError } = await supabaseClient
+        .from('spotify_connections')
+        .update({
+          access_token: connectionData.access_token,
+          refresh_token: connectionData.refresh_token,
+          expires_at: connectionData.expires_at,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+
+      if (updateError) {
+        console.error('Database update error:', updateError)
+        return new Response(
+          JSON.stringify({ error: `Database update error: ${updateError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    } else {
+      console.log('Creating new connection...')
+      const { error: insertError } = await supabaseClient
+        .from('spotify_connections')
+        .insert(connectionData)
+
+      if (insertError) {
+        console.error('Database insert error:', insertError)
+        return new Response(
+          JSON.stringify({ error: `Database insert error: ${insertError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     console.log('=== SPOTIFY OAUTH HANDLER COMPLETED SUCCESSFULLY ===')

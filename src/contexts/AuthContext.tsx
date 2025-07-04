@@ -41,29 +41,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         // When user signs in via OAuth, store their Spotify connection
         if (event === 'SIGNED_IN' && session?.user?.app_metadata?.provider === 'spotify') {
+          console.log('Spotify OAuth sign in detected, storing connection...');
+          
+          // Use setTimeout to ensure the session is fully established
           setTimeout(async () => {
             try {
+              console.log('Calling spotify-oauth-handler with session token...');
               const response = await supabase.functions.invoke('spotify-oauth-handler', {
                 headers: {
                   Authorization: `Bearer ${session.access_token}`,
                 },
               });
               
+              console.log('OAuth handler response:', response);
+              
               if (response.error) {
                 console.error('Failed to store Spotify connection:', response.error);
               } else {
-                console.log('Spotify connection stored successfully');
+                console.log('Spotify connection stored successfully:', response.data);
               }
             } catch (error) {
-              console.error('Error storing Spotify connection:', error);
+              console.error('Error calling spotify-oauth-handler:', error);
             }
-          }, 0);
+          }, 1000); // Wait 1 second for session to stabilize
         }
       }
     );
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
