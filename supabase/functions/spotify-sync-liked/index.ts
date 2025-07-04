@@ -84,6 +84,7 @@ serve(async (req) => {
       title: item.track.name,
       artist: item.track.artists.map((artist: any) => artist.name).join(', '),
       album: item.track.album.name,
+      genre: item.track.artists.flatMap((artist: any) => artist.genres || []).join(', ') || null,
       year: item.track.album.release_date ? new Date(item.track.album.release_date).getFullYear() : null,
       added_at: item.added_at,
     }))
