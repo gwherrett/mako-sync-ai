@@ -158,6 +158,7 @@ export type Database = {
           key: string | null
           spotify_id: string
           title: string
+          user_id: string | null
           year: number | null
         }
         Insert: {
@@ -171,6 +172,7 @@ export type Database = {
           key?: string | null
           spotify_id: string
           title: string
+          user_id?: string | null
           year?: number | null
         }
         Update: {
@@ -184,6 +186,7 @@ export type Database = {
           key?: string | null
           spotify_id?: string
           title?: string
+          user_id?: string | null
           year?: number | null
         }
         Relationships: []

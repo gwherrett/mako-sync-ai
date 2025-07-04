@@ -79,6 +79,7 @@ serve(async (req) => {
 
     // Process and store songs
     const songsToInsert = allTracks.map(item => ({
+      user_id: user.id,
       spotify_id: item.track.id,
       title: item.track.name,
       artist: item.track.artists.map((artist: any) => artist.name).join(', '),
@@ -91,7 +92,7 @@ serve(async (req) => {
     const { error: deleteError } = await supabaseClient
       .from('spotify_liked')
       .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all rows
+      .eq('user_id', user.id) // Delete only current user's songs
 
     if (deleteError) {
       console.error('Error clearing existing songs:', deleteError)
