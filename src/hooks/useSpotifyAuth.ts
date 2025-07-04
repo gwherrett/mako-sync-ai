@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SpotifyConnection {
   id: string;
@@ -24,26 +25,22 @@ export const useSpotifyAuth = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [connection, setConnection] = useState<SpotifyConnection | null>(null);
   const { toast } = useToast();
+  const { user, session, loading: authLoading } = useAuth();
 
   const checkConnection = async () => {
     console.log('=== CHECKING SPOTIFY CONNECTION ===');
+    
+    // Don't check connection if auth is still loading or no user
+    if (authLoading || !user) {
+      console.log('Auth still loading or no user, skipping connection check');
+      setIsLoading(false);
+      setIsConnected(false);
+      return;
+    }
+
     setIsLoading(true);
     
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) {
-        console.error('Error getting user:', userError);
-        setIsConnected(false);
-        return;
-      }
-
-      if (!user) {
-        console.log('No authenticated user found');
-        setIsConnected(false);
-        return;
-      }
-
       console.log('Checking connection for user:', user.id);
       console.log('User provider:', user.app_metadata?.provider);
 
@@ -59,18 +56,20 @@ export const useSpotifyAuth = () => {
         
         if (user.app_metadata?.provider === 'spotify') {
           console.log('User authenticated via Spotify OAuth but no connection found');
-          // Set a small timeout to allow for the OAuth handler to process
+          // Wait a bit longer for the OAuth handler to process
           setTimeout(() => {
             console.log('Retrying connection check after OAuth handler delay...');
             checkConnection();
-          }, 3000);
+          }, 2000);
           return;
         }
         
         setIsConnected(false);
+        setConnection(null);
       } else if (error) {
         console.error('Error checking Spotify connection:', error);
         setIsConnected(false);
+        setConnection(null);
       } else if (data) {
         console.log('Spotify connection found:', {
           id: data.id,
@@ -85,10 +84,12 @@ export const useSpotifyAuth = () => {
       } else {
         console.log('No connection data returned');
         setIsConnected(false);
+        setConnection(null);
       }
     } catch (error) {
       console.error('Error checking connection:', error);
       setIsConnected(false);
+      setConnection(null);
     } finally {
       setIsLoading(false);
     }
@@ -99,13 +100,6 @@ export const useSpotifyAuth = () => {
     setIsSyncing(true);
     
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('Session error:', sessionError);
-        throw new Error(`Session error: ${sessionError.message}`);
-      }
-      
       if (!session) {
         console.error('No session found');
         toast({
@@ -181,9 +175,12 @@ export const useSpotifyAuth = () => {
     }
   };
 
+  // Check connection when auth state changes
   useEffect(() => {
-    checkConnection();
-  }, []);
+    if (!authLoading) {
+      checkConnection();
+    }
+  }, [user, authLoading]);
 
   return {
     isConnected,

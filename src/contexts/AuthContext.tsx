@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,77 +40,67 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           userId: session?.user?.id,
           provider: session?.user?.app_metadata?.provider,
           hasProviderToken: !!session?.provider_token,
-          hasUserMetadataToken: !!session?.user?.user_metadata?.provider_token,
           currentPath: window.location.pathname
         });
         
-        // Set state immediately - this is critical
+        // Set state immediately
         console.log('Setting session and user state...');
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Keep loading state a bit longer for SIGNED_IN to allow session to fully establish
+        // Handle different auth events
         if (event === 'SIGNED_IN') {
-          console.log('User signed in, allowing extra time for session establishment...');
+          console.log('User signed in successfully');
+          
+          // When user signs in via OAuth, store their Spotify connection
+          if (session?.user?.app_metadata?.provider === 'spotify') {
+            console.log('=== SPOTIFY OAUTH DETECTED ===');
+            
+            // Call the OAuth handler with a delay to ensure session is established
+            setTimeout(async () => {
+              try {
+                console.log('=== CALLING OAUTH HANDLER ===');
+                
+                const response = await supabase.functions.invoke('spotify-oauth-handler', {
+                  headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: {
+                    sessionData: {
+                      provider_token: session.provider_token,
+                      provider_refresh_token: session.provider_refresh_token,
+                      user_metadata: session.user.user_metadata
+                    }
+                  }
+                });
+                
+                console.log('=== OAUTH HANDLER RESPONSE ===', {
+                  error: response.error,
+                  data: response.data
+                });
+                
+                if (response.error) {
+                  console.error('Failed to store Spotify connection:', response.error);
+                } else {
+                  console.log('Spotify connection stored successfully:', response.data);
+                }
+              } catch (error) {
+                console.error('Error calling spotify-oauth-handler:', error);
+              }
+            }, 1000);
+          }
+          
+          // Set loading to false after a brief delay to allow everything to settle
           setTimeout(() => {
-            console.log('Completing loading state after sign in');
             setLoading(false);
           }, 1000);
-        } else {
-          setLoading(false);
-        }
-
-        // When user signs in via OAuth, store their Spotify connection
-        if (event === 'SIGNED_IN' && session?.user?.app_metadata?.provider === 'spotify') {
-          console.log('=== SPOTIFY OAUTH DETECTED ===');
-          console.log('Session provider token:', !!session.provider_token);
-          console.log('User metadata token:', !!session.user.user_metadata?.provider_token);
-          console.log('User metadata keys:', Object.keys(session.user.user_metadata || {}));
-          
-          // Use setTimeout to ensure the session is fully established
-          setTimeout(async () => {
-            try {
-              console.log('=== CALLING OAUTH HANDLER ===');
-              
-              // Call the OAuth handler with the session token
-              const response = await supabase.functions.invoke('spotify-oauth-handler', {
-                headers: {
-                  Authorization: `Bearer ${session.access_token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: {
-                  // Pass session data to help with token extraction
-                  sessionData: {
-                    provider_token: session.provider_token,
-                    provider_refresh_token: session.provider_refresh_token,
-                    user_metadata: session.user.user_metadata
-                  }
-                }
-              });
-              
-              console.log('=== OAUTH HANDLER RESPONSE ===', {
-                error: response.error,
-                data: response.data
-              });
-              
-              if (response.error) {
-                console.error('Failed to store Spotify connection:', response.error);
-                // Don't throw - this shouldn't block the user experience
-              } else {
-                console.log('Spotify connection stored successfully:', response.data);
-              }
-            } catch (error) {
-              console.error('Error calling spotify-oauth-handler:', error);
-              // Don't throw - this shouldn't block the user experience
-            }
-          }, 1500);
-        }
-
-        // Handle sign out event
-        if (event === 'SIGNED_OUT') {
+        } else if (event === 'SIGNED_OUT') {
           console.log('=== USER SIGNED OUT ===');
           setSession(null);
           setUser(null);
+          setLoading(false);
+        } else {
           setLoading(false);
         }
       }
@@ -126,15 +117,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           hasSession: !!session,
           userId: session?.user?.id,
           provider: session?.user?.app_metadata?.provider,
-          hasProviderToken: !!session?.provider_token,
           currentPath: window.location.pathname
         });
         setSession(session);
         setUser(session?.user ?? null);
-        // Give a bit more time if there's an existing session
-        setTimeout(() => {
-          setLoading(false);
-        }, session ? 1000 : 0);
+        setLoading(false);
       }
     });
 
@@ -145,7 +132,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const signOut = async () => {
-    console.log('=== UNIFIED SIGN OUT PROCESS STARTING ===');
+    console.log('=== SIGN OUT PROCESS STARTING ===');
     try {
       // Clear local storage of any auth-related data
       console.log('Clearing local storage...');
@@ -164,19 +151,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { error } = await supabase.auth.signOut({ scope: 'global' });
       if (error) {
         console.error('Supabase sign out error:', error);
-        // Don't throw - continue with redirect even if this fails
       }
       
       console.log('=== SIGN OUT COMPLETE ===');
       
-      // Instead of redirecting immediately, just reload the current page
-      // This will trigger the auth state change and redirect naturally
-      window.location.reload();
+      // Redirect to auth page with signedOut parameter
+      window.location.href = '/auth?signedOut=true';
       
     } catch (error) {
       console.error('Error during sign out process:', error);
-      // Even if there's an error, still reload to ensure clean state
-      window.location.reload();
+      // Even if there's an error, still redirect to auth page
+      window.location.href = '/auth?signedOut=true';
     }
   };
 

@@ -6,33 +6,25 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Music2, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user, session, loading } = useAuth();
   const signedOut = searchParams.get('signedOut') === 'true';
 
+  // Redirect if already authenticated
   useEffect(() => {
-    // Check if user is already logged in
-    const checkUser = async () => {
-      console.log('Auth page: Checking for existing session...');
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Session check error:', error);
-        return;
-      }
-      
-      if (session) {
-        console.log('User already logged in, redirecting to home');
-        navigate('/');
-      }
-    };
-    
-    checkUser();
+    if (!loading && user && session) {
+      console.log('Auth page: User already authenticated, redirecting to home');
+      navigate('/', { replace: true });
+    }
+  }, [user, session, loading, navigate]);
 
+  useEffect(() => {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth page: Auth state change:', event, !!session);
@@ -43,7 +35,7 @@ const Auth = () => {
           title: "Welcome!",
           description: "Successfully signed in with Spotify",
         });
-        navigate('/');
+        navigate('/', { replace: true });
       }
     });
 
@@ -62,9 +54,7 @@ const Auth = () => {
           scopes: 'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative',
           redirectTo: `${window.location.origin}/`,
           queryParams: {
-            // Request offline access to get refresh tokens
             access_type: 'offline',
-            // Show consent screen to ensure tokens are provided
             prompt: 'consent'
           }
         }
@@ -76,7 +66,6 @@ const Auth = () => {
       }
       
       console.log('OAuth redirect initiated...');
-      // The redirect will happen automatically, so we don't need to do anything else here
     } catch (error: any) {
       console.error('Sign in error:', error);
       toast({
@@ -87,6 +76,30 @@ const Auth = () => {
       setIsLoading(false);
     }
   };
+
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-green-400 mx-auto mb-4" />
+          <p className="text-white text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render auth form if user is already authenticated
+  if (user && session) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-green-400 mx-auto mb-4" />
+          <p className="text-white text-sm">Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black flex items-center justify-center p-4">
