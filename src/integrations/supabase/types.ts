@@ -153,7 +153,6 @@ export type Database = {
           artist: string
           bpm: number | null
           created_at: string | null
-          genre: string | null
           id: string
           key: string | null
           spotify_id: string
@@ -167,7 +166,6 @@ export type Database = {
           artist: string
           bpm?: number | null
           created_at?: string | null
-          genre?: string | null
           id?: string
           key?: string | null
           spotify_id: string
@@ -181,7 +179,6 @@ export type Database = {
           artist?: string
           bpm?: number | null
           created_at?: string | null
-          genre?: string | null
           id?: string
           key?: string | null
           spotify_id?: string

@@ -134,75 +134,15 @@ async function fetchAllLikedSongs(accessToken: string): Promise<SpotifyTrack[]> 
   return allTracks
 }
 
-async function fetchArtistGenres(allTracks: SpotifyTrack[], accessToken: string): Promise<{ [key: string]: string[] }> {
-  const artistGenres: { [key: string]: string[] } = {}
-  
-  // Get unique artist IDs from all tracks
-  const artistIds = [...new Set(
-    allTracks.flatMap(item => 
-      item.track.artists.map(artist => artist.id).filter(Boolean)
-    )
-  )]
-  
-  console.log(`Found ${artistIds.length} unique artists`)
-  
-  const batchSize = 50 // Spotify allows up to 50 artists per request
-  
-  for (let i = 0; i < artistIds.length; i += batchSize) {
-    const batchIds = artistIds.slice(i, i + batchSize)
-    console.log(`Fetching artist batch ${Math.floor(i/batchSize) + 1}: ${batchIds.length} artists`)
-    
-    const artistResponse = await fetch(`https://api.spotify.com/v1/artists?ids=${batchIds.join(',')}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    })
-    
-    console.log(`Artist API response status: ${artistResponse.status}`)
-    
-    if (artistResponse.ok) {
-      const artistData = await artistResponse.json()
-      console.log(`Received ${artistData.artists?.length || 0} artists in response`)
-      
-      if (artistData.artists) {
-        artistData.artists.forEach((artist: any, index: number) => {
-          if (artist) {
-            console.log(`Artist ${index + 1}: ${artist.name} - Genres: ${artist.genres?.join(', ') || 'No genres'}`)
-            if (artist.genres && artist.genres.length > 0) {
-              artistGenres[artist.id] = artist.genres
-            }
-          } else {
-            console.log(`Artist ${index + 1}: null/undefined`)
-          }
-        })
-      }
-    } else {
-      console.error(`Failed to fetch artists batch: ${artistResponse.status} ${artistResponse.statusText}`)
-      const errorText = await artistResponse.text()
-      console.error(`Error response: ${errorText}`)
-    }
-  }
 
-  console.log(`Fetched genres for ${Object.keys(artistGenres).length} artists`)
-  return artistGenres
-}
-
-function processSongsData(allTracks: SpotifyTrack[], artistGenres: { [key: string]: string[] }, userId: string) {
+function processSongsData(allTracks: SpotifyTrack[], userId: string) {
   return allTracks.map(item => {
-    // Get genres from all artists for this track
-    const trackGenres = new Set<string>()
-    item.track.artists.forEach(artist => {
-      const genres = artistGenres[artist.id] || []
-      genres.forEach(genre => trackGenres.add(genre))
-    })
-    
     return {
       user_id: userId,
       spotify_id: item.track.id,
       title: item.track.name,
       artist: item.track.artists.map((artist: any) => artist.name).join(', '),
       album: item.track.album.name,
-      genre: trackGenres.size > 0 ? Array.from(trackGenres).join(', ') : null,
       year: item.track.album.release_date ? new Date(item.track.album.release_date).getFullYear() : null,
       added_at: item.added_at,
     }
@@ -285,11 +225,8 @@ serve(async (req) => {
     // Fetch all liked songs from Spotify
     const allTracks = await fetchAllLikedSongs(accessToken)
 
-    // Fetch artist details to get genres (artists have better genre data than albums)
-    const artistGenres = await fetchArtistGenres(allTracks, accessToken)
-
     // Process and prepare songs for database insertion
-    const songsToInsert = processSongsData(allTracks, artistGenres, user.id)
+    const songsToInsert = processSongsData(allTracks, user.id)
 
     // Clear existing songs and insert new ones
     const insertedCount = await clearAndInsertSongs(songsToInsert, user.id, supabaseClient)
