@@ -52,6 +52,15 @@ export async function getValidAccessToken(connection: SpotifyConnection, supabas
   const now = new Date()
   const expiresAt = new Date(connection.expires_at)
   
+  // Check if current token has required scope for audio features
+  const requiredScope = 'user-read-audio-features'
+  const hasRequiredScope = connection.scope?.includes(requiredScope)
+  
+  if (!hasRequiredScope) {
+    console.log(`Token missing required scope: ${requiredScope}. Current scope: ${connection.scope}`)
+    throw new Error('Spotify connection needs to be refreshed with audio features permission. Please disconnect and reconnect to Spotify.')
+  }
+  
   if (now >= expiresAt) {
     return await refreshSpotifyToken(connection, supabaseClient, userId)
   }
