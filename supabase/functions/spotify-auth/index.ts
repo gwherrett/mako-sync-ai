@@ -14,6 +14,47 @@ serve(async (req) => {
 
   try {
     console.log('=== SPOTIFY AUTH FUNCTION STARTED ===')
+    console.log('Request method:', req.method)
+    console.log('Request URL:', req.url)
+    
+    const url = new URL(req.url)
+    const code = url.searchParams.get('code')
+    const state = url.searchParams.get('state')
+    
+    console.log('URL parameters:', { code: code ? 'present' : 'missing', state })
+
+    // If no code is present, this is the initial auth request - return the auth URL
+    if (!code) {
+      console.log('No code found, generating auth URL...')
+      
+      const clientId = Deno.env.get('SPOTIFY_CLIENT_ID')
+      if (!clientId) {
+        console.error('SPOTIFY_CLIENT_ID not configured')
+        return new Response(
+          JSON.stringify({ error: 'Spotify client ID not configured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const redirectUri = `${url.origin}${url.pathname}`
+      const scopes = 'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative'
+      
+      const authUrl = `https://accounts.spotify.com/authorize?` +
+        `response_type=code&` +
+        `client_id=${clientId}&` +
+        `scope=${encodeURIComponent(scopes)}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `state=${Math.random().toString(36).substring(7)}`
+
+      console.log('Generated auth URL:', authUrl)
+      return new Response(
+        JSON.stringify({ authUrl }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // If code is present, this is the callback from Spotify - handle token exchange
+    console.log('Code found, handling callback...')
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -26,25 +67,18 @@ serve(async (req) => {
     if (!user) {
       console.error('No authenticated user found')
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        `<html><body><script>
+          window.opener?.postMessage({ error: 'No authenticated user found' }, '*');
+          window.close();
+        </script></body></html>`,
+        { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
       )
     }
 
     console.log('User authenticated:', user.id)
 
-    const requestBody = await req.json()
-    console.log('Request body received:', { code: requestBody.code ? 'present' : 'missing', state: requestBody.state })
-    
-    const { code, state } = requestBody
-
-    // Get the dynamic redirect URI from the request origin
-    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/')
-    const redirectUri = `${origin}/spotify-callback`
-
+    const redirectUri = `${url.origin}${url.pathname}`
     console.log('Using redirect URI:', redirectUri)
-    console.log('Using client ID:', Deno.env.get('SPOTIFY_CLIENT_ID') ? 'present' : 'missing')
-    console.log('Using client secret:', Deno.env.get('SPOTIFY_CLIENT_SECRET') ? 'present' : 'missing')
 
     // Exchange code for access token
     const tokenRequestBody = new URLSearchParams({
@@ -74,8 +108,11 @@ serve(async (req) => {
     if (tokenData.error) {
       console.error('Spotify token exchange failed:', tokenData)
       return new Response(
-        JSON.stringify({ error: `Spotify auth failed: ${tokenData.error} - ${tokenData.error_description}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        `<html><body><script>
+          window.opener?.postMessage({ error: 'Spotify auth failed: ${tokenData.error}' }, '*');
+          window.close();
+        </script></body></html>`,
+        { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
       )
     }
 
@@ -98,8 +135,11 @@ serve(async (req) => {
     if (profileResponse.status !== 200) {
       console.error('Failed to get Spotify profile:', profileData)
       return new Response(
-        JSON.stringify({ error: `Failed to get Spotify profile: ${profileData.error?.message || 'Unknown error'}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        `<html><body><script>
+          window.opener?.postMessage({ error: 'Failed to get Spotify profile' }, '*');
+          window.close();
+        </script></body></html>`,
+        { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
       )
     }
 
@@ -124,22 +164,31 @@ serve(async (req) => {
     if (dbError) {
       console.error('Database error:', dbError)
       return new Response(
-        JSON.stringify({ error: `Database error: ${dbError.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        `<html><body><script>
+          window.opener?.postMessage({ error: 'Database error: ${dbError.message}' }, '*');
+          window.close();
+        </script></body></html>`,
+        { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
       )
     }
 
     console.log('=== SPOTIFY AUTH COMPLETED SUCCESSFULLY ===')
     return new Response(
-      JSON.stringify({ success: true, message: 'Spotify connected successfully' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      `<html><body><script>
+        window.opener?.postMessage({ success: true, message: 'Spotify connected successfully' }, '*');
+        window.close();
+      </script></body></html>`,
+      { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
     )
 
   } catch (error) {
     console.error('=== SPOTIFY AUTH ERROR ===', error)
     return new Response(
-      JSON.stringify({ error: `Server error: ${error.message}` }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      `<html><body><script>
+        window.opener?.postMessage({ error: 'Server error: ${error.message}' }, '*');
+        window.close();
+      </script></body></html>`,
+      { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
     )
   }
 })

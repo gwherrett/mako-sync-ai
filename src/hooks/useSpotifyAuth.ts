@@ -92,7 +92,12 @@ export const useSpotifyAuth = () => {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('spotify-auth');
+      // Get the auth URL from the edge function
+      const { data, error } = await supabase.functions.invoke('spotify-auth', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
       
       if (error) {
         console.error('Spotify auth error:', error);
@@ -105,7 +110,45 @@ export const useSpotifyAuth = () => {
       }
 
       if (data?.authUrl) {
-        window.location.href = data.authUrl;
+        // Open popup window for Spotify auth
+        const popup = window.open(
+          data.authUrl,
+          'spotify-auth',
+          'width=600,height=700,scrollbars=yes,resizable=yes'
+        );
+
+        // Listen for messages from the popup
+        const messageListener = (event: MessageEvent) => {
+          if (event.origin !== window.location.origin) return;
+          
+          if (event.data.success) {
+            console.log('Spotify connection successful');
+            toast({
+              title: "Connection Successful",
+              description: "Spotify account connected successfully",
+            });
+            checkConnection();
+            popup?.close();
+          } else if (event.data.error) {
+            console.error('Spotify connection error:', event.data.error);
+            toast({
+              title: "Connection Failed",
+              description: event.data.error,
+              variant: "destructive",
+            });
+            popup?.close();
+          }
+        };
+
+        window.addEventListener('message', messageListener);
+
+        // Clean up listener when popup closes
+        const checkClosed = setInterval(() => {
+          if (popup?.closed) {
+            window.removeEventListener('message', messageListener);
+            clearInterval(checkClosed);
+          }
+        }, 1000);
       }
     } catch (error: any) {
       console.error('Error connecting to Spotify:', error);
