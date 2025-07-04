@@ -17,6 +17,7 @@ const Auth = () => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        console.log('User already logged in, redirecting to home');
         navigate('/');
       }
     };
@@ -24,9 +25,18 @@ const Auth = () => {
   }, [navigate]);
 
   const handleSpotifySignIn = async () => {
+    console.log('=== INITIATING SPOTIFY SIGN IN ===');
     setIsLoading(true);
 
     try {
+      // Clear any existing auth state first
+      console.log('Clearing existing auth state...');
+      await supabase.auth.signOut();
+      
+      // Small delay to ensure cleanup
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      console.log('Starting Spotify OAuth...');
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'spotify',
         options: {
@@ -35,10 +45,15 @@ const Auth = () => {
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('OAuth error:', error);
+        throw error;
+      }
       
+      console.log('OAuth redirect initiated...');
       // The redirect will happen automatically, so we don't need to do anything else here
     } catch (error: any) {
+      console.error('Sign in error:', error);
       toast({
         title: "Sign in failed",
         description: error.message,
@@ -59,13 +74,13 @@ const Auth = () => {
             Welcome to Groove Sync
           </CardTitle>
           <CardDescription className="text-gray-400">
-            Sign in with your Spotify account to sync your music library
+            Sign in with your Spotify account to sync your music library and extract metadata for Serato
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button 
             onClick={handleSpotifySignIn}
-            className="w-full spotify-gradient text-black font-medium"
+            className="w-full spotify-gradient text-black font-medium hover:opacity-90 transition-opacity"
             disabled={isLoading}
           >
             {isLoading ? (
@@ -83,7 +98,7 @@ const Auth = () => {
           
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-400">
-              By signing in, you agree to sync your Spotify library data
+              By signing in, you agree to sync your Spotify library data for use with Serato DJ software
             </p>
           </div>
         </CardContent>

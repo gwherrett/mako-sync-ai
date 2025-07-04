@@ -30,10 +30,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('=== AuthProvider: Setting up auth state listener ===');
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.id);
+        console.log('=== AUTH STATE CHANGE ===', event, {
+          hasSession: !!session,
+          userId: session?.user?.id,
+          provider: session?.user?.app_metadata?.provider
+        });
         
         setSession(session);
         setUser(session?.user ?? null);
@@ -41,46 +47,69 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         // When user signs in via OAuth, store their Spotify connection
         if (event === 'SIGNED_IN' && session?.user?.app_metadata?.provider === 'spotify') {
-          console.log('Spotify OAuth sign in detected, storing connection...');
+          console.log('=== SPOTIFY OAUTH DETECTED ===');
+          console.log('User metadata:', JSON.stringify(session.user.user_metadata, null, 2));
+          console.log('App metadata:', JSON.stringify(session.user.app_metadata, null, 2));
           
           // Use setTimeout to ensure the session is fully established
           setTimeout(async () => {
             try {
-              console.log('Calling spotify-oauth-handler with session token...');
+              console.log('=== CALLING OAUTH HANDLER ===');
               const response = await supabase.functions.invoke('spotify-oauth-handler', {
                 headers: {
                   Authorization: `Bearer ${session.access_token}`,
                 },
               });
               
-              console.log('OAuth handler response:', response);
+              console.log('=== OAUTH HANDLER RESPONSE ===', response);
               
               if (response.error) {
                 console.error('Failed to store Spotify connection:', response.error);
               } else {
-                console.log('Spotify connection stored successfully:', response.data);
+                console.log('Spotify connection stored successfully');
               }
             } catch (error) {
               console.error('Error calling spotify-oauth-handler:', error);
             }
-          }, 1000); // Wait 1 second for session to stabilize
+          }, 2000); // Increased delay to 2 seconds
         }
       }
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.id);
+    console.log('=== Checking for existing session ===');
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Error getting session:', error);
+      } else {
+        console.log('Initial session check:', {
+          hasSession: !!session,
+          userId: session?.user?.id,
+          provider: session?.user?.app_metadata?.provider
+        });
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('=== Cleaning up auth subscription ===');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    console.log('=== SIGNING OUT ===');
+    try {
+      await supabase.auth.signOut();
+      // Clear local state
+      setSession(null);
+      setUser(null);
+      console.log('=== SIGN OUT COMPLETE ===');
+    } catch (error) {
+      console.error('Error during sign out:', error);
+    }
   };
 
   const value = {
