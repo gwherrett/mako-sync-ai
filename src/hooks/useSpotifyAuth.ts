@@ -80,8 +80,7 @@ export const useSpotifyAuth = () => {
       'user-read-email',
       'user-library-read',
       'playlist-read-private',
-      'playlist-read-collaborative',
-      'user-read-audio-features' // Required for BPM, danceability, key data
+      'playlist-read-collaborative'
     ].join(' ');
 
     const authUrl = new URL('https://accounts.spotify.com/authorize');

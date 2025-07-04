@@ -1,15 +1,241 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-import type { SpotifyConnection } from './types.ts'
-import { getValidAccessToken } from './spotify-auth.ts'
-import { fetchAllLikedSongs, fetchAudioFeatures } from './spotify-api.ts'
-import { processSongsData } from './data-processing.ts'
-import { clearAndInsertSongs } from './database.ts'
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+interface SpotifyConnection {
+  id: string
+  user_id: string
+  spotify_user_id: string
+  access_token: string
+  refresh_token: string | null
+  expires_at: string
+  scope: string | null
+  token_type: string | null
+  display_name: string | null
+  email: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+interface SpotifyTrack {
+  track: {
+    id: string
+    name: string
+    artists: Array<{ name: string; id: string }>
+    album: {
+      id: string
+      name: string
+      release_date: string
+    }
+  }
+  added_at: string
+}
+
+async function refreshSpotifyToken(connection: SpotifyConnection, supabaseClient: any, userId: string): Promise<string> {
+  console.log('Token expired, attempting to refresh...')
+  
+  if (!connection.refresh_token) {
+    throw new Error('Spotify token expired and no refresh token available')
+  }
+
+  const refreshResponse = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${btoa(`${Deno.env.get('SPOTIFY_CLIENT_ID')}:${Deno.env.get('SPOTIFY_CLIENT_SECRET')}`)}`,
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: connection.refresh_token,
+    }),
+  })
+
+  if (!refreshResponse.ok) {
+    console.error('Token refresh failed:', refreshResponse.status)
+    throw new Error('Failed to refresh Spotify token')
+  }
+
+  const refreshData = await refreshResponse.json()
+  const newAccessToken = refreshData.access_token
+  const newRefreshToken = refreshData.refresh_token || connection.refresh_token
+  const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000).toISOString()
+
+  const { error: updateError } = await supabaseClient
+    .from('spotify_connections')
+    .update({
+      access_token: newAccessToken,
+      refresh_token: newRefreshToken,
+      expires_at: newExpiresAt,
+      updated_at: new Date().toISOString()
+    })
+    .eq('user_id', userId)
+
+  if (updateError) {
+    console.error('Error updating tokens:', updateError)
+    throw new Error('Failed to update Spotify tokens')
+  }
+
+  console.log('Token refreshed successfully')
+  return newAccessToken
+}
+
+async function getValidAccessToken(connection: SpotifyConnection, supabaseClient: any, userId: string): Promise<string> {
+  const now = new Date()
+  const expiresAt = new Date(connection.expires_at)
+  
+  if (now >= expiresAt) {
+    return await refreshSpotifyToken(connection, supabaseClient, userId)
+  }
+  
+  return connection.access_token
+}
+
+async function fetchAllLikedSongs(accessToken: string): Promise<SpotifyTrack[]> {
+  let allTracks: SpotifyTrack[] = []
+  let nextUrl = 'https://api.spotify.com/v1/me/tracks?limit=50'
+  
+  console.log('Starting to fetch liked songs...')
+  
+  while (nextUrl) {
+    const response = await fetch(nextUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!response.ok) {
+      console.error(`Failed to fetch tracks: ${response.status} ${response.statusText}`)
+      throw new Error('Failed to fetch liked songs from Spotify')
+    }
+
+    const data = await response.json()
+    allTracks = allTracks.concat(data.items)
+    nextUrl = data.next
+    console.log(`Fetched ${data.items.length} tracks, total so far: ${allTracks.length}`)
+  }
+
+  console.log(`Fetched ${allTracks.length} liked songs from Spotify`)
+  
+  // Debug: Log a sample track to see the album structure
+  if (allTracks.length > 0) {
+    const sampleTrack = allTracks[0]
+    console.log('Sample track structure:', JSON.stringify({
+      track_name: sampleTrack.track?.name,
+      album_id: sampleTrack.track?.album?.id,
+      album_name: sampleTrack.track?.album?.name,
+      album_type: sampleTrack.track?.album?.album_type
+    }, null, 2))
+  }
+
+  return allTracks
+}
+
+async function fetchAudioFeatures(trackIds: string[], accessToken: string): Promise<{ [key: string]: any }> {
+  const audioFeatures: { [key: string]: any } = {}
+  const batchSize = 100 // Spotify allows up to 100 tracks per request
+  
+  console.log(`Fetching audio features for ${trackIds.length} tracks`)
+  
+  for (let i = 0; i < trackIds.length; i += batchSize) {
+    const batchIds = trackIds.slice(i, i + batchSize)
+    console.log(`Fetching audio features batch ${Math.floor(i/batchSize) + 1}: ${batchIds.length} tracks`)
+    
+    const featuresResponse = await fetch(`https://api.spotify.com/v1/audio-features?ids=${batchIds.join(',')}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    })
+    
+    console.log(`Audio features API response status: ${featuresResponse.status}`)
+    
+    if (featuresResponse.ok) {
+      const featuresData = await featuresResponse.json()
+      console.log(`Received ${featuresData.audio_features?.length || 0} audio features in response`)
+      
+      if (featuresData.audio_features) {
+        featuresData.audio_features.forEach((features: any) => {
+          if (features && features.id) {
+            audioFeatures[features.id] = {
+              danceability: features.danceability,
+              tempo: features.tempo, // BPM
+              key: features.key, // Musical key (0-11, where 0=C, 1=C#, etc.)
+              mode: features.mode // Major (1) or Minor (0)
+            }
+          }
+        })
+      }
+    } else {
+      console.error(`Failed to fetch audio features batch: ${featuresResponse.status} ${featuresResponse.statusText}`)
+      const errorText = await featuresResponse.text()
+      console.error(`Error response: ${errorText}`)
+    }
+  }
+
+  console.log(`Fetched audio features for ${Object.keys(audioFeatures).length} tracks`)
+  return audioFeatures
+}
+
+
+function processSongsData(allTracks: SpotifyTrack[], audioFeatures: { [key: string]: any }, userId: string) {
+  return allTracks.map(item => {
+    const features = audioFeatures[item.track.id] || {}
+    
+    // Convert Spotify's key format to a readable format
+    const keyMap = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    const keyString = features.key !== undefined && features.mode !== undefined 
+      ? `${keyMap[features.key]} ${features.mode === 1 ? 'Major' : 'Minor'}`
+      : null
+    
+    return {
+      user_id: userId,
+      spotify_id: item.track.id,
+      title: item.track.name,
+      artist: item.track.artists.map((artist: any) => artist.name).join(', '),
+      album: item.track.album.name,
+      year: item.track.album.release_date ? new Date(item.track.album.release_date).getFullYear() : null,
+      added_at: item.added_at,
+      danceability: features.danceability || null,
+      bpm: features.tempo ? Math.round(features.tempo) : null,
+      key: keyString,
+    }
+  })
+}
+
+async function clearAndInsertSongs(songsToInsert: any[], userId: string, supabaseClient: any) {
+  // Clear existing songs for this user
+  const { error: deleteError } = await supabaseClient
+    .from('spotify_liked')
+    .delete()
+    .eq('user_id', userId)
+
+  if (deleteError) {
+    console.error('Error clearing existing songs:', deleteError)
+  }
+
+  // Insert new songs in batches
+  const insertBatchSize = 100
+  let insertedCount = 0
+  
+  for (let i = 0; i < songsToInsert.length; i += insertBatchSize) {
+    const batch = songsToInsert.slice(i, i + insertBatchSize)
+    
+    const { error: insertError } = await supabaseClient
+      .from('spotify_liked')
+      .insert(batch)
+
+    if (insertError) {
+      console.error('Error inserting songs batch:', insertError)
+      continue
+    }
+    
+    insertedCount += batch.length
+  }
+
+  return insertedCount
 }
 
 serve(async (req) => {
@@ -50,7 +276,7 @@ serve(async (req) => {
     }
 
     // Get valid access token (refresh if needed)
-    const accessToken = await getValidAccessToken(connection as SpotifyConnection, supabaseClient, user.id)
+    const accessToken = await getValidAccessToken(connection, supabaseClient, user.id)
 
     // Fetch all liked songs from Spotify
     const allTracks = await fetchAllLikedSongs(accessToken)
