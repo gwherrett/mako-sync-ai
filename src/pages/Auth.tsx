@@ -1,29 +1,25 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Music2, Loader2 } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Music2, Loader2, Eye, EyeOff } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Auth = () => {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { user, session, loading } = useAuth();
-  const signedOut = searchParams.get('signedOut') === 'true';
+  const { user, session, loading, signIn, signUp } = useAuth();
 
-  console.log('🔐 Auth page state:', { 
-    hasUser: !!user, 
-    hasSession: !!session, 
-    loading, 
-    signedOut,
-    currentPath: window.location.pathname,
-    userId: user?.id
-  });
+  console.log('🔐 Auth page state:', { hasUser: !!user, hasSession: !!session, loading });
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -33,32 +29,50 @@ const Auth = () => {
     }
   }, [user, session, loading, navigate]);
 
-  const handleSpotifySignIn = async () => {
-    console.log('🎵 Starting Spotify sign in process...');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (isSignUp && password !== confirmPassword) {
+      toast({
+        title: "Password mismatch",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'spotify',
-        options: {
-          scopes: 'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative',
-          redirectTo: `${window.location.origin}/`,
-        }
-      });
+      const { error } = isSignUp 
+        ? await signUp(email, password)
+        : await signIn(email, password);
       
       if (error) {
-        console.error('❌ OAuth error:', error);
-        throw error;
+        toast({
+          title: isSignUp ? "Sign up failed" : "Sign in failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: isSignUp ? "Account created!" : "Welcome back!",
+          description: isSignUp 
+            ? "Please check your email to verify your account" 
+            : "Successfully signed in",
+        });
+        
+        if (!isSignUp) {
+          navigate('/', { replace: true });
+        }
       }
-      
-      console.log('🔄 OAuth redirect initiated...');
     } catch (error: any) {
-      console.error('❌ Sign in error:', error);
       toast({
-        title: "Sign in failed",
+        title: "An error occurred",
         description: error.message,
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -95,37 +109,93 @@ const Auth = () => {
             <Music2 className="w-8 h-8 text-black" />
           </div>
           <CardTitle className="text-2xl text-white">
-            {signedOut ? 'You\'ve been signed out' : 'Welcome to Groove Sync'}
+            {isSignUp ? 'Create Account' : 'Welcome Back'}
           </CardTitle>
           <CardDescription className="text-gray-400">
-            {signedOut 
-              ? 'Thanks for using Groove Sync. Sign in again to continue syncing your music library.'
-              : 'Sign in with your Spotify account to sync your music library and extract metadata for Serato'
+            {isSignUp 
+              ? 'Sign up to start syncing your music library'
+              : 'Sign in to access your music sync dashboard'
             }
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Button 
-            onClick={handleSpotifySignIn}
-            className="w-full spotify-gradient text-black font-medium hover:opacity-90 transition-opacity"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Connecting to Spotify...
-              </>
-            ) : (
-              <>
-                <Music2 className="w-4 h-4 mr-2" />
-                {signedOut ? 'Sign in again with Spotify' : 'Sign in with Spotify'}
-              </>
+        <CardContent className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="bg-serato-dark-elevated border-white/10 text-white placeholder:text-gray-400"
+              />
+            </div>
+            
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="bg-serato-dark-elevated border-white/10 text-white placeholder:text-gray-400 pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {isSignUp && (
+              <div>
+                <Input
+                  type="password"
+                  placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="bg-serato-dark-elevated border-white/10 text-white placeholder:text-gray-400"
+                />
+              </div>
             )}
-          </Button>
+            
+            <Button 
+              type="submit"
+              className="w-full spotify-gradient text-black font-medium hover:opacity-90 transition-opacity"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isSignUp ? 'Creating Account...' : 'Signing In...'}
+                </>
+              ) : (
+                <>
+                  <Music2 className="w-4 h-4 mr-2" />
+                  {isSignUp ? 'Create Account' : 'Sign In'}
+                </>
+              )}
+            </Button>
+          </form>
+          
+          <div className="text-center">
+            <button
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              {isSignUp 
+                ? 'Already have an account? Sign in' 
+                : "Don't have an account? Sign up"
+              }
+            </button>
+          </div>
           
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-400">
-              By signing in, you agree to sync your Spotify library data for use with Serato DJ software
+              Access your music sync dashboard to manage your library
             </p>
           </div>
         </CardContent>

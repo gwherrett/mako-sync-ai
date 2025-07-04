@@ -1,18 +1,19 @@
 
 import React from 'react';
-import { Music2, Settings, Loader2, LogOut } from 'lucide-react';
+import { Music2, Settings, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const SpotifyHeader = () => {
-  const { isConnected, isLoading, isSyncing, syncLikedSongs } = useSpotifyAuth();
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const handleSignOut = async () => {
     console.log('=== HEADER SIGN OUT CLICKED ===');
     try {
       await signOut();
+      navigate('/auth', { replace: true });
     } catch (error) {
       console.error('Sign out failed:', error);
     }
@@ -26,12 +27,9 @@ const SpotifyHeader = () => {
             <Music2 className="w-6 h-6 text-black" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">Spotify Metadata Sync</h1>
+            <h1 className="text-xl font-bold text-white">Groove Sync</h1>
             <p className="text-sm text-gray-400">
-              {isConnected 
-                ? "Connected to Spotify - Ready to sync your liked songs" 
-                : "Extract & sync your liked songs for Serato"
-              }
+              Music metadata sync for Serato
             </p>
           </div>
         </div>
@@ -45,32 +43,6 @@ const SpotifyHeader = () => {
             <Settings className="w-4 h-4 mr-2" />
             Settings
           </Button>
-          
-          {isLoading ? (
-            <Button disabled className="spotify-gradient text-black font-medium">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Checking...
-            </Button>
-          ) : isConnected ? (
-            <Button 
-              onClick={syncLikedSongs}
-              disabled={isSyncing}
-              className="spotify-gradient text-black font-medium hover:opacity-90 transition-opacity"
-            >
-              {isSyncing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Syncing...
-                </>
-              ) : (
-                'Sync Liked Songs'
-              )}
-            </Button>
-          ) : (
-            <div className="text-sm text-gray-400">
-              Spotify connection loading...
-            </div>
-          )}
           
           <Button
             onClick={handleSignOut}
