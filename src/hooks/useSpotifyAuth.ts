@@ -58,6 +58,47 @@ export const useSpotifyAuth = () => {
     }
   };
 
+  const refreshTokens = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to refresh tokens",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Call the sync function to trigger token refresh
+      const response = await supabase.functions.invoke('spotify-sync-liked', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      // Refresh the connection state
+      await checkConnection();
+
+      toast({
+        title: "Tokens Refreshed",
+        description: "Spotify tokens have been refreshed successfully",
+      });
+    } catch (error: any) {
+      console.error('Token refresh error:', error);
+      toast({
+        title: "Refresh Failed",
+        description: `Failed to refresh tokens: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   const connectSpotify = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -181,5 +222,6 @@ export const useSpotifyAuth = () => {
     disconnectSpotify,
     syncLikedSongs,
     checkConnection,
+    refreshTokens,
   };
 };
