@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               console.error('Error calling spotify-oauth-handler:', error);
               // Don't throw - this shouldn't block the user experience
             }
-          }, 1000); // Reduced delay to 1 second for faster response
+          }, 1000);
         }
 
         // Handle sign out event

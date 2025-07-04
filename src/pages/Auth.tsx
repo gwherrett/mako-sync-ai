@@ -55,13 +55,6 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      // Clear any existing auth state first
-      console.log('Clearing existing auth state...');
-      await supabase.auth.signOut();
-      
-      // Small delay to ensure cleanup
-      await new Promise(resolve => setTimeout(resolve, 500));
-
       console.log('Starting Spotify OAuth...');
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'spotify',
