@@ -6,6 +6,230 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+interface SpotifyConnection {
+  id: string
+  user_id: string
+  spotify_user_id: string
+  access_token: string
+  refresh_token: string | null
+  expires_at: string
+  scope: string | null
+  token_type: string | null
+  display_name: string | null
+  email: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+interface SpotifyTrack {
+  track: {
+    id: string
+    name: string
+    artists: Array<{ name: string }>
+    album: {
+      id: string
+      name: string
+      release_date: string
+    }
+  }
+  added_at: string
+}
+
+async function refreshSpotifyToken(connection: SpotifyConnection, supabaseClient: any, userId: string): Promise<string> {
+  console.log('Token expired, attempting to refresh...')
+  
+  if (!connection.refresh_token) {
+    throw new Error('Spotify token expired and no refresh token available')
+  }
+
+  const refreshResponse = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${btoa(`${Deno.env.get('SPOTIFY_CLIENT_ID')}:${Deno.env.get('SPOTIFY_CLIENT_SECRET')}`)}`,
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: connection.refresh_token,
+    }),
+  })
+
+  if (!refreshResponse.ok) {
+    console.error('Token refresh failed:', refreshResponse.status)
+    throw new Error('Failed to refresh Spotify token')
+  }
+
+  const refreshData = await refreshResponse.json()
+  const newAccessToken = refreshData.access_token
+  const newRefreshToken = refreshData.refresh_token || connection.refresh_token
+  const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000).toISOString()
+
+  const { error: updateError } = await supabaseClient
+    .from('spotify_connections')
+    .update({
+      access_token: newAccessToken,
+      refresh_token: newRefreshToken,
+      expires_at: newExpiresAt,
+      updated_at: new Date().toISOString()
+    })
+    .eq('user_id', userId)
+
+  if (updateError) {
+    console.error('Error updating tokens:', updateError)
+    throw new Error('Failed to update Spotify tokens')
+  }
+
+  console.log('Token refreshed successfully')
+  return newAccessToken
+}
+
+async function getValidAccessToken(connection: SpotifyConnection, supabaseClient: any, userId: string): Promise<string> {
+  const now = new Date()
+  const expiresAt = new Date(connection.expires_at)
+  
+  if (now >= expiresAt) {
+    return await refreshSpotifyToken(connection, supabaseClient, userId)
+  }
+  
+  return connection.access_token
+}
+
+async function fetchAllLikedSongs(accessToken: string): Promise<SpotifyTrack[]> {
+  let allTracks: SpotifyTrack[] = []
+  let nextUrl = 'https://api.spotify.com/v1/me/tracks?limit=50'
+  
+  console.log('Starting to fetch liked songs...')
+  
+  while (nextUrl) {
+    const response = await fetch(nextUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!response.ok) {
+      console.error(`Failed to fetch tracks: ${response.status} ${response.statusText}`)
+      throw new Error('Failed to fetch liked songs from Spotify')
+    }
+
+    const data = await response.json()
+    allTracks = allTracks.concat(data.items)
+    nextUrl = data.next
+    console.log(`Fetched ${data.items.length} tracks, total so far: ${allTracks.length}`)
+  }
+
+  console.log(`Fetched ${allTracks.length} liked songs from Spotify`)
+  
+  // Debug: Log a sample track to see the album structure
+  if (allTracks.length > 0) {
+    const sampleTrack = allTracks[0]
+    console.log('Sample track structure:', JSON.stringify({
+      track_name: sampleTrack.track?.name,
+      album_id: sampleTrack.track?.album?.id,
+      album_name: sampleTrack.track?.album?.name,
+      album_type: sampleTrack.track?.album?.album_type
+    }, null, 2))
+  }
+
+  return allTracks
+}
+
+async function fetchAlbumGenres(albumIds: string[], accessToken: string): Promise<{ [key: string]: string[] }> {
+  const albumGenres: { [key: string]: string[] } = {}
+  const batchSize = 20 // Spotify allows up to 20 albums per request
+  
+  console.log(`Found ${albumIds.length} unique albums`)
+  
+  for (let i = 0; i < albumIds.length; i += batchSize) {
+    const batchIds = albumIds.slice(i, i + batchSize)
+    console.log(`Fetching batch ${Math.floor(i/batchSize) + 1}: ${batchIds.length} albums`)
+    
+    const albumResponse = await fetch(`https://api.spotify.com/v1/albums?ids=${batchIds.join(',')}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    })
+    
+    console.log(`Album API response status: ${albumResponse.status}`)
+    
+    if (albumResponse.ok) {
+      const albumData = await albumResponse.json()
+      console.log(`Received ${albumData.albums?.length || 0} albums in response`)
+      
+      if (albumData.albums) {
+        albumData.albums.forEach((album: any, index: number) => {
+          if (album) {
+            console.log(`Album ${index + 1}: ${album.name} - Genres: ${album.genres?.join(', ') || 'No genres'}`)
+            if (album.genres && album.genres.length > 0) {
+              albumGenres[album.id] = album.genres
+            }
+          } else {
+            console.log(`Album ${index + 1}: null/undefined`)
+          }
+        })
+      }
+    } else {
+      console.error(`Failed to fetch albums batch: ${albumResponse.status} ${albumResponse.statusText}`)
+      const errorText = await albumResponse.text()
+      console.error(`Error response: ${errorText}`)
+    }
+  }
+
+  console.log(`Fetched genres for ${Object.keys(albumGenres).length} albums`)
+  return albumGenres
+}
+
+function processSongsData(allTracks: SpotifyTrack[], albumGenres: { [key: string]: string[] }, userId: string) {
+  return allTracks.map(item => {
+    const albumId = item.track.album.id
+    const genres = albumGenres[albumId] || []
+    
+    return {
+      user_id: userId,
+      spotify_id: item.track.id,
+      title: item.track.name,
+      artist: item.track.artists.map((artist: any) => artist.name).join(', '),
+      album: item.track.album.name,
+      genre: genres.length > 0 ? genres.join(', ') : null,
+      year: item.track.album.release_date ? new Date(item.track.album.release_date).getFullYear() : null,
+      added_at: item.added_at,
+    }
+  })
+}
+
+async function clearAndInsertSongs(songsToInsert: any[], userId: string, supabaseClient: any) {
+  // Clear existing songs for this user
+  const { error: deleteError } = await supabaseClient
+    .from('spotify_liked')
+    .delete()
+    .eq('user_id', userId)
+
+  if (deleteError) {
+    console.error('Error clearing existing songs:', deleteError)
+  }
+
+  // Insert new songs in batches
+  const insertBatchSize = 100
+  let insertedCount = 0
+  
+  for (let i = 0; i < songsToInsert.length; i += insertBatchSize) {
+    const batch = songsToInsert.slice(i, i + insertBatchSize)
+    
+    const { error: insertError } = await supabaseClient
+      .from('spotify_liked')
+      .insert(batch)
+
+    if (insertError) {
+      console.error('Error inserting songs batch:', insertError)
+      continue
+    }
+    
+    insertedCount += batch.length
+  }
+
+  return insertedCount
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -41,200 +265,23 @@ serve(async (req) => {
       )
     }
 
-    // Check if token is expired and refresh if needed
-    const now = new Date()
-    const expiresAt = new Date(connection.expires_at)
-    
-    let accessToken = connection.access_token
-    
-    if (now >= expiresAt) {
-      console.log('Token expired, attempting to refresh...')
-      
-      if (!connection.refresh_token) {
-        return new Response(
-          JSON.stringify({ error: 'Spotify token expired and no refresh token available' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+    // Get valid access token (refresh if needed)
+    const accessToken = await getValidAccessToken(connection, supabaseClient, user.id)
 
-      // Refresh the token
-      const refreshResponse = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${btoa(`${Deno.env.get('SPOTIFY_CLIENT_ID')}:${Deno.env.get('SPOTIFY_CLIENT_SECRET')}`)}`,
-        },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: connection.refresh_token,
-        }),
-      })
-
-      if (!refreshResponse.ok) {
-        console.error('Token refresh failed:', refreshResponse.status)
-        return new Response(
-          JSON.stringify({ error: 'Failed to refresh Spotify token' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      const refreshData = await refreshResponse.json()
-      accessToken = refreshData.access_token
-      const newRefreshToken = refreshData.refresh_token || connection.refresh_token
-      const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000).toISOString()
-
-      // Update the connection with new tokens
-      const { error: updateError } = await supabaseClient
-        .from('spotify_connections')
-        .update({
-          access_token: accessToken,
-          refresh_token: newRefreshToken,
-          expires_at: newExpiresAt,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id)
-
-      if (updateError) {
-        console.error('Error updating tokens:', updateError)
-        return new Response(
-          JSON.stringify({ error: 'Failed to update Spotify tokens' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      console.log('Token refreshed successfully')
-    }
-
-    // Fetch liked songs from Spotify
-    let allTracks: any[] = []
-    let nextUrl = 'https://api.spotify.com/v1/me/tracks?limit=50'
-    
-    console.log('Starting to fetch liked songs...')
-    
-    while (nextUrl) {
-      const response = await fetch(nextUrl, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      })
-
-      if (!response.ok) {
-        console.error(`Failed to fetch tracks: ${response.status} ${response.statusText}`)
-        return new Response(
-          JSON.stringify({ error: 'Failed to fetch liked songs from Spotify' }),
-          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      const data = await response.json()
-      allTracks = allTracks.concat(data.items)
-      nextUrl = data.next
-      console.log(`Fetched ${data.items.length} tracks, total so far: ${allTracks.length}`)
-    }
-
-    console.log(`Fetched ${allTracks.length} liked songs from Spotify`)
-    
-    // Debug: Log a sample track to see the album structure
-    if (allTracks.length > 0) {
-      const sampleTrack = allTracks[0]
-      console.log('Sample track structure:', JSON.stringify({
-        track_name: sampleTrack.track?.name,
-        album_id: sampleTrack.track?.album?.id,
-        album_name: sampleTrack.track?.album?.name,
-        album_type: sampleTrack.track?.album?.album_type
-      }, null, 2))
-    }
+    // Fetch all liked songs from Spotify
+    const allTracks = await fetchAllLikedSongs(accessToken)
 
     // Get unique album IDs for genre fetching
     const albumIds = [...new Set(allTracks.map(item => item.track.album.id))].filter(Boolean)
-    console.log(`Found ${albumIds.length} unique albums`)
     
-    // Fetch album details in batches to get genres
-    const albumGenres: { [key: string]: string[] } = {}
-    const batchSize = 20 // Spotify allows up to 20 albums per request
-    
-    for (let i = 0; i < albumIds.length; i += batchSize) {
-      const batchIds = albumIds.slice(i, i + batchSize)
-      console.log(`Fetching batch ${Math.floor(i/batchSize) + 1}: ${batchIds.length} albums`)
-      
-      const albumResponse = await fetch(`https://api.spotify.com/v1/albums?ids=${batchIds.join(',')}`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      })
-      
-      console.log(`Album API response status: ${albumResponse.status}`)
-      
-      if (albumResponse.ok) {
-        const albumData = await albumResponse.json()
-        console.log(`Received ${albumData.albums?.length || 0} albums in response`)
-        
-        if (albumData.albums) {
-          albumData.albums.forEach((album: any, index: number) => {
-            if (album) {
-              console.log(`Album ${index + 1}: ${album.name} - Genres: ${album.genres?.join(', ') || 'No genres'}`)
-              if (album.genres && album.genres.length > 0) {
-                albumGenres[album.id] = album.genres
-              }
-            } else {
-              console.log(`Album ${index + 1}: null/undefined`)
-            }
-          })
-        }
-      } else {
-        console.error(`Failed to fetch albums batch: ${albumResponse.status} ${albumResponse.statusText}`)
-        const errorText = await albumResponse.text()
-        console.error(`Error response: ${errorText}`)
-      }
-    }
+    // Fetch album details to get genres
+    const albumGenres = await fetchAlbumGenres(albumIds, accessToken)
 
-    console.log(`Fetched genres for ${Object.keys(albumGenres).length} albums`)
-
-    // Process and store songs
-    const songsToInsert = allTracks.map(item => {
-      const albumId = item.track.album.id
-      const genres = albumGenres[albumId] || []
-      
-      return {
-        user_id: user.id,
-        spotify_id: item.track.id,
-        title: item.track.name,
-        artist: item.track.artists.map((artist: any) => artist.name).join(', '),
-        album: item.track.album.name,
-        genre: genres.length > 0 ? genres.join(', ') : null,
-        year: item.track.album.release_date ? new Date(item.track.album.release_date).getFullYear() : null,
-        added_at: item.added_at,
-      }
-    })
+    // Process and prepare songs for database insertion
+    const songsToInsert = processSongsData(allTracks, albumGenres, user.id)
 
     // Clear existing songs and insert new ones
-    const { error: deleteError } = await supabaseClient
-      .from('spotify_liked')
-      .delete()
-      .eq('user_id', user.id) // Delete only current user's songs
-
-    if (deleteError) {
-      console.error('Error clearing existing songs:', deleteError)
-    }
-
-    // Insert new songs in batches
-    const insertBatchSize = 100
-    let insertedCount = 0
-    
-    for (let i = 0; i < songsToInsert.length; i += insertBatchSize) {
-      const batch = songsToInsert.slice(i, i + insertBatchSize)
-      
-      const { error: insertError } = await supabaseClient
-        .from('spotify_liked')
-        .insert(batch)
-
-      if (insertError) {
-        console.error('Error inserting songs batch:', insertError)
-        continue
-      }
-      
-      insertedCount += batch.length
-    }
+    const insertedCount = await clearAndInsertSongs(songsToInsert, user.id, supabaseClient)
 
     return new Response(
       JSON.stringify({ 
