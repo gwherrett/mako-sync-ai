@@ -41,15 +41,68 @@ serve(async (req) => {
       )
     }
 
-    // Check if token is expired
+    // Check if token is expired and refresh if needed
     const now = new Date()
     const expiresAt = new Date(connection.expires_at)
     
+    let accessToken = connection.access_token
+    
     if (now >= expiresAt) {
-      return new Response(
-        JSON.stringify({ error: 'Spotify token expired' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      console.log('Token expired, attempting to refresh...')
+      
+      if (!connection.refresh_token) {
+        return new Response(
+          JSON.stringify({ error: 'Spotify token expired and no refresh token available' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Refresh the token
+      const refreshResponse = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${btoa(`${Deno.env.get('SPOTIFY_CLIENT_ID')}:${Deno.env.get('SPOTIFY_CLIENT_SECRET')}`)}`,
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: connection.refresh_token,
+        }),
+      })
+
+      if (!refreshResponse.ok) {
+        console.error('Token refresh failed:', refreshResponse.status)
+        return new Response(
+          JSON.stringify({ error: 'Failed to refresh Spotify token' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const refreshData = await refreshResponse.json()
+      accessToken = refreshData.access_token
+      const newRefreshToken = refreshData.refresh_token || connection.refresh_token
+      const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000).toISOString()
+
+      // Update the connection with new tokens
+      const { error: updateError } = await supabaseClient
+        .from('spotify_connections')
+        .update({
+          access_token: accessToken,
+          refresh_token: newRefreshToken,
+          expires_at: newExpiresAt,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+
+      if (updateError) {
+        console.error('Error updating tokens:', updateError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to update Spotify tokens' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      console.log('Token refreshed successfully')
     }
 
     // Fetch liked songs from Spotify
@@ -59,7 +112,7 @@ serve(async (req) => {
     while (nextUrl) {
       const response = await fetch(nextUrl, {
         headers: {
-          'Authorization': `Bearer ${connection.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
       })
 
@@ -89,7 +142,7 @@ serve(async (req) => {
       const batchIds = albumIds.slice(i, i + batchSize)
       const albumResponse = await fetch(`https://api.spotify.com/v1/albums?ids=${batchIds.join(',')}`, {
         headers: {
-          'Authorization': `Bearer ${connection.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
       })
       
