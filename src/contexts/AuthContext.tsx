@@ -40,9 +40,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           userId: session?.user?.id,
           provider: session?.user?.app_metadata?.provider,
           hasProviderToken: !!session?.provider_token,
-          hasUserMetadataToken: !!session?.user?.user_metadata?.provider_token
+          hasUserMetadataToken: !!session?.user?.user_metadata?.provider_token,
+          currentPath: window.location.pathname
         });
         
+        // Set state immediately
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -112,7 +114,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           hasSession: !!session,
           userId: session?.user?.id,
           provider: session?.user?.app_metadata?.provider,
-          hasProviderToken: !!session?.provider_token
+          hasProviderToken: !!session?.provider_token,
+          currentPath: window.location.pathname
         });
       }
       setSession(session);
