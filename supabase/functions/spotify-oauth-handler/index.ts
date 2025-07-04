@@ -14,8 +14,6 @@ serve(async (req) => {
 
   try {
     console.log('=== SPOTIFY OAUTH HANDLER STARTED ===')
-    console.log('Request method:', req.method)
-    console.log('Request headers present:', Object.keys(Object.fromEntries(req.headers.entries())))
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -42,38 +40,37 @@ serve(async (req) => {
     }
 
     console.log('User authenticated:', user.id)
-    console.log('User email:', user.email)
     console.log('User provider:', user.app_metadata?.provider)
-    console.log('User metadata keys:', Object.keys(user.user_metadata || {}))
-    console.log('App metadata:', JSON.stringify(user.app_metadata, null, 2))
 
-    // Try multiple sources for Spotify tokens
-    let spotifyToken = null
-    let spotifyRefreshToken = null
-    let tokenSource = 'unknown'
+    // Get current session to access provider tokens
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession()
+    
+    if (sessionError) {
+      console.error('Session error:', sessionError)
+      return new Response(
+        JSON.stringify({ error: `Session error: ${sessionError.message}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
-    // Source 1: user_metadata.provider_token (most common)
-    if (user.user_metadata?.provider_token) {
+    if (!session) {
+      console.error('No session found')
+      return new Response(
+        JSON.stringify({ error: 'No active session found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Extract Spotify tokens from session
+    let spotifyToken = session.provider_token
+    let spotifyRefreshToken = session.provider_refresh_token
+    let tokenSource = 'session.provider_token'
+
+    // Fallback to user metadata if session tokens not available
+    if (!spotifyToken && user.user_metadata?.provider_token) {
       spotifyToken = user.user_metadata.provider_token
       spotifyRefreshToken = user.user_metadata.provider_refresh_token
       tokenSource = 'user_metadata.provider_token'
-    }
-    // Source 2: user_metadata direct properties
-    else if (user.user_metadata?.access_token) {
-      spotifyToken = user.user_metadata.access_token
-      spotifyRefreshToken = user.user_metadata.refresh_token
-      tokenSource = 'user_metadata.access_token'
-    }
-    // Source 3: Parse from session if available (fallback)
-    else {
-      console.log('No tokens found in user metadata, checking session...')
-      const { data: { session } } = await supabaseClient.auth.getSession()
-      
-      if (session?.provider_token) {
-        spotifyToken = session.provider_token
-        spotifyRefreshToken = session.provider_refresh_token
-        tokenSource = 'session.provider_token'
-      }
     }
 
     console.log('Token source:', tokenSource)
@@ -81,27 +78,23 @@ serve(async (req) => {
     console.log('Spotify refresh token present:', !!spotifyRefreshToken)
 
     if (!spotifyToken) {
-      console.error('No Spotify token found in any source')
-      console.log('Full user metadata:', JSON.stringify(user.user_metadata, null, 2))
-      
+      console.error('No Spotify token found')
       return new Response(
         JSON.stringify({ 
           error: 'No Spotify access token found',
           debug: {
             tokenSource,
+            hasSession: !!session,
+            hasProviderToken: !!session?.provider_token,
             hasUserMetadata: !!user.user_metadata,
-            metadataKeys: Object.keys(user.user_metadata || {}),
-            provider: user.app_metadata?.provider,
-            userEmail: user.email
+            provider: user.app_metadata?.provider
           }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log('Spotify tokens found via', tokenSource)
-
-    // Get additional user info from Spotify API
+    // Get Spotify user info
     let spotifyUserInfo = {}
     try {
       const spotifyResponse = await fetch('https://api.spotify.com/v1/me', {
@@ -119,6 +112,8 @@ serve(async (req) => {
         })
       } else {
         console.warn('Failed to fetch Spotify user info:', spotifyResponse.status)
+        const errorText = await spotifyResponse.text()
+        console.warn('Spotify API error:', errorText)
       }
     } catch (error) {
       console.warn('Error fetching Spotify user info:', error.message)
@@ -127,84 +122,44 @@ serve(async (req) => {
     // Prepare connection data
     const connectionData = {
       user_id: user.id,
-      spotify_user_id: spotifyUserInfo.id || user.user_metadata?.sub || user.user_metadata?.id || user.id,
+      spotify_user_id: spotifyUserInfo.id || user.user_metadata?.sub || user.id,
       access_token: spotifyToken,
       refresh_token: spotifyRefreshToken,
       expires_at: new Date(Date.now() + 3600 * 1000).toISOString(), // 1 hour from now
       scope: 'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative',
       token_type: 'Bearer',
-      display_name: spotifyUserInfo.display_name || user.user_metadata?.name || user.user_metadata?.display_name || user.user_metadata?.full_name,
+      display_name: spotifyUserInfo.display_name || user.user_metadata?.name || user.user_metadata?.full_name,
       email: spotifyUserInfo.email || user.email,
     }
 
-    console.log('Connection data prepared (tokens redacted):', {
-      ...connectionData,
-      access_token: '[REDACTED]',
-      refresh_token: spotifyRefreshToken ? '[REDACTED]' : null
-    })
+    console.log('Attempting to store connection data...')
 
-    // Check if connection already exists
-    const { data: existingConnection, error: checkError } = await supabaseClient
+    // Use upsert to handle both insert and update cases
+    const { data: connectionResult, error: dbError } = await supabaseClient
       .from('spotify_connections')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
+      .upsert(connectionData, { 
+        onConflict: 'user_id',
+        ignoreDuplicates: false 
+      })
+      .select()
 
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking existing connection:', checkError)
+    if (dbError) {
+      console.error('Database upsert error:', dbError)
       return new Response(
-        JSON.stringify({ error: `Database check error: ${checkError.message}` }),
+        JSON.stringify({ error: `Database error: ${dbError.message}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    if (existingConnection) {
-      console.log('Updating existing connection...')
-      const { error: updateError } = await supabaseClient
-        .from('spotify_connections')
-        .update({
-          access_token: connectionData.access_token,
-          refresh_token: connectionData.refresh_token,
-          expires_at: connectionData.expires_at,
-          display_name: connectionData.display_name,
-          email: connectionData.email,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id)
-
-      if (updateError) {
-        console.error('Database update error:', updateError)
-        return new Response(
-          JSON.stringify({ error: `Database update error: ${updateError.message}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-      
-      console.log('Connection updated successfully')
-    } else {
-      console.log('Creating new connection...')
-      const { error: insertError } = await supabaseClient
-        .from('spotify_connections')
-        .insert(connectionData)
-
-      if (insertError) {
-        console.error('Database insert error:', insertError)
-        return new Response(
-          JSON.stringify({ error: `Database insert error: ${insertError.message}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-      
-      console.log('New connection created successfully')
-    }
-
+    console.log('Connection stored successfully:', connectionResult ? 'with data' : 'without return data')
     console.log('=== SPOTIFY OAUTH HANDLER COMPLETED SUCCESSFULLY ===')
+    
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Spotify OAuth connection stored successfully',
         tokenSource,
-        connectionExists: !!existingConnection
+        connectionStored: true
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
