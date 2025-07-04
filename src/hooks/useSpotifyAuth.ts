@@ -155,9 +155,12 @@ export const useSpotifyAuth = () => {
       setIsConnected(false);
       setConnection(null);
       
+      // Clear any stored state
+      localStorage.removeItem('spotify_auth_state');
+      
       toast({
         title: "Spotify Disconnected",
-        description: "Successfully disconnected from Spotify",
+        description: "Successfully disconnected from Spotify. Please reconnect to get fresh tokens.",
       });
     } catch (error) {
       console.error('Error disconnecting Spotify:', error);
