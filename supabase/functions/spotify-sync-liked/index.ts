@@ -134,9 +134,62 @@ async function fetchAllLikedSongs(accessToken: string): Promise<SpotifyTrack[]> 
   return allTracks
 }
 
+async function fetchAudioFeatures(trackIds: string[], accessToken: string): Promise<{ [key: string]: any }> {
+  const audioFeatures: { [key: string]: any } = {}
+  const batchSize = 100 // Spotify allows up to 100 tracks per request
+  
+  console.log(`Fetching audio features for ${trackIds.length} tracks`)
+  
+  for (let i = 0; i < trackIds.length; i += batchSize) {
+    const batchIds = trackIds.slice(i, i + batchSize)
+    console.log(`Fetching audio features batch ${Math.floor(i/batchSize) + 1}: ${batchIds.length} tracks`)
+    
+    const featuresResponse = await fetch(`https://api.spotify.com/v1/audio-features?ids=${batchIds.join(',')}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    })
+    
+    console.log(`Audio features API response status: ${featuresResponse.status}`)
+    
+    if (featuresResponse.ok) {
+      const featuresData = await featuresResponse.json()
+      console.log(`Received ${featuresData.audio_features?.length || 0} audio features in response`)
+      
+      if (featuresData.audio_features) {
+        featuresData.audio_features.forEach((features: any) => {
+          if (features && features.id) {
+            audioFeatures[features.id] = {
+              danceability: features.danceability,
+              tempo: features.tempo, // BPM
+              key: features.key, // Musical key (0-11, where 0=C, 1=C#, etc.)
+              mode: features.mode // Major (1) or Minor (0)
+            }
+          }
+        })
+      }
+    } else {
+      console.error(`Failed to fetch audio features batch: ${featuresResponse.status} ${featuresResponse.statusText}`)
+      const errorText = await featuresResponse.text()
+      console.error(`Error response: ${errorText}`)
+    }
+  }
 
-function processSongsData(allTracks: SpotifyTrack[], userId: string) {
+  console.log(`Fetched audio features for ${Object.keys(audioFeatures).length} tracks`)
+  return audioFeatures
+}
+
+
+function processSongsData(allTracks: SpotifyTrack[], audioFeatures: { [key: string]: any }, userId: string) {
   return allTracks.map(item => {
+    const features = audioFeatures[item.track.id] || {}
+    
+    // Convert Spotify's key format to a readable format
+    const keyMap = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    const keyString = features.key !== undefined && features.mode !== undefined 
+      ? `${keyMap[features.key]} ${features.mode === 1 ? 'Major' : 'Minor'}`
+      : null
+    
     return {
       user_id: userId,
       spotify_id: item.track.id,
@@ -145,6 +198,9 @@ function processSongsData(allTracks: SpotifyTrack[], userId: string) {
       album: item.track.album.name,
       year: item.track.album.release_date ? new Date(item.track.album.release_date).getFullYear() : null,
       added_at: item.added_at,
+      danceability: features.danceability || null,
+      bpm: features.tempo ? Math.round(features.tempo) : null,
+      key: keyString,
     }
   })
 }
@@ -225,8 +281,14 @@ serve(async (req) => {
     // Fetch all liked songs from Spotify
     const allTracks = await fetchAllLikedSongs(accessToken)
 
+    // Get track IDs for audio features
+    const trackIds = allTracks.map(item => item.track.id)
+    
+    // Fetch audio features (danceability, BPM, key)
+    const audioFeatures = await fetchAudioFeatures(trackIds, accessToken)
+
     // Process and prepare songs for database insertion
-    const songsToInsert = processSongsData(allTracks, user.id)
+    const songsToInsert = processSongsData(allTracks, audioFeatures, user.id)
 
     // Clear existing songs and insert new ones
     const insertedCount = await clearAndInsertSongs(songsToInsert, user.id, supabaseClient)
