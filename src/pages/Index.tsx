@@ -11,7 +11,7 @@ const Index = () => {
       
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-white mb-2">Serato Sync Dashboard</h2>
+          <h2 className="text-3xl font-bold text-white mb-2">Spotify - MP3 Sync Dashboard</h2>
           <p className="text-gray-400">
             Extract metadata from your music library and sync with Serato DJ Pro for optimal performance
           </p>
