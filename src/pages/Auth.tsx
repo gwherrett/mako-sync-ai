@@ -41,7 +41,13 @@ const Auth = () => {
         provider: 'spotify',
         options: {
           scopes: 'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative',
-          redirectTo: `${window.location.origin}/`
+          redirectTo: `${window.location.origin}/`,
+          queryParams: {
+            // Request offline access to get refresh tokens
+            access_type: 'offline',
+            // Show consent screen to ensure tokens are provided
+            prompt: 'consent'
+          }
         }
       });
       

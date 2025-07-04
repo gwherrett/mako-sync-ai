@@ -46,6 +46,10 @@ export const useSpotifyAuth = () => {
 
       console.log('Checking connection for user:', user.id);
       console.log('User provider:', user.app_metadata?.provider);
+      console.log('User metadata has tokens:', {
+        provider_token: !!user.user_metadata?.provider_token,
+        access_token: !!user.user_metadata?.access_token
+      });
 
       // Check if connection exists in database
       const { data, error } = await supabase
@@ -56,12 +60,35 @@ export const useSpotifyAuth = () => {
 
       if (error && error.code === 'PGRST116') {
         console.log('No Spotify connection found in database');
-        // If user authenticated via Spotify OAuth but no connection, wait and retry
+        console.log('User signed up at:', user.created_at);
+        console.log('Time since signup:', new Date().getTime() - new Date(user.created_at).getTime(), 'ms');
+        
+        // If user authenticated via Spotify OAuth but no connection, try to trigger handler
         if (user.app_metadata?.provider === 'spotify') {
-          console.log('User authenticated via Spotify OAuth, waiting for connection...');
-          setTimeout(checkConnection, 3000); // Wait 3 seconds and retry
-          return;
+          console.log('User authenticated via Spotify OAuth, triggering OAuth handler...');
+          
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              const response = await supabase.functions.invoke('spotify-oauth-handler', {
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+              });
+              
+              console.log('Manual OAuth handler response:', response);
+              
+              if (!response.error) {
+                // Wait a moment and check again
+                setTimeout(checkConnection, 2000);
+                return;
+              }
+            }
+          } catch (handlerError) {
+            console.error('Error calling OAuth handler manually:', handlerError);
+          }
         }
+        
         setIsConnected(false);
       } else if (error) {
         console.error('Error checking Spotify connection:', error);
@@ -71,7 +98,9 @@ export const useSpotifyAuth = () => {
           id: data.id,
           expires_at: data.expires_at,
           hasAccessToken: !!data.access_token,
-          hasRefreshToken: !!data.refresh_token
+          hasRefreshToken: !!data.refresh_token,
+          created_at: data.created_at,
+          updated_at: data.updated_at
         });
         setConnection(data as SpotifyConnection);
         setIsConnected(true);

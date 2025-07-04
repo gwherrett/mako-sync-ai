@@ -38,7 +38,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('=== AUTH STATE CHANGE ===', event, {
           hasSession: !!session,
           userId: session?.user?.id,
-          provider: session?.user?.app_metadata?.provider
+          provider: session?.user?.app_metadata?.provider,
+          hasProviderToken: !!session?.provider_token,
+          hasUserMetadataToken: !!session?.user?.user_metadata?.provider_token
         });
         
         setSession(session);
@@ -48,30 +50,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // When user signs in via OAuth, store their Spotify connection
         if (event === 'SIGNED_IN' && session?.user?.app_metadata?.provider === 'spotify') {
           console.log('=== SPOTIFY OAUTH DETECTED ===');
-          console.log('User metadata:', JSON.stringify(session.user.user_metadata, null, 2));
-          console.log('App metadata:', JSON.stringify(session.user.app_metadata, null, 2));
+          console.log('Session provider token:', !!session.provider_token);
+          console.log('User metadata token:', !!session.user.user_metadata?.provider_token);
+          console.log('User metadata keys:', Object.keys(session.user.user_metadata || {}));
           
           // Use setTimeout to ensure the session is fully established
           setTimeout(async () => {
             try {
               console.log('=== CALLING OAUTH HANDLER ===');
+              
+              // Call the OAuth handler with the session token
               const response = await supabase.functions.invoke('spotify-oauth-handler', {
                 headers: {
                   Authorization: `Bearer ${session.access_token}`,
+                  'Content-Type': 'application/json',
                 },
+                body: {
+                  // Pass session data to help with token extraction
+                  sessionData: {
+                    provider_token: session.provider_token,
+                    provider_refresh_token: session.provider_refresh_token,
+                    user_metadata: session.user.user_metadata
+                  }
+                }
               });
               
-              console.log('=== OAUTH HANDLER RESPONSE ===', response);
+              console.log('=== OAUTH HANDLER RESPONSE ===', {
+                error: response.error,
+                data: response.data,
+                status: response.status
+              });
               
               if (response.error) {
                 console.error('Failed to store Spotify connection:', response.error);
+                // Don't throw - this shouldn't block the user experience
               } else {
-                console.log('Spotify connection stored successfully');
+                console.log('Spotify connection stored successfully:', response.data);
               }
             } catch (error) {
               console.error('Error calling spotify-oauth-handler:', error);
+              // Don't throw - this shouldn't block the user experience
             }
-          }, 2000); // Increased delay to 2 seconds
+          }, 1000); // Reduced delay to 1 second for faster response
         }
 
         // Handle sign out event
@@ -92,7 +112,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('Initial session check:', {
           hasSession: !!session,
           userId: session?.user?.id,
-          provider: session?.user?.app_metadata?.provider
+          provider: session?.user?.app_metadata?.provider,
+          hasProviderToken: !!session?.provider_token
         });
       }
       setSession(session);
