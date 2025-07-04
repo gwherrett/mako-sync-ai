@@ -107,25 +107,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const signOut = async () => {
-    console.log('=== CONTEXT SIGNING OUT ===');
+    console.log('=== UNIFIED SIGN OUT PROCESS STARTING ===');
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Error during sign out:', error);
-        throw error;
-      }
-      
-      // Clear local state
+      // Clear local storage of any auth-related data
+      console.log('Clearing local storage...');
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+          localStorage.removeItem(key);
+        }
+      });
+
+      // Clear local state immediately
       setSession(null);
       setUser(null);
       
-      console.log('=== CONTEXT SIGN OUT COMPLETE ===');
+      // Sign out from Supabase with global scope
+      console.log('Calling Supabase signOut...');
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
+      if (error) {
+        console.error('Supabase sign out error:', error);
+        // Don't throw - continue with redirect even if this fails
+      }
       
-      // Force redirect to auth page
-      window.location.href = '/auth';
+      console.log('=== SIGN OUT COMPLETE, REDIRECTING ===');
+      
+      // Force a complete page refresh to /auth to ensure clean state
+      window.location.replace('/auth');
+      
     } catch (error) {
-      console.error('Error during sign out:', error);
-      throw error;
+      console.error('Error during sign out process:', error);
+      // Even if there's an error, still redirect to auth page
+      window.location.replace('/auth');
     }
   };
 

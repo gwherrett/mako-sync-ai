@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -86,35 +87,7 @@ export const useSpotifyAuth = () => {
     }
   };
 
-  const disconnectSpotify = async () => {
-    console.log('=== STARTING SIGN OUT PROCESS ===');
-    try {
-      // Clear local state first
-      setIsConnected(false);
-      setConnection(null);
-      
-      // Sign out from Supabase
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error('Sign out error:', error);
-        throw error;
-      }
-      
-      console.log('Sign out successful, redirecting to auth page');
-      
-      // Force redirect to auth page
-      window.location.href = '/auth';
-      
-    } catch (error: any) {
-      console.error('Error during sign out:', error);
-      toast({
-        title: "Sign Out Failed",
-        description: error.message || "Failed to sign out",
-        variant: "destructive",
-      });
-    }
-  };
+  // Remove the disconnectSpotify function - we'll use the AuthContext signOut instead
 
   const syncLikedSongs = async () => {
     console.log('=== STARTING SYNC PROCESS ===');
@@ -212,7 +185,6 @@ export const useSpotifyAuth = () => {
     isLoading,
     isSyncing,
     connection,
-    disconnectSpotify,
     syncLikedSongs,
     checkConnection,
   };
