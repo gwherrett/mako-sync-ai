@@ -38,11 +38,10 @@ serve(async (req) => {
     
     const { code, state } = requestBody
 
-    // Get the dynamic redirect URI from the request origin
-    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/')
-    const redirectUri = `${origin}/spotify-callback`
+    // Use hardcoded redirect URI to match exactly what the frontend sends
+    const redirectUri = 'https://groove-sync-serato-ai.lovable.app/spotify-callback'
 
-    console.log('Using redirect URI:', redirectUri)
+    console.log('Using hardcoded redirect URI:', redirectUri)
     console.log('Using client ID:', Deno.env.get('SPOTIFY_CLIENT_ID') ? 'present' : 'missing')
     console.log('Using client secret:', Deno.env.get('SPOTIFY_CLIENT_SECRET') ? 'present' : 'missing')
 
@@ -135,7 +134,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('=== SPOTIFY AUTH ERROR ===', error)
     return new Response(
       JSON.stringify({ error: `Server error: ${error.message}` }),
