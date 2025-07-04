@@ -17,14 +17,38 @@ const Auth = () => {
   useEffect(() => {
     // Check if user is already logged in
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Auth page: Checking for existing session...');
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Session check error:', error);
+        return;
+      }
+      
       if (session) {
         console.log('User already logged in, redirecting to home');
         navigate('/');
       }
     };
+    
     checkUser();
-  }, [navigate]);
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth page: Auth state change:', event, !!session);
+      
+      if (event === 'SIGNED_IN' && session) {
+        console.log('User signed in, redirecting to home');
+        toast({
+          title: "Welcome!",
+          description: "Successfully signed in with Spotify",
+        });
+        navigate('/');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate, toast]);
 
   const handleSpotifySignIn = async () => {
     console.log('=== INITIATING SPOTIFY SIGN IN ===');
