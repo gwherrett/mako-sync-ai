@@ -30,6 +30,12 @@ serve(async (req) => {
 
     const { code, state } = await req.json()
 
+    // Get the dynamic redirect URI from the request origin
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/')
+    const redirectUri = `${origin}/spotify-callback`
+
+    console.log('Using redirect URI:', redirectUri)
+
     // Exchange code for access token
     const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
@@ -40,7 +46,7 @@ serve(async (req) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: 'https://35081466-afa9-452e-a327-4407ade38c42.lovableproject.com/spotify-callback',
+        redirect_uri: redirectUri,
       }),
     })
 
