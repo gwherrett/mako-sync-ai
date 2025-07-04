@@ -3,6 +3,7 @@ import React from 'react';
 import SpotifyHeader from '@/components/SpotifyHeader';
 import StatsOverview from '@/components/StatsOverview';
 import MetadataExtractor from '@/components/MetadataExtractor';
+import SpotifySync from '@/components/SpotifySync';
 
 const Index = () => {
   return (
@@ -17,7 +18,11 @@ const Index = () => {
           </p>
         </div>
         
-        <StatsOverview />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <SpotifySync />
+          <StatsOverview />
+        </div>
+        
         <MetadataExtractor />
       </main>
     </div>
