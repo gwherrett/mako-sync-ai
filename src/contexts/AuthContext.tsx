@@ -44,7 +44,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           currentPath: window.location.pathname
         });
         
-        // Set state immediately
+        // Set state immediately - this is critical
+        console.log('Setting session and user state...');
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);

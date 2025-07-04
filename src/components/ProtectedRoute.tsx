@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -11,7 +11,6 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, session, loading } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
 
   console.log('=== PROTECTED ROUTE CHECK ===', { 
     hasUser: !!user, 
@@ -21,18 +20,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     timestamp: new Date().toISOString()
   });
 
-  // Add a small delay to prevent race conditions
-  React.useEffect(() => {
-    if (!loading && !user && location.pathname !== '/auth') {
-      console.log('ProtectedRoute: No user found after loading complete, scheduling redirect...');
-      // Use a small timeout to avoid race conditions
-      setTimeout(() => {
-        console.log('ProtectedRoute: Executing redirect to auth');
-        navigate('/auth', { replace: true });
-      }, 100);
-    }
-  }, [user, loading, location.pathname, navigate]);
-
+  // Still loading - show loading state
   if (loading) {
     console.log('ProtectedRoute: Still loading auth state');
     return (
@@ -42,9 +30,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
+  // No user or session - redirect to auth but prevent render loops
   if (!user || !session) {
-    console.log('ProtectedRoute: No user or session found');
-    return null; // Let the useEffect handle the redirect
+    console.log('ProtectedRoute: No user or session found, redirecting...');
+    // Use window.location to ensure clean redirect without React Router loops
+    if (location.pathname !== '/auth') {
+      window.location.href = '/auth';
+    }
+    return null;
   }
 
   console.log('ProtectedRoute: User authenticated, rendering children');
