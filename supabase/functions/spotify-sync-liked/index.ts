@@ -133,11 +133,11 @@ serve(async (req) => {
     }
 
     // Insert new songs in batches
-    const batchSize = 100
+    const insertBatchSize = 100
     let insertedCount = 0
     
-    for (let i = 0; i < songsToInsert.length; i += batchSize) {
-      const batch = songsToInsert.slice(i, i + batchSize)
+    for (let i = 0; i < songsToInsert.length; i += insertBatchSize) {
+      const batch = songsToInsert.slice(i, i + insertBatchSize)
       
       const { error: insertError } = await supabaseClient
         .from('spotify_liked')
