@@ -20,8 +20,15 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
   })
 
   if (!refreshResponse.ok) {
-    console.error('Token refresh failed:', refreshResponse.status)
-    throw new Error('Failed to refresh Spotify token')
+    const errorText = await refreshResponse.text()
+    console.error('Token refresh failed:', refreshResponse.status, errorText)
+    
+    // If refresh token is invalid, we need a fresh connection
+    if (refreshResponse.status === 400) {
+      throw new Error('Spotify refresh token is invalid. Please disconnect and reconnect your Spotify account to get fresh tokens.')
+    }
+    
+    throw new Error(`Failed to refresh Spotify token: ${refreshResponse.status} - ${errorText}`)
   }
 
   const refreshData = await refreshResponse.json()
