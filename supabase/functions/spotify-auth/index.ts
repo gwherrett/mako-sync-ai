@@ -34,14 +34,18 @@ serve(async (req) => {
     console.log('User authenticated:', user.id)
 
     const requestBody = await req.json()
-    console.log('Request body received:', { code: requestBody.code ? 'present' : 'missing', state: requestBody.state })
+    console.log('Request body received:', { 
+      code: requestBody.code ? 'present' : 'missing', 
+      state: requestBody.state,
+      redirect_uri: requestBody.redirect_uri || 'not provided'
+    })
     
-    const { code, state } = requestBody
+    const { code, state, redirect_uri } = requestBody
 
-    // Use hardcoded redirect URI to match exactly what the frontend sends
-    const redirectUri = 'https://groove-sync-serato-ai.lovable.app/spotify-callback'
+    // Use the redirect_uri from the request, with fallback to hardcoded value
+    const redirectUri = redirect_uri || 'https://groove-sync-serato-ai.lovable.app/spotify-callback';
 
-    console.log('Using hardcoded redirect URI:', redirectUri)
+    console.log('Using redirect URI:', redirectUri)
     console.log('Using client ID:', Deno.env.get('SPOTIFY_CLIENT_ID') ? 'present' : 'missing')
     console.log('Using client secret:', Deno.env.get('SPOTIFY_CLIENT_SECRET') ? 'present' : 'missing')
 

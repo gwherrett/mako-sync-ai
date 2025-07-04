@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,8 +64,11 @@ const SpotifyCallback = () => {
           return;
         }
 
+        // Send the current origin's redirect URI to the edge function
+        const redirectUri = `${window.location.origin}/spotify-callback`;
+
         const response = await supabase.functions.invoke('spotify-auth', {
-          body: { code, state },
+          body: { code, state, redirect_uri: redirectUri },
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },

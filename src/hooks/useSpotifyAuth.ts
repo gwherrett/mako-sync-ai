@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -124,8 +123,8 @@ export const useSpotifyAuth = () => {
       'playlist-read-collaborative'
     ].join(' ');
 
-    // Use hardcoded redirect URI to match edge function and Spotify app settings
-    const redirectUri = 'https://groove-sync-serato-ai.lovable.app/spotify-callback';
+    // Use current origin for redirect URI
+    const redirectUri = `${window.location.origin}/spotify-callback`;
     
     const authUrl = new URL('https://accounts.spotify.com/authorize');
     authUrl.searchParams.append('client_id', '3bac088a26d64ddfb49d57fb5d451d71');
