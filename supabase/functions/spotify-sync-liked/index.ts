@@ -140,19 +140,36 @@ serve(async (req) => {
     
     for (let i = 0; i < albumIds.length; i += batchSize) {
       const batchIds = albumIds.slice(i, i + batchSize)
+      console.log(`Fetching batch ${Math.floor(i/batchSize) + 1}: ${batchIds.length} albums`)
+      
       const albumResponse = await fetch(`https://api.spotify.com/v1/albums?ids=${batchIds.join(',')}`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
       })
       
+      console.log(`Album API response status: ${albumResponse.status}`)
+      
       if (albumResponse.ok) {
         const albumData = await albumResponse.json()
-        albumData.albums.forEach((album: any) => {
-          if (album && album.genres) {
-            albumGenres[album.id] = album.genres
-          }
-        })
+        console.log(`Received ${albumData.albums?.length || 0} albums in response`)
+        
+        if (albumData.albums) {
+          albumData.albums.forEach((album: any, index: number) => {
+            if (album) {
+              console.log(`Album ${index + 1}: ${album.name} - Genres: ${album.genres?.join(', ') || 'No genres'}`)
+              if (album.genres && album.genres.length > 0) {
+                albumGenres[album.id] = album.genres
+              }
+            } else {
+              console.log(`Album ${index + 1}: null/undefined`)
+            }
+          })
+        }
+      } else {
+        console.error(`Failed to fetch albums batch: ${albumResponse.status} ${albumResponse.statusText}`)
+        const errorText = await albumResponse.text()
+        console.error(`Error response: ${errorText}`)
       }
     }
 
