@@ -14,8 +14,16 @@ export async function fetchAllLikedSongs(accessToken: string): Promise<SpotifyTr
     })
 
     if (!response.ok) {
-      console.error(`Failed to fetch tracks: ${response.status} ${response.statusText}`)
-      throw new Error('Failed to fetch liked songs from Spotify')
+      const errorText = await response.text()
+      console.error(`Failed to fetch tracks: ${response.status} ${response.statusText} - ${errorText}`)
+      
+      if (response.status === 403) {
+        throw new Error(`Spotify API returned 403 Forbidden. This could be a scope issue or app approval issue. Response: ${errorText}`)
+      } else if (response.status === 401) {
+        throw new Error('Spotify token invalid')
+      }
+      
+      throw new Error(`Failed to fetch liked songs from Spotify: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json()
