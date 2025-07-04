@@ -6,7 +6,7 @@ import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { useAuth } from '@/contexts/AuthContext';
 
 const SpotifyHeader = () => {
-  const { isConnected, isLoading, isSyncing, connectSpotify, disconnectSpotify, syncLikedSongs } = useSpotifyAuth();
+  const { isConnected, isLoading, isSyncing, disconnectSpotify, syncLikedSongs } = useSpotifyAuth();
   const { user, signOut } = useAuth();
 
   return (
@@ -67,12 +67,9 @@ const SpotifyHeader = () => {
               </Button>
             </div>
           ) : (
-            <Button 
-              onClick={connectSpotify}
-              className="spotify-gradient text-black font-medium hover:opacity-90 transition-opacity"
-            >
-              Connect Spotify
-            </Button>
+            <div className="text-sm text-gray-400">
+              Spotify connection loading...
+            </div>
           )}
           
           <Button
