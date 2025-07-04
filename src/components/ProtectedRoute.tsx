@@ -12,63 +12,59 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, session, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [isChecking, setIsChecking] = useState(true);
+  const [hasChecked, setHasChecked] = useState(false);
 
-  console.log('=== PROTECTED ROUTE CHECK ===', { 
+  console.log('ProtectedRoute render:', { 
     hasUser: !!user, 
     hasSession: !!session,
     loading, 
-    isChecking,
-    currentPath: location.pathname,
-    timestamp: new Date().toISOString()
+    hasChecked,
+    currentPath: location.pathname 
   });
 
   useEffect(() => {
+    console.log('ProtectedRoute useEffect:', { loading, user: !!user, session: !!session });
+    
     if (!loading) {
-      // Give a brief moment for the auth state to settle
-      const timer = setTimeout(() => {
-        console.log('ProtectedRoute: Auth check completed');
-        setIsChecking(false);
-        
-        // If no user/session after loading completes, redirect to auth
-        if (!user || !session) {
-          console.log('ProtectedRoute: No auth found, redirecting to /auth');
-          navigate('/auth', { replace: true });
-        }
-      }, 500);
-
-      return () => clearTimeout(timer);
+      console.log('Auth loading complete, checking authentication...');
+      
+      if (!user || !session) {
+        console.log('No authentication found, redirecting to /auth');
+        navigate('/auth', { replace: true });
+      } else {
+        console.log('User authenticated, allowing access');
+      }
+      
+      setHasChecked(true);
     }
   }, [loading, user, session, navigate]);
 
-  // Show loading while auth is initializing or we're checking
-  if (loading || isChecking) {
-    console.log('ProtectedRoute: Showing loading state');
+  // Show loading while auth is still loading or we haven't checked yet
+  if (loading || !hasChecked) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-green-400 mx-auto mb-4" />
           <p className="text-white text-sm">
-            {loading ? 'Loading...' : 'Checking authentication...'}
+            {loading ? 'Loading authentication...' : 'Checking access...'}
           </p>
         </div>
       </div>
     );
   }
 
-  // If we have user and session, render the protected content
+  // If we have authentication, render the protected content
   if (user && session) {
-    console.log('ProtectedRoute: User authenticated, rendering children');
+    console.log('Rendering protected content for authenticated user');
     return <>{children}</>;
   }
 
   // This should not happen due to the redirect above, but just in case
-  console.log('ProtectedRoute: Fallback - no auth, should redirect');
   return (
     <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black flex items-center justify-center">
       <div className="text-center">
         <Loader2 className="w-8 h-8 animate-spin text-green-400 mx-auto mb-4" />
-        <p className="text-white text-sm">Redirecting...</p>
+        <p className="text-white text-sm">Redirecting to sign in...</p>
       </div>
     </div>
   );

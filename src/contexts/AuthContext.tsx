@@ -30,37 +30,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('=== AuthProvider: Setting up auth state listener ===');
+    console.log('AuthProvider: Initializing auth state...');
     
-    // Set up auth state listener
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      console.log('Initial session check:', { 
+        hasSession: !!session, 
+        userId: session?.user?.id,
+        error: error?.message 
+      });
+      
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('=== AUTH STATE CHANGE ===', event, {
+      (event, session) => {
+        console.log('Auth state change:', event, { 
           hasSession: !!session,
           userId: session?.user?.id,
-          provider: session?.user?.app_metadata?.provider,
-          hasProviderToken: !!session?.provider_token,
-          currentPath: window.location.pathname
+          provider: session?.user?.app_metadata?.provider
         });
         
-        // Set state immediately
-        console.log('Setting session and user state...');
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Handle different auth events
         if (event === 'SIGNED_IN') {
           console.log('User signed in successfully');
           
-          // When user signs in via OAuth, store their Spotify connection
+          // Handle Spotify OAuth connection storage
           if (session?.user?.app_metadata?.provider === 'spotify') {
-            console.log('=== SPOTIFY OAUTH DETECTED ===');
+            console.log('Spotify OAuth detected, calling handler...');
             
-            // Call the OAuth handler with a delay to ensure session is established
             setTimeout(async () => {
               try {
-                console.log('=== CALLING OAUTH HANDLER ===');
-                
                 const response = await supabase.functions.invoke('spotify-oauth-handler', {
                   headers: {
                     Authorization: `Bearer ${session.access_token}`,
@@ -75,92 +80,56 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   }
                 });
                 
-                console.log('=== OAUTH HANDLER RESPONSE ===', {
-                  error: response.error,
-                  data: response.data
-                });
-                
-                if (response.error) {
-                  console.error('Failed to store Spotify connection:', response.error);
-                } else {
-                  console.log('Spotify connection stored successfully:', response.data);
-                }
+                console.log('OAuth handler response:', response);
               } catch (error) {
                 console.error('Error calling spotify-oauth-handler:', error);
               }
-            }, 1000);
+            }, 500);
           }
-          
-          // Set loading to false after a brief delay to allow everything to settle
-          setTimeout(() => {
-            setLoading(false);
-          }, 1000);
         } else if (event === 'SIGNED_OUT') {
-          console.log('=== USER SIGNED OUT ===');
+          console.log('User signed out');
           setSession(null);
           setUser(null);
-          setLoading(false);
-        } else {
-          setLoading(false);
         }
+        
+        setLoading(false);
       }
     );
 
-    // Check for existing session
-    console.log('=== Checking for existing session ===');
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.error('Error getting session:', error);
-        setLoading(false);
-      } else {
-        console.log('Initial session check:', {
-          hasSession: !!session,
-          userId: session?.user?.id,
-          provider: session?.user?.app_metadata?.provider,
-          currentPath: window.location.pathname
-        });
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    });
-
     return () => {
-      console.log('=== Cleaning up auth subscription ===');
+      console.log('Cleaning up auth subscription');
       subscription.unsubscribe();
     };
   }, []);
 
   const signOut = async () => {
-    console.log('=== SIGN OUT PROCESS STARTING ===');
+    console.log('Starting sign out process...');
     try {
-      // Clear local storage of any auth-related data
-      console.log('Clearing local storage...');
+      // Clear local state immediately
+      setSession(null);
+      setUser(null);
+      
+      // Clear local storage
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
           localStorage.removeItem(key);
         }
       });
 
-      // Clear local state immediately
-      setSession(null);
-      setUser(null);
-      
-      // Sign out from Supabase with global scope
-      console.log('Calling Supabase signOut...');
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut({ scope: 'global' });
       if (error) {
         console.error('Supabase sign out error:', error);
       }
       
-      console.log('=== SIGN OUT COMPLETE ===');
+      console.log('Sign out complete, redirecting...');
       
-      // Redirect to auth page with signedOut parameter
+      // Force redirect to auth page
       window.location.href = '/auth?signedOut=true';
       
     } catch (error) {
-      console.error('Error during sign out process:', error);
-      // Even if there's an error, still redirect to auth page
+      console.error('Error during sign out:', error);
+      // Still redirect even if there's an error
       window.location.href = '/auth?signedOut=true';
     }
   };
@@ -171,6 +140,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     signOut,
   };
+
+  console.log('AuthProvider render:', { 
+    hasUser: !!user, 
+    hasSession: !!session, 
+    loading 
+  });
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

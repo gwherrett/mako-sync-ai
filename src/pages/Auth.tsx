@@ -16,47 +16,34 @@ const Auth = () => {
   const { user, session, loading } = useAuth();
   const signedOut = searchParams.get('signedOut') === 'true';
 
+  console.log('Auth page render:', { 
+    hasUser: !!user, 
+    hasSession: !!session, 
+    loading, 
+    signedOut,
+    currentPath: window.location.pathname 
+  });
+
   // Redirect if already authenticated
   useEffect(() => {
+    console.log('Auth page useEffect:', { loading, user: !!user, session: !!session });
+    
     if (!loading && user && session) {
-      console.log('Auth page: User already authenticated, redirecting to home');
+      console.log('User already authenticated, redirecting to home');
       navigate('/', { replace: true });
     }
   }, [user, session, loading, navigate]);
 
-  useEffect(() => {
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth page: Auth state change:', event, !!session);
-      
-      if (event === 'SIGNED_IN' && session) {
-        console.log('User signed in, redirecting to home');
-        toast({
-          title: "Welcome!",
-          description: "Successfully signed in with Spotify",
-        });
-        navigate('/', { replace: true });
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate, toast]);
-
   const handleSpotifySignIn = async () => {
-    console.log('=== INITIATING SPOTIFY SIGN IN ===');
+    console.log('Starting Spotify sign in process...');
     setIsLoading(true);
 
     try {
-      console.log('Starting Spotify OAuth...');
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'spotify',
         options: {
           scopes: 'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative',
           redirectTo: `${window.location.origin}/`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent'
-          }
         }
       });
       
@@ -95,7 +82,7 @@ const Auth = () => {
       <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-green-400 mx-auto mb-4" />
-          <p className="text-white text-sm">Redirecting...</p>
+          <p className="text-white text-sm">Redirecting to app...</p>
         </div>
       </div>
     );
