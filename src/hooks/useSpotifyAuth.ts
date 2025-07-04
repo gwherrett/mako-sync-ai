@@ -127,7 +127,8 @@ export const useSpotifyAuth = () => {
     const authUrl = new URL('https://accounts.spotify.com/authorize');
     authUrl.searchParams.append('client_id', '3bac088a26d64ddfb49d57fb5d451d71');
     authUrl.searchParams.append('response_type', 'code');
-    authUrl.searchParams.append('redirect_uri', window.location.origin + '/spotify-callback');
+    // Use hardcoded redirect URI to match edge function and Spotify app settings
+    authUrl.searchParams.append('redirect_uri', 'https://groove-sync-serato-ai.lovable.app/spotify-callback');
     authUrl.searchParams.append('scope', scopes);
     authUrl.searchParams.append('state', state);
 
