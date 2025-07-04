@@ -110,9 +110,12 @@ export const useSpotifyAuth = () => {
       }
 
       if (data?.authUrl) {
+        // Add the session token to the auth URL so the callback can access it
+        const authUrlWithToken = `${data.authUrl}&access_token=${encodeURIComponent(session.access_token)}`;
+        
         // Open popup window for Spotify auth
         const popup = window.open(
-          data.authUrl,
+          authUrlWithToken,
           'spotify-auth',
           'width=600,height=700,scrollbars=yes,resizable=yes'
         );

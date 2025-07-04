@@ -20,8 +20,13 @@ serve(async (req) => {
     const url = new URL(req.url)
     const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
+    const accessToken = url.searchParams.get('access_token')
     
-    console.log('URL parameters:', { code: code ? 'present' : 'missing', state })
+    console.log('URL parameters:', { 
+      code: code ? 'present' : 'missing', 
+      state,
+      accessToken: accessToken ? 'present' : 'missing'
+    })
 
     // Use a fixed redirect URI that matches your Spotify app settings
     const redirectUri = 'https://bzzstdpfmyqttnzhgaoa.supabase.co/functions/v1/spotify-auth'
@@ -58,10 +63,22 @@ serve(async (req) => {
     // If code is present, this is the callback from Spotify - handle token exchange
     console.log('Code found, handling callback...')
     
+    // Get the access token from the URL parameter (passed from the popup)
+    if (!accessToken) {
+      console.error('No access token provided in callback')
+      return new Response(
+        `<html><body><script>
+          window.opener?.postMessage({ error: 'No access token provided' }, '*');
+          window.close();
+        </script></body></html>`,
+        { headers: { ...corsHeaders, 'Content-Type': 'text/html' } }
+      )
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
     )
 
     const { data: { user } } = await supabaseClient.auth.getUser()
