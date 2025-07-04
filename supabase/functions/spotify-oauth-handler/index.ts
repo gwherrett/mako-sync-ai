@@ -32,16 +32,26 @@ serve(async (req) => {
     }
 
     console.log('User authenticated via OAuth:', user.id)
+    console.log('User metadata:', JSON.stringify(user.user_metadata, null, 2))
+    console.log('App metadata:', JSON.stringify(user.app_metadata, null, 2))
 
     // Get Spotify access token from user metadata
     const spotifyToken = user.user_metadata?.provider_token
-    const spotifyRefreshToken = user.user_metadata?.provider_refresh_token
+    const spotifyRefreshToken = user.user_metadata?.provider_refresh_token 
     const spotifyData = user.user_metadata
 
     if (!spotifyToken) {
       console.error('No Spotify token found in user metadata')
+      console.log('Available metadata keys:', Object.keys(user.user_metadata || {}))
       return new Response(
-        JSON.stringify({ error: 'No Spotify token found' }),
+        JSON.stringify({ 
+          error: 'No Spotify token found',
+          debug: {
+            hasUserMetadata: !!user.user_metadata,
+            metadataKeys: Object.keys(user.user_metadata || {}),
+            provider: user.app_metadata?.provider
+          }
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -57,13 +67,21 @@ serve(async (req) => {
       expires_at: new Date(Date.now() + 3600 * 1000).toISOString(), // 1 hour from now
       scope: 'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative',
       token_type: 'Bearer',
-      display_name: spotifyData?.name,
+      display_name: spotifyData?.name || spotifyData?.display_name,
       email: user.email,
     }
 
+    console.log('Connection data to store:', {
+      ...connectionData,
+      access_token: '[REDACTED]',
+      refresh_token: spotifyRefreshToken ? '[REDACTED]' : null
+    })
+
     const { error: dbError } = await supabaseClient
       .from('spotify_connections')
-      .upsert(connectionData)
+      .upsert(connectionData, {
+        onConflict: 'user_id'
+      })
 
     if (dbError) {
       console.error('Database error:', dbError)

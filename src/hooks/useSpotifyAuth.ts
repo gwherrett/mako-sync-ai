@@ -35,13 +35,29 @@ export const useSpotifyAuth = () => {
         return;
       }
 
+      // For OAuth users, we should always have a connection
+      // Let's check if it exists, and if not, try to create it from the session
       const { data, error } = await supabase
         .from('spotify_connections')
         .select('*')
         .eq('user_id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error && error.code === 'PGRST116') {
+        // No connection found, but user is authenticated via Spotify OAuth
+        // This means we need to create the connection from the session data
+        console.log('No Spotify connection found, checking session for OAuth data...');
+        
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.app_metadata?.provider === 'spotify') {
+          console.log('User authenticated via Spotify OAuth, connection should be created by edge function');
+          // Connection should be created by the oauth handler, let's wait a moment and check again
+          setTimeout(checkConnection, 1000);
+          return;
+        }
+        
+        setIsConnected(false);
+      } else if (error) {
         console.error('Error checking Spotify connection:', error);
         setIsConnected(false);
       } else if (data) {
@@ -58,54 +74,13 @@ export const useSpotifyAuth = () => {
     }
   };
 
-  const refreshTokens = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast({
-          title: "Authentication Required",
-          description: "Please log in to refresh tokens",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Call the sync function to trigger token refresh
-      const response = await supabase.functions.invoke('spotify-sync-liked', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-
-      // Refresh the connection state
-      await checkConnection();
-
-      toast({
-        title: "Tokens Refreshed",
-        description: "Spotify tokens have been refreshed successfully",
-      });
-    } catch (error: any) {
-      console.error('Token refresh error:', error);
-      toast({
-        title: "Refresh Failed",
-        description: `Failed to refresh tokens: ${error.message}`,
-        variant: "destructive",
-      });
-    }
-  };
-
   const disconnectSpotify = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) return;
 
-      // Sign out completely since Spotify is the auth provider
+      // Since Spotify is now the auth provider, we need to sign out completely
       await supabase.auth.signOut();
       
       toast({
@@ -136,20 +111,28 @@ export const useSpotifyAuth = () => {
         return;
       }
 
+      console.log('Starting sync with session:', session.user?.id);
+
       const response = await supabase.functions.invoke('spotify-sync-liked', {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
 
+      console.log('Sync response:', response);
+
       if (response.error) {
-        throw new Error(response.error.message);
+        console.error('Sync error:', response.error);
+        throw new Error(response.error.message || 'Sync failed');
       }
 
       toast({
         title: "Sync Complete",
-        description: `${response.data.message}`,
+        description: response.data?.message || "Successfully synced your liked songs",
       });
+
+      // Refresh connection status after successful sync
+      await checkConnection();
     } catch (error: any) {
       console.error('Sync error:', error);
       toast({
@@ -174,6 +157,5 @@ export const useSpotifyAuth = () => {
     disconnectSpotify,
     syncLikedSongs,
     checkConnection,
-    refreshTokens,
   };
 };
