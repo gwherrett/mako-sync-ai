@@ -23,6 +23,9 @@ serve(async (req) => {
     
     console.log('URL parameters:', { code: code ? 'present' : 'missing', state })
 
+    // Use a fixed redirect URI that matches your Spotify app settings
+    const redirectUri = 'https://bzzstdpfmyqttnzhgaoa.supabase.co/functions/v1/spotify-auth'
+
     // If no code is present, this is the initial auth request - return the auth URL
     if (!code) {
       console.log('No code found, generating auth URL...')
@@ -36,7 +39,6 @@ serve(async (req) => {
         )
       }
 
-      const redirectUri = `${url.origin}${url.pathname}`
       const scopes = 'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative'
       
       const authUrl = `https://accounts.spotify.com/authorize?` +
@@ -46,7 +48,7 @@ serve(async (req) => {
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
         `state=${Math.random().toString(36).substring(7)}`
 
-      console.log('Generated auth URL:', authUrl)
+      console.log('Generated auth URL with redirect URI:', redirectUri)
       return new Response(
         JSON.stringify({ authUrl }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -76,9 +78,7 @@ serve(async (req) => {
     }
 
     console.log('User authenticated:', user.id)
-
-    const redirectUri = `${url.origin}${url.pathname}`
-    console.log('Using redirect URI:', redirectUri)
+    console.log('Using redirect URI for token exchange:', redirectUri)
 
     // Exchange code for access token
     const tokenRequestBody = new URLSearchParams({
