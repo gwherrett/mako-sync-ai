@@ -77,17 +77,50 @@ serve(async (req) => {
 
     console.log(`Fetched ${allTracks.length} liked songs from Spotify`)
 
+    // Get unique album IDs for genre fetching
+    const albumIds = [...new Set(allTracks.map(item => item.track.album.id))].filter(Boolean)
+    console.log(`Found ${albumIds.length} unique albums`)
+    
+    // Fetch album details in batches to get genres
+    const albumGenres: { [key: string]: string[] } = {}
+    const batchSize = 20 // Spotify allows up to 20 albums per request
+    
+    for (let i = 0; i < albumIds.length; i += batchSize) {
+      const batchIds = albumIds.slice(i, i + batchSize)
+      const albumResponse = await fetch(`https://api.spotify.com/v1/albums?ids=${batchIds.join(',')}`, {
+        headers: {
+          'Authorization': `Bearer ${connection.access_token}`,
+        },
+      })
+      
+      if (albumResponse.ok) {
+        const albumData = await albumResponse.json()
+        albumData.albums.forEach((album: any) => {
+          if (album && album.genres) {
+            albumGenres[album.id] = album.genres
+          }
+        })
+      }
+    }
+
+    console.log(`Fetched genres for ${Object.keys(albumGenres).length} albums`)
+
     // Process and store songs
-    const songsToInsert = allTracks.map(item => ({
-      user_id: user.id,
-      spotify_id: item.track.id,
-      title: item.track.name,
-      artist: item.track.artists.map((artist: any) => artist.name).join(', '),
-      album: item.track.album.name,
-      genre: item.track.album.genres?.join(', ') || null,
-      year: item.track.album.release_date ? new Date(item.track.album.release_date).getFullYear() : null,
-      added_at: item.added_at,
-    }))
+    const songsToInsert = allTracks.map(item => {
+      const albumId = item.track.album.id
+      const genres = albumGenres[albumId] || []
+      
+      return {
+        user_id: user.id,
+        spotify_id: item.track.id,
+        title: item.track.name,
+        artist: item.track.artists.map((artist: any) => artist.name).join(', '),
+        album: item.track.album.name,
+        genre: genres.length > 0 ? genres.join(', ') : null,
+        year: item.track.album.release_date ? new Date(item.track.album.release_date).getFullYear() : null,
+        added_at: item.added_at,
+      }
+    })
 
     // Clear existing songs and insert new ones
     const { error: deleteError } = await supabaseClient
