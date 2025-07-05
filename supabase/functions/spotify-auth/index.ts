@@ -57,11 +57,20 @@ serve(async (req) => {
     })
 
     console.log('Making token request to Spotify...')
+    console.log('Token request body:', {
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+      code: code ? 'present' : 'missing'
+    })
+    
+    const authHeader = `Basic ${btoa(`${Deno.env.get('SPOTIFY_CLIENT_ID')}:${Deno.env.get('SPOTIFY_CLIENT_SECRET')}`)}`;
+    console.log('Auth header created, length:', authHeader.length)
+    
     const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${btoa(`${Deno.env.get('SPOTIFY_CLIENT_ID')}:${Deno.env.get('SPOTIFY_CLIENT_SECRET')}`)}`,
+        'Authorization': authHeader,
       },
       body: tokenRequestBody,
     })
