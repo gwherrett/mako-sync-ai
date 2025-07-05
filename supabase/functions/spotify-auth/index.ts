@@ -71,13 +71,19 @@ serve(async (req) => {
     console.log('Token response data:', { 
       error: tokenData.error, 
       access_token: tokenData.access_token ? 'present' : 'missing',
-      refresh_token: tokenData.refresh_token ? 'present' : 'missing'
+      refresh_token: tokenData.refresh_token ? 'present' : 'missing',
+      error_description: tokenData.error_description
     })
 
     if (tokenData.error) {
       console.error('Spotify token exchange failed:', tokenData)
       return new Response(
-        JSON.stringify({ error: `Spotify auth failed: ${tokenData.error} - ${tokenData.error_description}` }),
+        JSON.stringify({ 
+          error: `Spotify auth failed: ${tokenData.error}`, 
+          details: tokenData.error_description,
+          redirect_uri: redirectUri,
+          client_id: Deno.env.get('SPOTIFY_CLIENT_ID') ? 'configured' : 'missing'
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
