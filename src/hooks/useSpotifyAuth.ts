@@ -119,10 +119,11 @@ export const useSpotifyAuth = () => {
     
     const scopes = [
       'user-read-private',
-      'user-read-email',
+      'user-read-email', 
       'user-library-read',
       'playlist-read-private',
-      'playlist-read-collaborative'
+      'playlist-read-collaborative',
+      'user-top-read'  // Required for audio features
     ].join(' ');
 
     // Use current origin for redirect URI
