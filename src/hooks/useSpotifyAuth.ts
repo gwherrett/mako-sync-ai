@@ -137,9 +137,17 @@ export const useSpotifyAuth = () => {
     authUrl.searchParams.append('state', state);
 
     console.log('=== SPOTIFY AUTH DEBUG ===');
+    console.log('Window location origin:', window.location.origin);
+    console.log('Window location href:', window.location.href);
     console.log('Redirect URI being used:', redirectUri);
+    console.log('Scopes being requested:', scopes);
+    console.log('Client ID:', '3bac088a26d64ddfb49d57fb5d451d71');
+    console.log('Auth URL params:');
+    console.log('  - client_id:', authUrl.searchParams.get('client_id'));
+    console.log('  - redirect_uri:', authUrl.searchParams.get('redirect_uri'));
+    console.log('  - scope:', authUrl.searchParams.get('scope'));
+    console.log('  - response_type:', authUrl.searchParams.get('response_type'));
     console.log('Full auth URL:', authUrl.toString());
-    console.log('Current origin:', window.location.origin);
     console.log('========================');
     
     // Use window.location.href for full page redirect (not popup) to avoid X-Frame-Options issue
