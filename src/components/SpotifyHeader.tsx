@@ -3,7 +3,7 @@ import React from 'react';
 import { Music2, Settings, Loader2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/NewAuthContext';
 
 const SpotifyHeader = () => {
   const { isConnected, isLoading, isSyncing, connectSpotify, disconnectSpotify, syncLikedSongs } = useSpotifyAuth();
