@@ -136,13 +136,11 @@ export const useSpotifyAuth = () => {
     authUrl.searchParams.append('scope', scopes);
     authUrl.searchParams.append('state', state);
 
-    // Debug alert to verify redirect URI
-    alert(`Debug Info:\nRedirect URI: ${redirectUri}\nOrigin: ${window.location.origin}\nFull URL: ${authUrl.toString()}`);
-    
-    console.log('=== SPOTIFY AUTH DEBUG ===');
-    console.log('Redirect URI being used:', redirectUri);
-    console.log('Full auth URL:', authUrl.toString());
-    console.log('========================');
+    console.log('=== SPOTIFY AUTH DEBUG - COPY THESE VALUES ===');
+    console.log('Redirect URI:', redirectUri);
+    console.log('Origin:', window.location.origin);
+    console.log('Full Auth URL:', authUrl.toString());
+    console.log('===============================================');
     
     // Use window.location.href for full page redirect (not popup) to avoid X-Frame-Options issue
     window.location.href = authUrl.toString();
