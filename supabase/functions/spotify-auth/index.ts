@@ -46,8 +46,17 @@ serve(async (req) => {
     const redirectUri = redirect_uri || 'https://groove-sync-serato-ai.lovable.app/spotify-callback';
 
     console.log('Using redirect URI:', redirectUri)
-    console.log('Using client ID:', Deno.env.get('SPOTIFY_CLIENT_ID') ? 'present' : 'missing')
-    console.log('Using client secret:', Deno.env.get('SPOTIFY_CLIENT_SECRET') ? 'present' : 'missing')
+    
+    const clientId = Deno.env.get('SPOTIFY_CLIENT_ID')
+    const clientSecret = Deno.env.get('SPOTIFY_CLIENT_SECRET')
+    
+    console.log('Using client ID:', clientId ? 'present' : 'missing')
+    console.log('Client ID length:', clientId ? clientId.length : 0)
+    console.log('Client ID first 8 chars:', clientId ? clientId.substring(0, 8) + '...' : 'N/A')
+    
+    console.log('Using client secret:', clientSecret ? 'present' : 'missing')
+    console.log('Client secret length:', clientSecret ? clientSecret.length : 0)
+    console.log('Client secret first 4 chars:', clientSecret ? clientSecret.substring(0, 4) + '...' : 'N/A')
 
     // Exchange code for access token
     const tokenRequestBody = new URLSearchParams({
