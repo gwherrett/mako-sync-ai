@@ -139,6 +139,24 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Spotify sync error:', error)
+    
+    // Handle specific Spotify errors with proper status codes
+    if (error.message.includes('refresh token is invalid') || 
+        error.message.includes('Spotify connection has expired')) {
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    if (error.message.includes('Spotify token invalid') || 
+        error.message.includes('403')) {
+      return new Response(
+        JSON.stringify({ error: 'Spotify authentication expired. Please disconnect and reconnect your Spotify account.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
