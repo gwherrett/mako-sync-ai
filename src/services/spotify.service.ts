@@ -98,7 +98,7 @@ export class SpotifyService {
       // Open Spotify auth in popup with specific features to ensure fresh load
       const authWindow = window.open(
         authUrl.toString(), 
-        '_blank', // Use _blank instead of custom name to force new window
+        'spotify-auth', // Use specific name to prevent showing main content
         'width=500,height=600,scrollbars=yes,resizable=yes,location=yes,menubar=no,toolbar=no,status=no'
       );
       
