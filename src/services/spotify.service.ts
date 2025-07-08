@@ -91,11 +91,11 @@ export class SpotifyService {
       authUrl.searchParams.append('scope', scopes);
       authUrl.searchParams.append('state', state);
 
-      // Break out of iframe context (Lovable preview) to redirect top-level window
-      if (window.top && window.top !== window) {
-        window.top.location.href = authUrl.toString();
-      } else {
-        window.location.href = authUrl.toString();
+      // Open Spotify auth in new tab (works in sandboxed iframes)
+      const authWindow = window.open(authUrl.toString(), 'spotify-auth', 'width=500,height=600');
+      
+      if (!authWindow) {
+        throw new Error('Popup blocked. Please allow popups for this site and try again.');
       }
 
       return { success: true };
