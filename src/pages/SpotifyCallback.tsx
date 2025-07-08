@@ -9,6 +9,11 @@ const SpotifyCallback = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Add immediate debug output
+  console.log('🟡 CALLBACK COMPONENT MOUNTED - this should appear immediately');
+  console.log('🟡 Window location:', window.location.href);
+  console.log('🟡 Is popup?', !!window.opener);
+
   useEffect(() => {
     const processCallback = async () => {
       console.log('🟡 Step 8: SpotifyCallback component loaded - URL:', window.location.href);
