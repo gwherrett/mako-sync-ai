@@ -18,7 +18,9 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== SPOTIFY SYNC STARTED - REFACTORED VERSION ===')
+    console.log('=== SPOTIFY SYNC STARTED - DEBUG VERSION ===')
+    console.log('Request method:', req.method)
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()))
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
