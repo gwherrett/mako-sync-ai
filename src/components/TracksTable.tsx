@@ -100,9 +100,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Your Liked Songs ({tracks.length} tracks)</span>
-          <Button variant="outline" size="sm" onClick={fetchTracks}>
-            Refresh
-          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent>

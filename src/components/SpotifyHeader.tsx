@@ -47,7 +47,7 @@ const SpotifyHeader = () => {
               <Button 
                 onClick={syncLikedSongs}
                 disabled={isSyncing}
-                className="spotify-gradient text-black font-medium hover:opacity-90 transition-opacity"
+                className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 transition-colors shadow-lg"
               >
                 {isSyncing ? (
                   <>
@@ -55,7 +55,7 @@ const SpotifyHeader = () => {
                     Syncing...
                   </>
                 ) : (
-                  'Sync Liked Songs'
+                  'Refresh & Sync Liked Songs'
                 )}
               </Button>
               <Button 
