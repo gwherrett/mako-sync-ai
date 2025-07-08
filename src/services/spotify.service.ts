@@ -61,16 +61,22 @@ export class SpotifyService {
 
   static async connectSpotify(): Promise<{ success: boolean; error?: string }> {
     try {
+      console.log('🔵 Step 1: Starting Spotify connection process...');
+      
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
+        console.log('❌ Step 1 Failed: User not authenticated');
         return { success: false, error: 'Please log in to connect Spotify' };
       }
+
+      console.log('✅ Step 1 Complete: User authenticated, user ID:', user.id);
 
       const state = Math.random().toString(36).substring(7);
       
       // Store state in localStorage for validation after redirect
       localStorage.setItem('spotify_auth_state', state);
+      console.log('🔵 Step 2: Generated and stored auth state:', state);
       
       const scopes = [
         'user-read-private',
@@ -83,6 +89,7 @@ export class SpotifyService {
 
       // Use current origin for redirect URI
       const redirectUri = `${window.location.origin}/spotify-callback`;
+      console.log('🔵 Step 3: Using redirect URI:', redirectUri);
       
       const authUrl = new URL('https://accounts.spotify.com/authorize');
       authUrl.searchParams.append('client_id', '3bac088a26d64ddfb49d57fb5d451d71');
@@ -93,11 +100,12 @@ export class SpotifyService {
       // Add cache-busting parameter to ensure fresh request
       authUrl.searchParams.append('t', Date.now().toString());
 
-      console.log('Opening Spotify auth URL:', authUrl.toString());
+      console.log('🔵 Step 4: Opening Spotify auth URL:', authUrl.toString());
 
       // Force close any existing popup with this name first
       const existingWindow = window.open('', 'spotify-auth');
       if (existingWindow) {
+        console.log('🔵 Step 4a: Closing existing popup window');
         existingWindow.close();
       }
 
@@ -109,19 +117,31 @@ export class SpotifyService {
       );
       
       if (!authWindow) {
+        console.log('❌ Step 4 Failed: Popup blocked');
         throw new Error('Popup blocked. Please allow popups for this site and try again.');
       }
+
+      console.log('✅ Step 4 Complete: Popup window opened successfully');
+      console.log('🔵 Step 5: Waiting for auth completion message from popup...');
 
       // Listen for auth completion message from popup
       return new Promise((resolve, reject) => {
         const messageListener = (event: MessageEvent) => {
-          if (event.origin !== window.location.origin) return;
+          console.log('🔵 Step 6: Received message from popup:', event.data);
+          
+          if (event.origin !== window.location.origin) {
+            console.log('⚠️ Ignoring message from different origin:', event.origin);
+            return;
+          }
           
           if (event.data.type === 'spotify-auth-success') {
+            console.log('✅ Step 6 Complete: Received success message from popup');
             window.removeEventListener('message', messageListener);
             authWindow.close();
+            console.log('✅ Step 7 Complete: Popup closed, authentication successful!');
             resolve({ success: true });
           } else if (event.data.type === 'spotify-auth-error') {
+            console.log('❌ Step 6 Failed: Received error message from popup:', event.data.error);
             window.removeEventListener('message', messageListener);
             authWindow.close();
             reject(new Error(event.data.error));
@@ -129,10 +149,12 @@ export class SpotifyService {
         };
 
         window.addEventListener('message', messageListener);
+        console.log('🔵 Step 5a: Message listener added');
 
         // Handle popup being closed manually
         const checkClosed = setInterval(() => {
           if (authWindow.closed) {
+            console.log('⚠️ Step 6 Alternative: Popup was closed manually by user');
             clearInterval(checkClosed);
             window.removeEventListener('message', messageListener);
             reject(new Error('Authentication cancelled'));
@@ -140,7 +162,7 @@ export class SpotifyService {
         }, 1000);
       });
     } catch (error: any) {
-      console.error('Connect Spotify error:', error);
+      console.error('❌ Connect Spotify error:', error);
       throw new Error(error.message);
     }
   }
