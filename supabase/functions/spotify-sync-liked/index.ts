@@ -72,7 +72,7 @@ serve(async (req) => {
         } catch (retryError: any) {
           console.error('Token refresh retry also failed:', retryError)
           // If refresh token is also invalid, clear the connection and ask user to reconnect
-          if (retryError.message.includes('Spotify refresh token is invalid')) {
+          if (retryError.message.includes('refresh token is invalid')) {
             await supabaseClient
               .from('spotify_connections')
               .delete()
