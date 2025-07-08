@@ -65,23 +65,22 @@ serve(async (req) => {
     } catch (error: any) {
       if (error.message.includes('Spotify token invalid')) {
         console.log('Token expired during audio features fetch, refreshing...')
-        // Refresh connection data and get new token
-        const { data: refreshedConnection } = await supabaseClient
-          .from('spotify_connections')
-          .select('*')
-          .eq('user_id', user.id)
-          .single()
-        
-        if (refreshedConnection) {
-          try {
-            accessToken = await getValidAccessToken(refreshedConnection as SpotifyConnection, supabaseClient, user.id)
-            audioFeatures = await fetchAudioFeatures(trackIds, accessToken)
-          } catch (retryError: any) {
-            console.error('Token refresh retry also failed:', retryError)
-            throw new Error('Spotify connection appears to be invalid. Please disconnect and reconnect your Spotify account to get fresh tokens.')
+        try {
+          // Try to refresh the token
+          accessToken = await getValidAccessToken(connection as SpotifyConnection, supabaseClient, user.id)
+          audioFeatures = await fetchAudioFeatures(trackIds, accessToken)
+        } catch (retryError: any) {
+          console.error('Token refresh retry also failed:', retryError)
+          // If refresh token is also invalid, clear the connection and ask user to reconnect
+          if (retryError.message.includes('refresh token is invalid')) {
+            await supabaseClient
+              .from('spotify_connections')
+              .delete()
+              .eq('user_id', user.id)
+            
+            throw new Error('Your Spotify connection has expired. Please disconnect and reconnect your Spotify account to get fresh tokens.')
           }
-        } else {
-          throw new Error('Failed to refresh Spotify connection')
+          throw retryError
         }
       } else {
         throw error
