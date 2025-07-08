@@ -45,14 +45,19 @@ export const useSpotifyAuth = () => {
 
   const connectSpotify = async () => {
     try {
+      // SpotifyService.connectSpotify() handles the popup flow and resolves when successful
       await SpotifyService.connectSpotify();
+      
       // Refresh connection state after successful auth
       await checkConnection();
+      
+      // Show success toast
       toast({
         title: "Spotify Connected",
         description: "Successfully connected to Spotify!",
       });
     } catch (error: any) {
+      // Show error toast for popup failures
       toast({
         title: "Connection Failed",
         description: error.message,
