@@ -90,9 +90,15 @@ export class SpotifyService {
       authUrl.searchParams.append('redirect_uri', redirectUri);
       authUrl.searchParams.append('scope', scopes);
       authUrl.searchParams.append('state', state);
+      // Add cache-busting parameter to ensure fresh request
+      authUrl.searchParams.append('t', Date.now().toString());
 
-      // Open Spotify auth in new tab (works in sandboxed iframes)
-      const authWindow = window.open(authUrl.toString(), 'spotify-auth', 'width=500,height=600');
+      // Open Spotify auth in popup with specific features to ensure fresh load
+      const authWindow = window.open(
+        authUrl.toString(), 
+        'spotify-auth', 
+        'width=500,height=600,scrollbars=yes,resizable=yes,location=yes'
+      );
       
       if (!authWindow) {
         throw new Error('Popup blocked. Please allow popups for this site and try again.');
