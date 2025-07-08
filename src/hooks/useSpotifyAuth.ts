@@ -136,8 +136,12 @@ export const useSpotifyAuth = () => {
     authUrl.searchParams.append('scope', scopes);
     authUrl.searchParams.append('state', state);
 
-    // Use window.location.href for full page redirect (not popup) to avoid X-Frame-Options issue
-    window.location.href = authUrl.toString();
+    // Break out of iframe context (Lovable preview) to redirect top-level window
+    if (window.top && window.top !== window) {
+      window.top.location.href = authUrl.toString();
+    } else {
+      window.location.href = authUrl.toString();
+    }
   };
 
   const disconnectSpotify = async () => {
