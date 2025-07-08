@@ -32,7 +32,12 @@ interface SpotifyTrack {
   spotify_id: string;
 }
 
-const TracksTable = () => {
+interface TracksTableProps {
+  onTrackSelect: (track: SpotifyTrack) => void;
+  selectedTrack: SpotifyTrack | null;
+}
+
+const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -117,7 +122,11 @@ const TracksTable = () => {
             </TableHeader>
             <TableBody>
               {tracks.map((track) => (
-                <TableRow key={track.id}>
+                <TableRow 
+                  key={track.id} 
+                  className={`cursor-pointer ${selectedTrack?.id === track.id ? 'bg-muted' : ''}`}
+                  onClick={() => onTrackSelect(track)}
+                >
                   <TableCell className="font-medium">
                     <div className="max-w-[200px] truncate" title={track.title}>
                       {track.title}

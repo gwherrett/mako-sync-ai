@@ -7,56 +7,49 @@ import { Badge } from '@/components/ui/badge';
 import { Play, Download, ExternalLink, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-const MetadataExtractor = () => {
+interface SpotifyTrack {
+  id: string;
+  title: string;
+  artist: string;
+  album: string | null;
+  bpm: number | null;
+  key: string | null;
+  danceability: number | null;
+  year: number | null;
+  added_at: string | null;
+  spotify_id: string;
+}
+
+interface MetadataExtractorProps {
+  selectedTrack: SpotifyTrack | null;
+}
+
+const MetadataExtractor = ({ selectedTrack }: MetadataExtractorProps) => {
   const [webhookUrl, setWebhookUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Mock data with genre information for demonstration
-  const mockSongs = [
-    {
-      id: 1,
-      title: "Bohemian Rhapsody",
-      artist: "Queen",
-      album: "A Night at the Opera",
-      duration: "5:55",
-      bpm: 72,
-      key: "Bb Major",
-      genre: "Rock",
-      energy: 0.7,
-      danceability: 0.6
-    },
-    {
-      id: 2,
-      title: "Billie Jean",
-      artist: "Michael Jackson",
-      album: "Thriller",
-      duration: "4:54",
-      bpm: 117,
-      key: "F# Minor",
-      genre: "Pop",
-      energy: 0.8,
-      danceability: 0.9
-    },
-    {
-      id: 3,
-      title: "Hotel California",
-      artist: "Eagles",
-      album: "Hotel California",
-      duration: "6:30",
-      bpm: 75,
-      key: "B Minor",
-      genre: "Classic Rock",
-      energy: 0.6,
-      danceability: 0.4
-    }
-  ];
+  const getKeyName = (key: string | null) => {
+    if (!key) return 'Unknown';
+    const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const keyNum = parseInt(key);
+    return keys[keyNum] || 'Unknown';
+  };
 
   const handleMakeWebhook = async () => {
     if (!webhookUrl) {
       toast({
         title: "Error",
         description: "Please enter your Make webhook URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedTrack) {
+      toast({
+        title: "Error",
+        description: "Please select a track first",
         variant: "destructive",
       });
       return;
@@ -73,16 +66,15 @@ const MetadataExtractor = () => {
         },
         mode: "no-cors",
         body: JSON.stringify({
-          songs: mockSongs,
+          track: selectedTrack,
           timestamp: new Date().toISOString(),
-          source: "serato-metadata-sync",
-          total_songs: mockSongs.length
+          source: "serato-metadata-sync"
         }),
       });
 
       toast({
         title: "Webhook Triggered!",
-        description: "Song metadata has been sent to Make. Check your scenario for processing.",
+        description: "Track metadata has been sent to Make. Check your scenario for processing.",
       });
     } catch (error) {
       console.error("Error triggering webhook:", error);
@@ -97,10 +89,19 @@ const MetadataExtractor = () => {
   };
 
   const exportToJSON = () => {
-    const dataStr = JSON.stringify(mockSongs, null, 2);
+    if (!selectedTrack) {
+      toast({
+        title: "Error",
+        description: "Please select a track first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const dataStr = JSON.stringify(selectedTrack, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
-    const exportFileDefaultName = 'serato-metadata.json';
+    const exportFileDefaultName = `${selectedTrack.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-metadata.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -109,7 +110,7 @@ const MetadataExtractor = () => {
     
     toast({
       title: "Export Complete",
-      description: "Metadata exported to JSON file successfully!",
+      description: "Track metadata exported to JSON file successfully!",
     });
   };
 
@@ -158,59 +159,70 @@ const MetadataExtractor = () => {
         </CardContent>
       </Card>
 
-      {/* Songs List */}
+      {/* Track Details */}
       <Card className="glass-card border-serato-cyan/20">
         <CardHeader>
-          <CardTitle className="text-white">Extracted Metadata</CardTitle>
+          <CardTitle className="text-white">Track Details</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {mockSongs.map((song) => (
-              <div key={song.id} className="p-4 bg-serato-dark/20 rounded-lg border border-serato-cyan/20 hover:border-serato-cyan/40 transition-all duration-300">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-semibold text-white text-lg">{song.title}</h3>
-                    <p className="text-gray-300">{song.artist} • {song.album}</p>
-                  </div>
-                  <Button size="sm" variant="outline" className="border-serato-cyan/30 text-serato-cyan hover:bg-serato-cyan/10">
-                    <Play className="w-4 h-4" />
-                  </Button>
+          {selectedTrack ? (
+            <div className="p-4 bg-serato-dark/20 rounded-lg border border-serato-cyan/20">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="font-semibold text-white text-lg">{selectedTrack.title}</h3>
+                  <p className="text-gray-300">{selectedTrack.artist} • {selectedTrack.album || 'Unknown Album'}</p>
                 </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-3">
-                  <div>
-                    <span className="text-xs text-gray-400 block">Duration</span>
-                    <span className="text-sm text-white">{song.duration}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-400 block">BPM</span>
-                    <span className="text-sm text-serato-cyan font-semibold">{song.bpm}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-400 block">Key</span>
-                    <span className="text-sm text-serato-cyan font-semibold">{song.key}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-400 block">Genre</span>
-                    <span className="text-sm text-serato-orange font-semibold">{song.genre}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-400 block">Energy</span>
-                    <span className="text-sm text-white">{(song.energy * 100).toFixed(0)}%</span>
-                  </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="border-serato-cyan/30 text-serato-cyan hover:bg-serato-cyan/10"
+                  onClick={() => window.open(`https://open.spotify.com/track/${selectedTrack.spotify_id}`, '_blank')}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                <div>
+                  <span className="text-xs text-gray-400 block">BPM</span>
+                  <span className="text-sm text-serato-cyan font-semibold">
+                    {selectedTrack.bpm ? Math.round(selectedTrack.bpm) : 'Unknown'}
+                  </span>
                 </div>
-
-                <div className="flex space-x-2">
-                  <Badge variant="outline" className="border-serato-cyan/30 text-serato-cyan">
-                    Danceability: {(song.danceability * 100).toFixed(0)}%
-                  </Badge>
-                  <Badge variant="outline" className="border-serato-orange/30 text-serato-orange">
-                    Serato Ready
-                  </Badge>
+                <div>
+                  <span className="text-xs text-gray-400 block">Key</span>
+                  <span className="text-sm text-serato-cyan font-semibold">
+                    {getKeyName(selectedTrack.key)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-400 block">Year</span>
+                  <span className="text-sm text-white">{selectedTrack.year || 'Unknown'}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-400 block">Added</span>
+                  <span className="text-sm text-white">
+                    {selectedTrack.added_at ? new Date(selectedTrack.added_at).toLocaleDateString() : 'Unknown'}
+                  </span>
                 </div>
               </div>
-            ))}
-          </div>
+
+              <div className="flex space-x-2">
+                {selectedTrack.danceability && (
+                  <Badge variant="outline" className="border-serato-cyan/30 text-serato-cyan">
+                    Danceability: {(selectedTrack.danceability * 100).toFixed(0)}%
+                  </Badge>
+                )}
+                <Badge variant="outline" className="border-serato-orange/30 text-serato-orange">
+                  Spotify Track
+                </Badge>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              Select a track from the table above to view its details
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

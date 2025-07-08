@@ -1,11 +1,26 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import SpotifyHeader from '@/components/SpotifyHeader';
 import StatsOverview from '@/components/StatsOverview';
 import MetadataExtractor from '@/components/MetadataExtractor';
 import TracksTable from '@/components/TracksTable';
 
+interface SpotifyTrack {
+  id: string;
+  title: string;
+  artist: string;
+  album: string | null;
+  bpm: number | null;
+  key: string | null;
+  danceability: number | null;
+  year: number | null;
+  added_at: string | null;
+  spotify_id: string;
+}
+
 const Index = () => {
+  const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black">
       <SpotifyHeader />
@@ -20,8 +35,8 @@ const Index = () => {
         
         <div className="space-y-8">
           <StatsOverview />
-          <TracksTable />
-          <MetadataExtractor />
+          <TracksTable onTrackSelect={setSelectedTrack} selectedTrack={selectedTrack} />
+          <MetadataExtractor selectedTrack={selectedTrack} />
         </div>
       </main>
     </div>
