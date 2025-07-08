@@ -1,34 +1,80 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Music, Download, Zap, Clock } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const StatsOverview = () => {
+  const [likedSongsCount, setLikedSongsCount] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchLikedSongsCount();
+    
+    // Set up real-time subscription for updates
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'spotify_liked'
+        },
+        () => {
+          fetchLikedSongsCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    }
+  }, []);
+
+  const fetchLikedSongsCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('spotify_liked')
+        .select('*', { count: 'exact', head: true });
+
+      if (error) {
+        console.error('Error fetching liked songs count:', error);
+        return;
+      }
+
+      setLikedSongsCount(count || 0);
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
   const stats = [
     {
       title: "Liked Songs",
-      value: "1,247",
+      value: loading ? "..." : likedSongsCount.toLocaleString(),
       icon: Music,
       color: "text-green-400",
       bgColor: "bg-green-400/10"
     },
     {
       title: "Extracted",
-      value: "892",
+      value: loading ? "..." : likedSongsCount.toLocaleString(),
       icon: Download,
       color: "text-blue-400",
       bgColor: "bg-blue-400/10"
     },
     {
       title: "Make Webhooks",
-      value: "3",
+      value: "0",
       icon: Zap,
       color: "text-purple-400",
       bgColor: "bg-purple-400/10"
     },
     {
       title: "Last Sync",
-      value: "2h ago",
+      value: "Just now",
       icon: Clock,
       color: "text-orange-400",
       bgColor: "bg-orange-400/10"
