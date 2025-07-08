@@ -102,14 +102,7 @@ export class SpotifyService {
 
       console.log('🔵 Step 4: Opening Spotify auth URL:', authUrl.toString());
 
-      // Force close any existing popup with this name first
-      const existingWindow = window.open('', 'spotify-auth');
-      if (existingWindow) {
-        console.log('🔵 Step 4a: Closing existing popup window');
-        existingWindow.close();
-      }
-
-      // Open Spotify auth in popup - use unique name each time to force fresh window
+      // Open Spotify auth in popup with unique name to avoid reusing existing windows
       const authWindow = window.open(
         authUrl.toString(), 
         `spotify-auth-${Date.now()}`, // Unique name to force fresh popup
