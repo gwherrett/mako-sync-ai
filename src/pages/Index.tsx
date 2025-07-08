@@ -3,6 +3,7 @@ import React from 'react';
 import SpotifyHeader from '@/components/SpotifyHeader';
 import StatsOverview from '@/components/StatsOverview';
 import MetadataExtractor from '@/components/MetadataExtractor';
+import TracksTable from '@/components/TracksTable';
 
 const Index = () => {
   return (
@@ -17,8 +18,11 @@ const Index = () => {
           </p>
         </div>
         
-        <StatsOverview />
-        <MetadataExtractor />
+        <div className="space-y-8">
+          <StatsOverview />
+          <TracksTable />
+          <MetadataExtractor />
+        </div>
       </main>
     </div>
   );
