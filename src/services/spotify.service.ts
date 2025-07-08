@@ -115,6 +115,17 @@ export class SpotifyService {
       }
 
       console.log('✅ Step 4 Complete: Popup window opened successfully');
+      
+      // Debug: Check if popup actually navigated to Spotify
+      setTimeout(() => {
+        try {
+          console.log('🔍 Debug: Popup URL after 1 second:', authWindow.location?.href || 'Cannot access (cross-origin)');
+        } catch (e) {
+          console.log('🔍 Debug: Popup navigated to cross-origin (Spotify) - this is expected!');
+        }
+      }, 1000);
+
+      console.log('✅ Step 4 Complete: Popup window opened successfully');
       console.log('🔵 Step 5: Waiting for auth completion message from popup...');
 
       // Listen for auth completion message from popup
