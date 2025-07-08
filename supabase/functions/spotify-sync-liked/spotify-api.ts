@@ -103,10 +103,18 @@ export async function fetchAudioFeatures(trackIds: string[], accessToken: string
         throw new Error(`Spotify API rate limit exceeded. Retry after ${retryAfter} seconds`)
       }
       
-      // Check for token/auth issues
-      if (featuresResponse.status === 401 || featuresResponse.status === 403) {
-        console.error(`Token invalid (${featuresResponse.status}), need to refresh token`)
+      // Check for token/auth issues  
+      if (featuresResponse.status === 401) {
+        console.error(`Token invalid (401), need to refresh token`)
         throw new Error(`Spotify token invalid: ${featuresResponse.status}`)
+      }
+      
+      // Check for scope/permission issues (403)
+      if (featuresResponse.status === 403) {
+        console.error(`Spotify API returned 403 Forbidden. This is likely a scope/permissions issue.`)
+        console.error(`Current scopes needed: user-library-read for liked songs`)
+        console.error(`Error details:`, errorText)
+        throw new Error(`Spotify API access forbidden. This might be a scope issue or your Spotify app needs approval for extended quota.`)
       }
       
       // Other errors
