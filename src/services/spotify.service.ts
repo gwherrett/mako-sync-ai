@@ -100,7 +100,9 @@ export class SpotifyService {
       // Add cache-busting parameter to ensure fresh request
       authUrl.searchParams.append('t', Date.now().toString());
 
-      console.log('🔵 Step 4: Opening Spotify auth URL:', authUrl.toString());
+      console.log('🔵 Step 4: Constructed Spotify auth URL:', authUrl.toString());
+      console.log('🔍 Debug: URL length:', authUrl.toString().length);
+      console.log('🔍 Debug: Redirect URI used:', redirectUri);
 
       // Open Spotify auth in popup with unique name to avoid reusing existing windows
       const authWindow = window.open(
