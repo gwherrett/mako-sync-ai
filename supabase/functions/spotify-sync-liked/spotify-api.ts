@@ -10,6 +10,8 @@ export async function fetchAllLikedSongs(accessToken: string): Promise<SpotifyTr
     const response = await fetch(nextUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'SpotifyMetadataSync/1.0'
       },
     })
 
@@ -61,6 +63,8 @@ export async function fetchAudioFeatures(trackIds: string[], accessToken: string
     const featuresResponse = await fetch(`https://api.spotify.com/v1/audio-features?ids=${batchIds.join(',')}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'SpotifyMetadataSync/1.0'
       },
     })
     
@@ -82,13 +86,31 @@ export async function fetchAudioFeatures(trackIds: string[], accessToken: string
           }
         })
       }
-    } else if (featuresResponse.status === 401 || featuresResponse.status === 403) {
-      console.error(`Token invalid (${featuresResponse.status}), need to refresh token`)
-      throw new Error(`Spotify token invalid: ${featuresResponse.status}`)
     } else {
-      console.error(`Failed to fetch audio features batch: ${featuresResponse.status} ${featuresResponse.statusText}`)
+      // Get detailed error information
       const errorText = await featuresResponse.text()
-      console.error(`Error response: ${errorText}`)
+      console.error(`Audio features API error:`, {
+        status: featuresResponse.status,
+        statusText: featuresResponse.statusText,
+        headers: Object.fromEntries(featuresResponse.headers.entries()),
+        body: errorText
+      })
+      
+      // Check if it's a rate limit issue
+      if (featuresResponse.status === 429) {
+        const retryAfter = featuresResponse.headers.get('Retry-After')
+        console.error(`Rate limited. Retry after: ${retryAfter} seconds`)
+        throw new Error(`Spotify API rate limit exceeded. Retry after ${retryAfter} seconds`)
+      }
+      
+      // Check for token/auth issues
+      if (featuresResponse.status === 401 || featuresResponse.status === 403) {
+        console.error(`Token invalid (${featuresResponse.status}), need to refresh token`)
+        throw new Error(`Spotify token invalid: ${featuresResponse.status}`)
+      }
+      
+      // Other errors
+      throw new Error(`Failed to fetch audio features: ${featuresResponse.status} - ${errorText}`)
     }
   }
 
