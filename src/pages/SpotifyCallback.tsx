@@ -105,17 +105,9 @@ const SpotifyCallback = () => {
 
         console.log('✅ Step 12 Complete: Edge function call successful');
 
-        // Send success message to parent window and close popup
-        if (window.opener) {
-          console.log('🟡 Step 13: Sending success message to parent window and closing popup');
-          window.opener.postMessage({ type: 'spotify-auth-success' }, window.location.origin);
-          console.log('✅ Step 13 Complete: Success message sent, closing popup');
-          window.close();
-        } else {
-          console.log('🟡 Step 13 Alternative: Not in popup, navigating to main page');
-          // Fallback: navigate normally if not in popup
-          navigate('/');
-        }
+        // Navigate back to main page instead of popup messaging
+        console.log('🟡 Step 13: Navigating back to main page');
+        navigate('/');
       } catch (error: any) {
         console.error('❌ Step 12 Failed: Spotify auth error:', error);
         

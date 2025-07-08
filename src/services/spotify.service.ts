@@ -100,73 +100,15 @@ export class SpotifyService {
       // Add cache-busting parameter to ensure fresh request
       authUrl.searchParams.append('t', Date.now().toString());
 
-      console.log('🔵 Step 4: Constructed Spotify auth URL:', authUrl.toString());
+      console.log('🔵 Step 4: Redirecting to Spotify auth (no popup) - URL:', authUrl.toString());
       console.log('🔍 Debug: URL length:', authUrl.toString().length);
       console.log('🔍 Debug: Redirect URI used:', redirectUri);
 
-      // Open Spotify auth in popup with unique name to avoid reusing existing windows
-      const authWindow = window.open(
-        authUrl.toString(), 
-        `spotify-auth-${Date.now()}`, // Unique name to force fresh popup
-        'width=500,height=600,scrollbars=yes,resizable=yes,location=yes,menubar=no,toolbar=no,status=no'
-      );
+      // Redirect to Spotify auth instead of using popup
+      window.location.href = authUrl.toString();
       
-      if (!authWindow) {
-        console.log('❌ Step 4 Failed: Popup blocked');
-        throw new Error('Popup blocked. Please allow popups for this site and try again.');
-      }
-
-      console.log('✅ Step 4 Complete: Popup window opened successfully');
-      
-      // Debug: Check if popup actually navigated to Spotify
-      setTimeout(() => {
-        try {
-          console.log('🔍 Debug: Popup URL after 1 second:', authWindow.location?.href || 'Cannot access (cross-origin)');
-        } catch (e) {
-          console.log('🔍 Debug: Popup navigated to cross-origin (Spotify) - this is expected!');
-        }
-      }, 1000);
-
-      console.log('✅ Step 4 Complete: Popup window opened successfully');
-      console.log('🔵 Step 5: Waiting for auth completion message from popup...');
-
-      // Listen for auth completion message from popup
-      return new Promise((resolve, reject) => {
-        const messageListener = (event: MessageEvent) => {
-          console.log('🔵 Step 6: Received message from popup:', event.data);
-          
-          if (event.origin !== window.location.origin) {
-            console.log('⚠️ Ignoring message from different origin:', event.origin);
-            return;
-          }
-          
-          if (event.data.type === 'spotify-auth-success') {
-            console.log('✅ Step 6 Complete: Received success message from popup');
-            window.removeEventListener('message', messageListener);
-            authWindow.close();
-            console.log('✅ Step 7 Complete: Popup closed, authentication successful!');
-            resolve({ success: true });
-          } else if (event.data.type === 'spotify-auth-error') {
-            console.log('❌ Step 6 Failed: Received error message from popup:', event.data.error);
-            window.removeEventListener('message', messageListener);
-            authWindow.close();
-            reject(new Error(event.data.error));
-          }
-        };
-
-        window.addEventListener('message', messageListener);
-        console.log('🔵 Step 5a: Message listener added');
-
-        // Handle popup being closed manually
-        const checkClosed = setInterval(() => {
-          if (authWindow.closed) {
-            console.log('⚠️ Step 6 Alternative: Popup was closed manually by user');
-            clearInterval(checkClosed);
-            window.removeEventListener('message', messageListener);
-            reject(new Error('Authentication cancelled'));
-          }
-        }, 1000);
-      });
+      // This return won't execute because we're redirecting
+      return { success: true };
     } catch (error: any) {
       console.error('❌ Connect Spotify error:', error);
       throw new Error(error.message);
