@@ -17,6 +17,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { supabase } from '@/integrations/supabase/client';
 
 interface SpotifyTrack {
@@ -40,18 +48,31 @@ interface TracksTableProps {
 const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalTracks, setTotalTracks] = useState(0);
+  const tracksPerPage = 50;
 
   useEffect(() => {
     fetchTracks();
-  }, []);
+  }, [currentPage]);
 
   const fetchTracks = async () => {
     try {
+      setLoading(true);
+      
+      // Get total count
+      const { count } = await supabase
+        .from('spotify_liked')
+        .select('*', { count: 'exact', head: true });
+
+      setTotalTracks(count || 0);
+
+      // Get paginated tracks
       const { data, error } = await supabase
         .from('spotify_liked')
         .select('*')
         .order('added_at', { ascending: false })
-        .limit(100); // Start with first 100 tracks
+        .range((currentPage - 1) * tracksPerPage, currentPage * tracksPerPage - 1);
 
       if (error) {
         console.error('Error fetching tracks:', error);
@@ -95,11 +116,13 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     );
   }
 
+  const totalPages = Math.ceil(totalTracks / tracksPerPage);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Your Liked Songs ({tracks.length} tracks)</span>
+          <span>Your Liked Songs ({totalTracks} tracks)</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -199,9 +222,46 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
           </Table>
         </div>
         
-        {tracks.length === 0 && (
+        {tracks.length === 0 && !loading && (
           <div className="text-center py-8 text-muted-foreground">
             No tracks found. Sync your liked songs to see them here.
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div className="mt-4">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+                
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const page = Math.max(1, Math.min(totalPages, currentPage - 2 + i));
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(page)}
+                        isActive={currentPage === page}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
+                
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         )}
       </CardContent>
