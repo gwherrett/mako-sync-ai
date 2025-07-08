@@ -78,20 +78,33 @@ const SpotifyCallback = () => {
           throw new Error(response.error.message);
         }
 
-        toast({
-          title: "Spotify Connected",
-          description: "Successfully connected to Spotify!",
-        });
-
-        navigate('/');
+        // Send success message to parent window and close popup
+        if (window.opener) {
+          window.opener.postMessage({ type: 'spotify-auth-success' }, window.location.origin);
+          window.close();
+        } else {
+          // Fallback: navigate normally if not in popup
+          navigate('/');
+        }
       } catch (error: any) {
         console.error('Spotify auth error:', error);
-        toast({
-          title: "Connection Failed",
-          description: `Failed to connect to Spotify: ${error.message}`,
-          variant: "destructive",
-        });
-        navigate('/');
+        
+        // Send error message to parent window and close popup
+        if (window.opener) {
+          window.opener.postMessage({ 
+            type: 'spotify-auth-error', 
+            error: error.message 
+          }, window.location.origin);
+          window.close();
+        } else {
+          // Fallback: show toast and navigate if not in popup
+          toast({
+            title: "Connection Failed",
+            description: `Failed to connect to Spotify: ${error.message}`,
+            variant: "destructive",
+          });
+          navigate('/');
+        }
       }
     };
 

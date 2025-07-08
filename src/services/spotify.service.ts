@@ -98,10 +98,36 @@ export class SpotifyService {
         throw new Error('Popup blocked. Please allow popups for this site and try again.');
       }
 
-      return { success: true };
+      // Listen for auth completion message from popup
+      return new Promise((resolve, reject) => {
+        const messageListener = (event: MessageEvent) => {
+          if (event.origin !== window.location.origin) return;
+          
+          if (event.data.type === 'spotify-auth-success') {
+            window.removeEventListener('message', messageListener);
+            authWindow.close();
+            resolve({ success: true });
+          } else if (event.data.type === 'spotify-auth-error') {
+            window.removeEventListener('message', messageListener);
+            authWindow.close();
+            reject(new Error(event.data.error));
+          }
+        };
+
+        window.addEventListener('message', messageListener);
+
+        // Handle popup being closed manually
+        const checkClosed = setInterval(() => {
+          if (authWindow.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', messageListener);
+            reject(new Error('Authentication cancelled'));
+          }
+        }, 1000);
+      });
     } catch (error: any) {
       console.error('Connect Spotify error:', error);
-      return { success: false, error: error.message };
+      throw new Error(error.message);
     }
   }
 
