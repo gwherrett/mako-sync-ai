@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 import type { SpotifyConnection } from './types.ts'
-import { getValidAccessToken } from './spotify-auth.ts'
+import { getValidAccessToken, refreshSpotifyToken } from './spotify-auth.ts'
 import { fetchAllLikedSongs, fetchAudioFeatures } from './spotify-api.ts'
 import { processSongsData } from './data-processing.ts'
 import { clearAndInsertSongs } from './database.ts'
@@ -81,13 +81,35 @@ serve(async (req) => {
     // Get track IDs for audio features
     const trackIds = allTracks.map(item => item.track.id)
     
+    // Pre-validate token before making audio features call
+    console.log('Pre-validating access token before audio features fetch...')
+    try {
+      const { data: latestConnection } = await supabaseClient
+        .from('spotify_connections')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+      
+      if (latestConnection) {
+        accessToken = await getValidAccessToken(latestConnection as SpotifyConnection, supabaseClient, user.id)
+        console.log('Token pre-validation complete')
+      }
+    } catch (preValidationError: any) {
+      console.error('Pre-validation failed:', preValidationError)
+      // Continue with existing token if pre-validation fails
+    }
+
     // Fetch audio features (danceability, BPM, key) with token refresh retry
     let audioFeatures: { [key: string]: any } = {}
     try {
+      console.log('Attempting to fetch audio features...')
       audioFeatures = await fetchAudioFeatures(trackIds, accessToken)
+      console.log('Audio features fetched successfully')
     } catch (error: any) {
+      console.error('Audio features fetch failed:', error.message)
+      
       if (error.message.includes('Spotify token invalid')) {
-        console.log('Token expired during audio features fetch, refreshing...')
+        console.log('Token expired during audio features fetch, attempting refresh...')
         try {
           // Get fresh connection data from database before retrying
           const { data: freshConnection } = await supabaseClient
@@ -100,13 +122,17 @@ serve(async (req) => {
             throw new Error('Spotify connection no longer exists')
           }
           
-          // Try to refresh the token with fresh connection data
-          accessToken = await getValidAccessToken(freshConnection as SpotifyConnection, supabaseClient, user.id)
+          console.log('Attempting token refresh for retry...')
+          // Force refresh the token
+          accessToken = await refreshSpotifyToken(freshConnection as SpotifyConnection, supabaseClient, user.id)
+          console.log('Token refreshed, retrying audio features...')
           audioFeatures = await fetchAudioFeatures(trackIds, accessToken)
+          console.log('Audio features retry successful')
         } catch (retryError: any) {
           console.error('Token refresh retry also failed:', retryError)
           // If refresh token is also invalid, clear the connection and ask user to reconnect
-          if (retryError.message.includes('refresh token is invalid')) {
+          if (retryError.message.includes('refresh token is invalid') || 
+              retryError.message.includes('Spotify client credentials not configured')) {
             await supabaseClient
               .from('spotify_connections')
               .delete()
