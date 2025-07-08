@@ -11,8 +11,8 @@ const SpotifyCallback = () => {
 
   useEffect(() => {
     const processCallback = async () => {
-      console.log('🟡 Step 8: SpotifyCallback component loaded');
-      console.log('🟡 Step 8a: Current URL:', window.location.href);
+      console.log('🟡 Step 8: SpotifyCallback component loaded - URL:', window.location.href);
+      console.log('🟡 Step 8a: Current window is popup?', !!window.opener);
       
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
