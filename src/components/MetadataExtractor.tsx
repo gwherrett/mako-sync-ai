@@ -140,7 +140,7 @@ const MetadataExtractor = ({ selectedTrack }: MetadataExtractorProps) => {
             <div className="flex space-x-3">
               <Button 
                 onClick={handleMakeWebhook}
-                disabled={isLoading}
+                disabled={isLoading || !selectedTrack}
                 className="serato-gradient text-serato-dark font-medium hover:opacity-90"
               >
                 <Zap className="w-4 h-4 mr-2" />
@@ -148,6 +148,7 @@ const MetadataExtractor = ({ selectedTrack }: MetadataExtractorProps) => {
               </Button>
               <Button 
                 onClick={exportToJSON}
+                disabled={!selectedTrack}
                 variant="outline" 
                 className="border-serato-cyan/30 text-serato-cyan hover:bg-serato-cyan/10"
               >
@@ -155,74 +156,10 @@ const MetadataExtractor = ({ selectedTrack }: MetadataExtractorProps) => {
                 Export JSON
               </Button>
             </div>
+            {!selectedTrack && (
+              <p className="text-sm text-gray-400">Select a track to enable Make integration and export</p>
+            )}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Track Details */}
-      <Card className="glass-card border-serato-cyan/20">
-        <CardHeader>
-          <CardTitle className="text-white">Track Details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {selectedTrack ? (
-            <div className="p-4 bg-serato-dark/20 rounded-lg border border-serato-cyan/20">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-semibold text-white text-lg">{selectedTrack.title}</h3>
-                  <p className="text-gray-300">{selectedTrack.artist} • {selectedTrack.album || 'Unknown Album'}</p>
-                </div>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="border-serato-cyan/30 text-serato-cyan hover:bg-serato-cyan/10"
-                  onClick={() => window.open(`https://open.spotify.com/track/${selectedTrack.spotify_id}`, '_blank')}
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </Button>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                <div>
-                  <span className="text-xs text-gray-400 block">BPM</span>
-                  <span className="text-sm text-serato-cyan font-semibold">
-                    {selectedTrack.bpm ? Math.round(selectedTrack.bpm) : 'Unknown'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-400 block">Key</span>
-                  <span className="text-sm text-serato-cyan font-semibold">
-                    {getKeyName(selectedTrack.key)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-400 block">Year</span>
-                  <span className="text-sm text-white">{selectedTrack.year || 'Unknown'}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-400 block">Added</span>
-                  <span className="text-sm text-white">
-                    {selectedTrack.added_at ? new Date(selectedTrack.added_at).toLocaleDateString() : 'Unknown'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex space-x-2">
-                {selectedTrack.danceability && (
-                  <Badge variant="outline" className="border-serato-cyan/30 text-serato-cyan">
-                    Danceability: {(selectedTrack.danceability * 100).toFixed(0)}%
-                  </Badge>
-                )}
-                <Badge variant="outline" className="border-serato-orange/30 text-serato-orange">
-                  Spotify Track
-                </Badge>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              Select a track from the table above to view its details
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
