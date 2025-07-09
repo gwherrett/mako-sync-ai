@@ -36,15 +36,25 @@ export const useLocalMp3Scanner = () => {
   };
 
   const extractMetadata = async (file: File): Promise<ScannedTrack> => {
+    console.log(`🚀 STARTING metadata extraction for: ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
+    
     try {
-      // Enhanced parsing with detailed logging
-      console.log(`🔍 Starting metadata extraction for: ${file.name}`);
+      console.log(`📊 File details:`, {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: new Date(file.lastModified).toISOString()
+      });
+
+      console.log(`🔍 About to call parseBlob for: ${file.name}`);
       
       const metadata = await parseBlob(file, { 
         includeChapters: false,
         skipCovers: true,
         skipPostHeaders: false 
       });
+      
+      console.log(`✅ parseBlob completed successfully for: ${file.name}`);
       
       // Comprehensive logging of raw metadata
       console.log(`📋 Raw metadata structure for "${file.name}":`, {
