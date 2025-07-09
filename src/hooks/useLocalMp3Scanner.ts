@@ -2,6 +2,12 @@ import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { parseBlob } from 'music-metadata-browser';
 import { supabase } from '@/integrations/supabase/client';
+import { Buffer } from 'buffer';
+
+// Make Buffer available globally for music-metadata-browser
+if (typeof window !== 'undefined') {
+  window.Buffer = Buffer;
+}
 
 interface ScannedTrack {
   file_path: string;
