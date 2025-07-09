@@ -98,13 +98,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     return keys[keyNum] || 'Unknown';
   };
 
-  const getDanceabilityLabel = (danceability: number | null) => {
-    if (!danceability) return 'Unknown';
-    if (danceability >= 0.8) return 'High';
-    if (danceability >= 0.6) return 'Medium';
-    if (danceability >= 0.4) return 'Low';
-    return 'Very Low';
-  };
 
   const handleSort = (field: 'year' | 'artist') => {
     if (sortField === field) {
@@ -145,7 +138,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Track</TableHead>
+                <TableHead className="w-[300px]">Track</TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => handleSort('artist')}
@@ -160,7 +153,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                 <TableHead>Album</TableHead>
                 <TableHead>BPM</TableHead>
                 <TableHead>Key</TableHead>
-                <TableHead>Dance</TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => handleSort('year')}
@@ -183,7 +175,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                   onClick={() => onTrackSelect(track)}
                 >
                   <TableCell className="font-medium">
-                    <div className="max-w-[200px] truncate" title={track.title}>
+                    <div className="max-w-[280px] truncate" title={track.title}>
                       {track.title}
                     </div>
                   </TableCell>
@@ -209,21 +201,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                       <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/30">{getKeyName(track.key)}</Badge>
                     ) : (
                       <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Key</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {track.danceability ? (
-                      <Badge 
-                        variant={
-                          track.danceability >= 0.8 ? "default" :
-                          track.danceability >= 0.6 ? "secondary" : "outline"
-                        }
-                        className="bg-green-500/10 text-green-400 border-green-500/30"
-                      >
-                        {getDanceabilityLabel(track.danceability)}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Dance</Badge>
                     )}
                   </TableCell>
                   <TableCell>
