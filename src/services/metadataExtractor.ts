@@ -166,7 +166,7 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
 
     // Extract format metadata (bitrate, etc.)
     if (metadata.format) {
-      bitrate = metadata.format.bitrate ? Math.round(metadata.format.bitrate) : null;
+      bitrate = metadata.format.bitrate ? Math.round(metadata.format.bitrate / 1000) : null;
       console.log(`🎵 Format metadata for "${file.name}":`, {
         bitrate: metadata.format.bitrate,
         roundedBitrate: bitrate,
