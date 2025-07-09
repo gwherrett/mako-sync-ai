@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MoreHorizontal, Play, ExternalLink, Download, Zap } from 'lucide-react';
+import { MoreHorizontal, Play, ExternalLink, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -108,43 +108,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     window.open(`https://open.spotify.com/track/${spotifyId}`, '_blank');
   };
 
-  const testAudioFeatures = async (spotifyId: string) => {
-    try {
-      toast({
-        title: "Testing Audio Features",
-        description: "Calling Spotify API for track audio features...",
-      });
-
-      const { data, error } = await supabase.functions.invoke('spotify-test-audio-features', {
-        body: { spotify_id: spotifyId }
-      });
-
-      if (error) {
-        console.error('Audio features test error:', error);
-        toast({
-          title: "Test Failed",
-          description: error.message || "Failed to get audio features",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log('Audio features result:', data);
-      
-      toast({
-        title: "Test Successful!",
-        description: `Audio features retrieved: BPM ${Math.round(data.audio_features?.tempo || 0)}, Key ${data.audio_features?.key}, Danceability ${(data.audio_features?.danceability * 100 || 0).toFixed(0)}%`,
-      });
-
-    } catch (error) {
-      console.error('Test error:', error);
-      toast({
-        title: "Test Failed",
-        description: "An error occurred while testing audio features",
-        variant: "destructive",
-      });
-    }
-  };
 
   if (loading) {
     return (
@@ -245,10 +208,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                         <DropdownMenuItem onClick={() => openSpotifyTrack(track.spotify_id)}>
                           <ExternalLink className="mr-2 h-4 w-4" />
                           Open in Spotify
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => testAudioFeatures(track.spotify_id)}>
-                          <Zap className="mr-2 h-4 w-4" />
-                          Test Audio Features
                         </DropdownMenuItem>
                         <DropdownMenuItem>
                           <Download className="mr-2 h-4 w-4" />
