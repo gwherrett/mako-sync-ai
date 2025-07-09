@@ -13,6 +13,7 @@ interface ScannedTrack {
   bpm: number | null;
   key: string | null;
   hash: string | null;
+  file_size: number;
   last_modified: string;
 }
 
@@ -39,7 +40,7 @@ export const useLocalMp3Scanner = () => {
       const metadata = await parseBlob(file);
       const hash = await generateFileHash(file);
       
-      return {
+      const trackData = {
         file_path: file.name, // In real implementation, this would be the full path
         title: metadata.common.title || null,
         artist: metadata.common.artist || null,
@@ -49,8 +50,23 @@ export const useLocalMp3Scanner = () => {
         bpm: null, // Would need additional processing for BPM detection
         key: null, // Would need additional processing for key detection
         hash,
+        file_size: file.size,
         last_modified: new Date(file.lastModified).toISOString(),
       };
+
+      // Log metadata extraction for requested fields
+      console.log(`🎵 Metadata extracted for "${file.name}":`, {
+        artist: trackData.artist || '❌ MISSING',
+        album: trackData.album || '❌ MISSING', 
+        genre: trackData.genre || '❌ MISSING',
+        year: trackData.year || '❌ MISSING',
+        title: trackData.title || '❌ MISSING',
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+        bpm: trackData.bpm || 'N/A',
+        key: trackData.key || 'N/A'
+      });
+
+      return trackData;
     } catch (error) {
       console.error(`Failed to extract metadata from ${file.name}:`, error);
       return {
@@ -63,6 +79,7 @@ export const useLocalMp3Scanner = () => {
         bpm: null,
         key: null,
         hash: await generateFileHash(file),
+        file_size: file.size,
         last_modified: new Date(file.lastModified).toISOString(),
       };
     }

@@ -4,6 +4,7 @@ import LibraryHeader from '@/components/LibraryHeader';
 import StatsOverview from '@/components/StatsOverview';
 import MetadataExtractor from '@/components/MetadataExtractor';
 import TracksTable from '@/components/TracksTable';
+import LocalTracksTable from '@/components/LocalTracksTable';
 import SpotifySyncButton from '@/components/SpotifySyncButton';
 import LocalScanButton from '@/components/LocalScanButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,8 +22,27 @@ interface SpotifyTrack {
   spotify_id: string;
 }
 
+interface LocalMP3 {
+  id: string;
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  genre: string | null;
+  year: number | null;
+  bpm: number | null;
+  key: string | null;
+  file_path: string;
+  file_size: number | null;
+  last_modified: string | null;
+  created_at: string | null;
+  hash: string | null;
+  rating: number | null;
+  play_count: number | null;
+}
+
 const Index = () => {
   const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
+  const [selectedLocalTrack, setSelectedLocalTrack] = useState<LocalMP3 | null>(null);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black">
@@ -124,24 +144,69 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="local" className="space-y-8">
-            <div className="mb-6 flex justify-end">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-white">Local MP3 Library</h3>
               <LocalScanButton />
             </div>
-            
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-              </svg>
-              <h3 className="text-xl font-semibold text-white mb-2">Local MP3 Library</h3>
-              <p className="text-gray-400 mb-6">
-                Scan and manage your local MP3 collection for Serato integration
-              </p>
-              <div className="bg-serato-dark/30 rounded-lg border border-serato-cyan/20 p-6 max-w-md mx-auto">
-                <p className="text-sm text-gray-300">
-                  MP3 scanner coming soon...
-                </p>
+            <LocalTracksTable onTrackSelect={setSelectedLocalTrack} selectedTrack={selectedLocalTrack} />
+            {selectedLocalTrack && (
+              <div className="bg-serato-dark/20 rounded-lg border border-serato-cyan/20 p-6">
+                <h3 className="text-xl font-semibold text-white mb-4">Local Track Details</h3>
+                <div className="p-4 bg-serato-dark/30 rounded-lg border border-serato-cyan/10">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h4 className="font-semibold text-white text-lg">
+                        {selectedLocalTrack.title || selectedLocalTrack.file_path.split('/').pop()}
+                      </h4>
+                      <p className="text-gray-300">
+                        {selectedLocalTrack.artist || 'Unknown Artist'} • {selectedLocalTrack.album || 'Unknown Album'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1" title={selectedLocalTrack.file_path}>
+                        {selectedLocalTrack.file_path}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                    <div>
+                      <span className="text-xs text-gray-400 block">Genre</span>
+                      <span className="text-sm text-serato-cyan font-semibold">
+                        {selectedLocalTrack.genre || 'Unknown'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-400 block">Year</span>
+                      <span className="text-sm text-white">{selectedLocalTrack.year || 'Unknown'}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-400 block">File Size</span>
+                      <span className="text-sm text-white">
+                        {selectedLocalTrack.file_size ? 
+                          `${(selectedLocalTrack.file_size / (1024 * 1024)).toFixed(1)} MB` : 'Unknown'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-400 block">Last Modified</span>
+                      <span className="text-sm text-white">
+                        {selectedLocalTrack.last_modified ? 
+                          new Date(selectedLocalTrack.last_modified).toLocaleDateString() : 'Unknown'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-serato-orange/10 text-serato-orange border border-serato-orange/30">
+                      Local File
+                    </span>
+                    {selectedLocalTrack.hash && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30">
+                        Hashed
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </TabsContent>
         </Tabs>
       </main>

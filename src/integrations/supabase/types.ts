@@ -23,6 +23,7 @@ export type Database = {
           created_at: string | null
           date_added: string | null
           file_path: string
+          file_size: number | null
           genre: string | null
           hash: string | null
           id: string
@@ -41,6 +42,7 @@ export type Database = {
           created_at?: string | null
           date_added?: string | null
           file_path: string
+          file_size?: number | null
           genre?: string | null
           hash?: string | null
           id?: string
@@ -59,6 +61,7 @@ export type Database = {
           created_at?: string | null
           date_added?: string | null
           file_path?: string
+          file_size?: number | null
           genre?: string | null
           hash?: string | null
           id?: string
