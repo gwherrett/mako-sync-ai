@@ -1,0 +1,231 @@
+import { parseBlob } from 'music-metadata-browser';
+import { Buffer } from 'buffer';
+import { generateFileHash } from '@/utils/fileHash';
+
+// Make Buffer available globally for music-metadata-browser
+if (typeof window !== 'undefined') {
+  window.Buffer = Buffer;
+}
+
+export interface ScannedTrack {
+  file_path: string;
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  year: number | null;
+  genre: string | null;
+  bpm: number | null;
+  key: string | null;
+  hash: string | null;
+  file_size: number;
+  last_modified: string;
+}
+
+/**
+ * Extracts metadata from an MP3 file
+ */
+export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
+  console.log(`🚀 STARTING metadata extraction for: ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
+  
+  try {
+    console.log(`📊 File details:`, {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      lastModified: new Date(file.lastModified).toISOString()
+    });
+
+    console.log(`🔍 About to call parseBlob for: ${file.name}`);
+    
+    // Try parseBlob with specific error handling
+    let metadata;
+    try {
+      metadata = await parseBlob(file, { 
+        includeChapters: false,
+        skipCovers: true,
+        skipPostHeaders: false 
+      });
+      console.log(`✅ parseBlob completed successfully for: ${file.name}`);
+    } catch (parseError) {
+      console.error(`❌ parseBlob FAILED for ${file.name}:`, parseError);
+      throw new Error(`parseBlob failed: ${parseError.message}`);
+    }
+    
+    // Validate metadata object structure
+    if (!metadata) {
+      console.error(`❌ metadata is null/undefined for: ${file.name}`);
+      throw new Error('Metadata object is null or undefined');
+    }
+    
+    console.log(`📋 Raw metadata object for "${file.name}":`, JSON.stringify(metadata, null, 2));
+    
+    // Check for expected properties
+    console.log(`📊 Metadata validation for "${file.name}":`, {
+      hasFormat: !!metadata.format,
+      hasCommon: !!metadata.common,
+      hasNative: !!metadata.native,
+      formatKeys: metadata.format ? Object.keys(metadata.format) : [],
+      commonKeys: metadata.common ? Object.keys(metadata.common) : [],
+      nativeKeys: metadata.native ? Object.keys(metadata.native) : []
+    });
+    
+    // Log available tag formats
+    if (metadata.native) {
+      Object.keys(metadata.native).forEach(tagFormat => {
+        console.log(`🏷️  ${tagFormat} tags:`, metadata.native[tagFormat]);
+      });
+    }
+    
+    const hash = await generateFileHash(file);
+    
+    // Enhanced metadata extraction with multiple fallback attempts
+    let title = null;
+    let artist = null;
+    let album = null;
+    let year = null;
+    let genre = null;
+    
+    // Primary extraction from common metadata
+    if (metadata.common) {
+      title = metadata.common.title || null;
+      artist = metadata.common.artist || null;
+      album = metadata.common.album || null;
+      year = metadata.common.year || null;
+      genre = metadata.common.genre?.[0] || null;
+      
+      console.log(`📊 Common metadata for "${file.name}":`, {
+        title: metadata.common.title,
+        artist: metadata.common.artist,
+        album: metadata.common.album,
+        year: metadata.common.year,
+        genre: metadata.common.genre,
+        track: metadata.common.track,
+        albumartist: metadata.common.albumartist
+      });
+    }
+    
+    // Fallback: Try extracting from native tags if common is missing
+    if (metadata.native && (!title || !artist || !album || !year || !genre)) {
+      console.log(`🔄 Attempting fallback extraction from native tags...`);
+      
+      // Try ID3v2.4 first, then ID3v2.3, then ID3v1
+      const tagFormats = ['ID3v2.4', 'ID3v2.3', 'ID3v1', 'vorbis'];
+      
+      for (const format of tagFormats) {
+        if (metadata.native[format]) {
+          const tags = metadata.native[format];
+          console.log(`🏷️  Trying ${format} tags:`, tags);
+          
+          // Extract from native tags
+          for (const tag of tags) {
+            if (!title && (tag.id === 'TIT2' || tag.id === 'TITLE' || tag.id === 'Title')) {
+              title = typeof tag.value === 'string' ? tag.value : null;
+            }
+            if (!artist && (tag.id === 'TPE1' || tag.id === 'ARTIST' || tag.id === 'Artist')) {
+              artist = typeof tag.value === 'string' ? tag.value : null;
+            }
+            if (!album && (tag.id === 'TALB' || tag.id === 'ALBUM' || tag.id === 'Album')) {
+              album = typeof tag.value === 'string' ? tag.value : null;
+            }
+            if (!year && (tag.id === 'TYER' || tag.id === 'TDRC' || tag.id === 'DATE' || tag.id === 'Date')) {
+              const yearValue = typeof tag.value === 'string' ? parseInt(tag.value) : 
+                                typeof tag.value === 'number' ? tag.value : null;
+              if (yearValue && !isNaN(yearValue)) {
+                year = yearValue;
+              }
+            }
+            if (!genre && (tag.id === 'TCON' || tag.id === 'GENRE' || tag.id === 'Genre')) {
+              genre = typeof tag.value === 'string' ? tag.value : null;
+            }
+          }
+          
+          // If we found some data in this format, log it
+          if (title || artist || album || year || genre) {
+            console.log(`✅ Found metadata in ${format}:`, { title, artist, album, year, genre });
+            break;
+          }
+        }
+      }
+    }
+    
+    const trackData = {
+      file_path: file.name,
+      title,
+      artist,
+      album,
+      year,
+      genre,
+      bpm: null, // Would need additional processing for BPM detection
+      key: null, // Would need additional processing for key detection
+      hash,
+      file_size: file.size,
+      last_modified: new Date(file.lastModified).toISOString(),
+    };
+
+    // Final extraction results
+    console.log(`🎵 Final metadata extracted for "${file.name}":`, {
+      artist: trackData.artist || '❌ MISSING',
+      album: trackData.album || '❌ MISSING', 
+      genre: trackData.genre || '❌ MISSING',
+      year: trackData.year || '❌ MISSING',
+      title: trackData.title || '❌ MISSING',
+      fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+      hash: trackData.hash?.substring(0, 8) + '...'
+    });
+
+    return trackData;
+  } catch (error) {
+    console.error(`❌ Failed to extract metadata from ${file.name}:`, error);
+    
+    // Return track with all metadata fields as null (no filename fallback)
+    return {
+      file_path: file.name,
+      title: null,
+      artist: null,
+      album: null,
+      year: null,
+      genre: null,
+      bpm: null,
+      key: null,
+      hash: await generateFileHash(file),
+      file_size: file.size,
+      last_modified: new Date(file.lastModified).toISOString(),
+    };
+  }
+};
+
+/**
+ * Process multiple files in batches to extract metadata
+ */
+export const extractMetadataBatch = async (
+  files: File[],
+  onProgress?: (current: number, total: number) => void,
+  batchSize: number = 5
+): Promise<ScannedTrack[]> => {
+  const scannedTracks: ScannedTrack[] = [];
+  
+  console.log('🚀 Starting metadata extraction for all files...');
+  
+  // Process files in batches
+  for (let i = 0; i < files.length; i += batchSize) {
+    const batch = files.slice(i, i + batchSize);
+    console.log(`📦 Processing batch ${Math.floor(i/batchSize) + 1}: files ${i + 1}-${Math.min(i + batchSize, files.length)}`);
+    
+    const batchResults = await Promise.all(
+      batch.map(async (file, index) => {
+        console.log(`🎯 About to extract metadata for: ${file.name}`);
+        const track = await extractMetadata(file);
+        console.log(`✅ Metadata extraction completed for: ${file.name}`);
+        
+        if (onProgress) {
+          onProgress(i + index + 1, files.length);
+        }
+        
+        return track;
+      })
+    );
+    scannedTracks.push(...batchResults);
+  }
+
+  return scannedTracks;
+};
