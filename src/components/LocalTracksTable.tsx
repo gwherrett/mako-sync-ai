@@ -635,11 +635,11 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                      </Badge>
                    </TableCell>
                    <TableCell>
-                     {track.bitrate ? (
-                       <span className="text-sm">{track.bitrate} kbps</span>
-                     ) : (
-                       <span className="text-muted-foreground">—</span>
-                     )}
+                      {track.bitrate ? (
+                        <span className="text-sm">{track.bitrate}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                    </TableCell>
                    <TableCell>
                      {formatFileSize(track.file_size)}

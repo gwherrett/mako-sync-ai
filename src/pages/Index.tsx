@@ -184,7 +184,7 @@ const Index = () => {
                      <div>
                        <span className="text-xs text-gray-400 block">Bitrate</span>
                        <span className="text-sm text-white">
-                         {selectedLocalTrack.bitrate ? `${selectedLocalTrack.bitrate} kbps` : 'Unknown'}
+                         {selectedLocalTrack.bitrate || 'Unknown'}
                        </span>
                      </div>
                      <div>
