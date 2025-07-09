@@ -2,6 +2,46 @@ import { parseBlob } from 'music-metadata-browser';
 import { Buffer } from 'buffer';
 import { generateFileHash } from '@/utils/fileHash';
 
+/**
+ * Extracts year from various value formats
+ */
+const extractYearFromValue = (value: any): number | null => {
+  if (typeof value === 'number' && value > 1800 && value < 2100) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return extractYearFromString(value);
+  }
+  return null;
+};
+
+/**
+ * Extracts year from string formats like "2023", "2023-01-01", "01/01/2023", etc.
+ */
+const extractYearFromString = (dateStr: string): number | null => {
+  if (!dateStr) return null;
+  
+  // Try direct year format (4 digits)
+  const directYear = dateStr.match(/\b(19|20)\d{2}\b/);
+  if (directYear) {
+    const year = parseInt(directYear[0]);
+    if (year > 1800 && year < 2100) {
+      return year;
+    }
+  }
+  
+  // Try ISO date format (YYYY-MM-DD)
+  const isoMatch = dateStr.match(/^(\d{4})-\d{2}-\d{2}/);
+  if (isoMatch) {
+    const year = parseInt(isoMatch[1]);
+    if (year > 1800 && year < 2100) {
+      return year;
+    }
+  }
+  
+  return null;
+};
+
 // Make Buffer available globally for music-metadata-browser
 if (typeof window !== 'undefined') {
   window.Buffer = Buffer;
@@ -98,10 +138,24 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
         artist: metadata.common.artist,
         album: metadata.common.album,
         year: metadata.common.year,
+        date: metadata.common.date,
+        originaldate: metadata.common.originaldate,
         genre: metadata.common.genre,
         track: metadata.common.track,
         albumartist: metadata.common.albumartist
       });
+      
+      // Try additional common fields for year if not found
+      if (!year) {
+        const dateStr = metadata.common.date || metadata.common.originaldate;
+        if (dateStr) {
+          const extractedYear = extractYearFromString(dateStr);
+          if (extractedYear) {
+            year = extractedYear;
+            console.log(`📅 Extracted year from date field: ${year}`);
+          }
+        }
+      }
     }
     
     // Fallback: Try extracting from native tags if common is missing
@@ -127,11 +181,16 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
             if (!album && (tag.id === 'TALB' || tag.id === 'ALBUM' || tag.id === 'Album')) {
               album = typeof tag.value === 'string' ? tag.value : null;
             }
-            if (!year && (tag.id === 'TYER' || tag.id === 'TDRC' || tag.id === 'DATE' || tag.id === 'Date')) {
-              const yearValue = typeof tag.value === 'string' ? parseInt(tag.value) : 
-                                typeof tag.value === 'number' ? tag.value : null;
-              if (yearValue && !isNaN(yearValue)) {
-                year = yearValue;
+            if (!year && (
+              tag.id === 'TYER' || tag.id === 'TDRC' || tag.id === 'TDAT' || 
+              tag.id === 'TORY' || tag.id === 'TDOR' || tag.id === 'TRDA' ||
+              tag.id === 'DATE' || tag.id === 'Date' || tag.id === 'YEAR' || 
+              tag.id === 'Year' || tag.id === 'ORIGINALDATE'
+            )) {
+              const extractedYear = extractYearFromValue(tag.value);
+              if (extractedYear) {
+                year = extractedYear;
+                console.log(`📅 Extracted year from ${tag.id}: ${year}`);
               }
             }
             if (!genre && (tag.id === 'TCON' || tag.id === 'GENRE' || tag.id === 'Genre')) {

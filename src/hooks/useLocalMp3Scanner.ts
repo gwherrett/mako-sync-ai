@@ -51,10 +51,13 @@ export const useLocalMp3Scanner = () => {
 
       console.log(`💾 Inserting ${scannedTracks.length} tracks into database...`);
       
-      // Insert tracks into database
+      // Insert tracks into database using upsert to handle duplicates
       const { error } = await supabase
         .from('local_mp3s')
-        .insert(scannedTracks);
+        .upsert(scannedTracks, { 
+          onConflict: 'hash',
+          ignoreDuplicates: false 
+        });
 
       if (error) {
         console.error('❌ Database insertion error:', error);
