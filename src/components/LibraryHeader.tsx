@@ -57,10 +57,6 @@ const LibraryHeader = () => {
             </Button>
           )}
           
-          <div className="text-sm text-gray-400">
-            Welcome, {user?.email}
-          </div>
-          
           <Button variant="outline" size="sm" className="text-white border-white/20 hover:bg-white/10">
             <Settings className="w-4 h-4 mr-2" />
             Settings
