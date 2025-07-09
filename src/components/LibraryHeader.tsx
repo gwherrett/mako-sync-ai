@@ -1,10 +1,12 @@
 import React from 'react';
-import { Music2, Settings, LogOut } from 'lucide-react';
+import { Music2, Settings, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/NewAuthContext';
+import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 
 const LibraryHeader = () => {
   const { user, signOut } = useAuth();
+  const { isConnected, isLoading, connection, connectSpotify, disconnectSpotify } = useSpotifyAuth();
 
   return (
     <header className="bg-spotify-dark border-b border-white/10 p-4">
@@ -22,6 +24,39 @@ const LibraryHeader = () => {
         </div>
         
         <div className="flex items-center space-x-3">
+          {/* Spotify Connection Status */}
+          {isLoading ? (
+            <div className="flex items-center space-x-2 text-sm text-gray-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Checking Spotify...</span>
+            </div>
+          ) : isConnected ? (
+            <div className="flex items-center space-x-3">
+              <div className="text-sm text-green-400">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Spotify: {connection?.display_name || 'Connected'}</span>
+                </div>
+              </div>
+              <Button 
+                onClick={disconnectSpotify}
+                variant="outline" 
+                size="sm" 
+                className="text-white border-white/20 hover:bg-white/10"
+              >
+                Disconnect Spotify
+              </Button>
+            </div>
+          ) : (
+            <Button 
+              onClick={connectSpotify}
+              className="spotify-gradient text-black font-medium hover:opacity-90 transition-opacity"
+              size="sm"
+            >
+              Connect Spotify
+            </Button>
+          )}
+          
           <div className="text-sm text-gray-400">
             Welcome, {user?.email}
           </div>

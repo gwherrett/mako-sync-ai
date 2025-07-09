@@ -52,11 +52,11 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
           
-          <div className="mb-6 flex justify-end">
-            <SpotifySyncButton />
-          </div>
-
           <TabsContent value="spotify" className="space-y-8">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-white">Spotify Liked Songs</h3>
+              <SpotifySyncButton />
+            </div>
             <StatsOverview />
             <TracksTable onTrackSelect={setSelectedTrack} selectedTrack={selectedTrack} />
             {selectedTrack && (
