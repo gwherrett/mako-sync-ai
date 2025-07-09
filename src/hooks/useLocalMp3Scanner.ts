@@ -37,16 +37,109 @@ export const useLocalMp3Scanner = () => {
 
   const extractMetadata = async (file: File): Promise<ScannedTrack> => {
     try {
-      const metadata = await parseBlob(file);
+      // Enhanced parsing with detailed logging
+      console.log(`🔍 Starting metadata extraction for: ${file.name}`);
+      
+      const metadata = await parseBlob(file, { 
+        includeChapters: false,
+        skipCovers: true,
+        skipPostHeaders: false 
+      });
+      
+      // Comprehensive logging of raw metadata
+      console.log(`📋 Raw metadata structure for "${file.name}":`, {
+        format: metadata.format,
+        common: metadata.common,
+        native: Object.keys(metadata.native || {}),
+        quality: metadata.quality
+      });
+      
+      // Log available tag formats
+      if (metadata.native) {
+        Object.keys(metadata.native).forEach(tagFormat => {
+          console.log(`🏷️  ${tagFormat} tags:`, metadata.native[tagFormat]);
+        });
+      }
+      
       const hash = await generateFileHash(file);
       
+      // Enhanced metadata extraction with multiple fallback attempts
+      let title = null;
+      let artist = null;
+      let album = null;
+      let year = null;
+      let genre = null;
+      
+      // Primary extraction from common metadata
+      if (metadata.common) {
+        title = metadata.common.title || null;
+        artist = metadata.common.artist || null;
+        album = metadata.common.album || null;
+        year = metadata.common.year || null;
+        genre = metadata.common.genre?.[0] || null;
+        
+        console.log(`📊 Common metadata for "${file.name}":`, {
+          title: metadata.common.title,
+          artist: metadata.common.artist,
+          album: metadata.common.album,
+          year: metadata.common.year,
+          genre: metadata.common.genre,
+          track: metadata.common.track,
+          albumartist: metadata.common.albumartist
+        });
+      }
+      
+      // Fallback: Try extracting from native tags if common is missing
+      if (metadata.native && (!title || !artist || !album || !year || !genre)) {
+        console.log(`🔄 Attempting fallback extraction from native tags...`);
+        
+        // Try ID3v2.4 first, then ID3v2.3, then ID3v1
+        const tagFormats = ['ID3v2.4', 'ID3v2.3', 'ID3v1', 'vorbis'];
+        
+        for (const format of tagFormats) {
+          if (metadata.native[format]) {
+            const tags = metadata.native[format];
+            console.log(`🏷️  Trying ${format} tags:`, tags);
+            
+            // Extract from native tags
+            for (const tag of tags) {
+              if (!title && (tag.id === 'TIT2' || tag.id === 'TITLE' || tag.id === 'Title')) {
+                title = typeof tag.value === 'string' ? tag.value : null;
+              }
+              if (!artist && (tag.id === 'TPE1' || tag.id === 'ARTIST' || tag.id === 'Artist')) {
+                artist = typeof tag.value === 'string' ? tag.value : null;
+              }
+              if (!album && (tag.id === 'TALB' || tag.id === 'ALBUM' || tag.id === 'Album')) {
+                album = typeof tag.value === 'string' ? tag.value : null;
+              }
+              if (!year && (tag.id === 'TYER' || tag.id === 'TDRC' || tag.id === 'DATE' || tag.id === 'Date')) {
+                const yearValue = typeof tag.value === 'string' ? parseInt(tag.value) : 
+                                  typeof tag.value === 'number' ? tag.value : null;
+                if (yearValue && !isNaN(yearValue)) {
+                  year = yearValue;
+                }
+              }
+              if (!genre && (tag.id === 'TCON' || tag.id === 'GENRE' || tag.id === 'Genre')) {
+                genre = typeof tag.value === 'string' ? tag.value : null;
+              }
+            }
+            
+            // If we found some data in this format, log it
+            if (title || artist || album || year || genre) {
+              console.log(`✅ Found metadata in ${format}:`, { title, artist, album, year, genre });
+              break;
+            }
+          }
+        }
+      }
+      
       const trackData = {
-        file_path: file.name, // In real implementation, this would be the full path
-        title: metadata.common.title || null,
-        artist: metadata.common.artist || null,
-        album: metadata.common.album || null,
-        year: metadata.common.year || null,
-        genre: metadata.common.genre?.[0] || null,
+        file_path: file.name,
+        title,
+        artist,
+        album,
+        year,
+        genre,
         bpm: null, // Would need additional processing for BPM detection
         key: null, // Would need additional processing for key detection
         hash,
@@ -54,24 +147,25 @@ export const useLocalMp3Scanner = () => {
         last_modified: new Date(file.lastModified).toISOString(),
       };
 
-      // Log metadata extraction for requested fields
-      console.log(`🎵 Metadata extracted for "${file.name}":`, {
+      // Final extraction results
+      console.log(`🎵 Final metadata extracted for "${file.name}":`, {
         artist: trackData.artist || '❌ MISSING',
         album: trackData.album || '❌ MISSING', 
         genre: trackData.genre || '❌ MISSING',
         year: trackData.year || '❌ MISSING',
         title: trackData.title || '❌ MISSING',
         fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        bpm: trackData.bpm || 'N/A',
-        key: trackData.key || 'N/A'
+        hash: trackData.hash?.substring(0, 8) + '...'
       });
 
       return trackData;
     } catch (error) {
-      console.error(`Failed to extract metadata from ${file.name}:`, error);
+      console.error(`❌ Failed to extract metadata from ${file.name}:`, error);
+      
+      // Return track with all metadata fields as null (no filename fallback)
       return {
         file_path: file.name,
-        title: file.name.replace(/\.[^/.]+$/, ""), // Use filename without extension as fallback
+        title: null,
         artist: null,
         album: null,
         year: null,
