@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useLocalMp3Scanner } from '@/hooks/useLocalMp3Scanner';
 
 const LocalScanButton = () => {
-  const { isScanning, scanLocalFiles } = useLocalMp3Scanner();
+  const { isScanning, scanLocalFiles, scanProgress } = useLocalMp3Scanner();
 
   return (
     <Button 
@@ -15,7 +15,10 @@ const LocalScanButton = () => {
       {isScanning ? (
         <>
           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          Scanning...
+          {scanProgress.total > 0 
+            ? `Scanning... ${scanProgress.current}/${scanProgress.total}`
+            : 'Scanning...'
+          }
         </>
       ) : (
         <>
