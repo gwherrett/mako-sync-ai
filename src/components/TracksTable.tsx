@@ -76,7 +76,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   useEffect(() => {
     fetchTracks();
     fetchFilterOptions();
-  }, [currentPage, sortField, sortDirection, yearFrom, yearTo, selectedArtist, selectedAlbum, dateFilter]);
+  }, [currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, dateFilter]);
 
   // Separate useEffect for search with debouncing
   useEffect(() => {
@@ -86,6 +86,15 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
+
+  // Separate useEffect for year filters with debouncing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchTracks();
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [yearFrom, yearTo]);
 
   const fetchTracks = async () => {
     try {
