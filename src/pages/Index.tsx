@@ -1,9 +1,11 @@
 
 import React, { useState } from 'react';
-import SpotifyHeader from '@/components/SpotifyHeader';
+import LibraryHeader from '@/components/LibraryHeader';
 import StatsOverview from '@/components/StatsOverview';
 import MetadataExtractor from '@/components/MetadataExtractor';
 import TracksTable from '@/components/TracksTable';
+import SpotifySyncButton from '@/components/SpotifySyncButton';
+import LocalScanButton from '@/components/LocalScanButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface SpotifyTrack {
@@ -24,7 +26,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black">
-      <SpotifyHeader />
+      <LibraryHeader />
       
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
@@ -49,6 +51,10 @@ const Index = () => {
               Local Library
             </TabsTrigger>
           </TabsList>
+          
+          <div className="mb-6 flex justify-end">
+            <SpotifySyncButton />
+          </div>
 
           <TabsContent value="spotify" className="space-y-8">
             <StatsOverview />
@@ -118,6 +124,10 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="local" className="space-y-8">
+            <div className="mb-6 flex justify-end">
+              <LocalScanButton />
+            </div>
+            
             <div className="text-center py-12">
               <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
