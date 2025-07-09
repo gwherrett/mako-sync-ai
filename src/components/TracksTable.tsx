@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MoreHorizontal, Play, ExternalLink, Download } from 'lucide-react';
+import { MoreHorizontal, Play, ExternalLink, Download, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -51,12 +51,14 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalTracks, setTotalTracks] = useState(0);
+  const [sortField, setSortField] = useState<'added_at' | 'year' | 'artist'>('added_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const tracksPerPage = 50;
   const { toast } = useToast();
 
   useEffect(() => {
     fetchTracks();
-  }, [currentPage]);
+  }, [currentPage, sortField, sortDirection]);
 
   const fetchTracks = async () => {
     try {
@@ -73,7 +75,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       const { data, error } = await supabase
         .from('spotify_liked')
         .select('*')
-        .order('added_at', { ascending: false })
+        .order(sortField, { ascending: sortDirection === 'asc' })
         .range((currentPage - 1) * tracksPerPage, currentPage * tracksPerPage - 1);
 
       if (error) {
@@ -102,6 +104,16 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     if (danceability >= 0.6) return 'Medium';
     if (danceability >= 0.4) return 'Low';
     return 'Very Low';
+  };
+
+  const handleSort = (field: 'year' | 'artist') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1); // Reset to first page when sorting
   };
 
   const openSpotifyTrack = (spotifyId: string) => {
@@ -134,12 +146,32 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
             <TableHeader>
               <TableRow>
                 <TableHead>Track</TableHead>
-                <TableHead>Artist</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('artist')}
+                >
+                  <div className="flex items-center gap-1">
+                    Artist
+                    {sortField === 'artist' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead>Album</TableHead>
                 <TableHead>BPM</TableHead>
                 <TableHead>Key</TableHead>
                 <TableHead>Dance</TableHead>
-                <TableHead>Year</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('year')}
+                >
+                  <div className="flex items-center gap-1">
+                    Year
+                    {sortField === 'year' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
