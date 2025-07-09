@@ -55,7 +55,7 @@ const SpotifyHeader = () => {
                     Syncing...
                   </>
                 ) : (
-                  'Refresh & Sync Liked Songs'
+                  'Sync Liked Songs'
                 )}
               </Button>
               <Button 
