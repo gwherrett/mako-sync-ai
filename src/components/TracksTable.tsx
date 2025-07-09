@@ -164,16 +164,16 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                   </TableCell>
                   <TableCell>
                     {track.bpm ? (
-                      <Badge variant="outline">{Math.round(track.bpm)}</Badge>
+                      <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">{Math.round(track.bpm)}</Badge>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No BPM</Badge>
                     )}
                   </TableCell>
                   <TableCell>
                     {track.key ? (
-                      <Badge variant="secondary">{getKeyName(track.key)}</Badge>
+                      <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/30">{getKeyName(track.key)}</Badge>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Key</Badge>
                     )}
                   </TableCell>
                   <TableCell>
@@ -183,11 +183,12 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                           track.danceability >= 0.8 ? "default" :
                           track.danceability >= 0.6 ? "secondary" : "outline"
                         }
+                        className="bg-green-500/10 text-green-400 border-green-500/30"
                       >
                         {getDanceabilityLabel(track.danceability)}
                       </Badge>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Dance</Badge>
                     )}
                   </TableCell>
                   <TableCell>
