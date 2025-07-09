@@ -48,20 +48,36 @@ export const useLocalMp3Scanner = () => {
 
       console.log(`🔍 About to call parseBlob for: ${file.name}`);
       
-      const metadata = await parseBlob(file, { 
-        includeChapters: false,
-        skipCovers: true,
-        skipPostHeaders: false 
-      });
+      // Try parseBlob with specific error handling
+      let metadata;
+      try {
+        metadata = await parseBlob(file, { 
+          includeChapters: false,
+          skipCovers: true,
+          skipPostHeaders: false 
+        });
+        console.log(`✅ parseBlob completed successfully for: ${file.name}`);
+      } catch (parseError) {
+        console.error(`❌ parseBlob FAILED for ${file.name}:`, parseError);
+        throw new Error(`parseBlob failed: ${parseError.message}`);
+      }
       
-      console.log(`✅ parseBlob completed successfully for: ${file.name}`);
+      // Validate metadata object structure
+      if (!metadata) {
+        console.error(`❌ metadata is null/undefined for: ${file.name}`);
+        throw new Error('Metadata object is null or undefined');
+      }
       
-      // Comprehensive logging of raw metadata
-      console.log(`📋 Raw metadata structure for "${file.name}":`, {
-        format: metadata.format,
-        common: metadata.common,
-        native: Object.keys(metadata.native || {}),
-        quality: metadata.quality
+      console.log(`📋 Raw metadata object for "${file.name}":`, JSON.stringify(metadata, null, 2));
+      
+      // Check for expected properties
+      console.log(`📊 Metadata validation for "${file.name}":`, {
+        hasFormat: !!metadata.format,
+        hasCommon: !!metadata.common,
+        hasNative: !!metadata.native,
+        formatKeys: metadata.format ? Object.keys(metadata.format) : [],
+        commonKeys: metadata.common ? Object.keys(metadata.common) : [],
+        nativeKeys: metadata.native ? Object.keys(metadata.native) : []
       });
       
       // Log available tag formats
