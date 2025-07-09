@@ -206,7 +206,10 @@ export const useLocalMp3Scanner = () => {
   };
 
   const scanLocalFiles = async () => {
+    console.log('🎯 SCAN STARTED: scanLocalFiles function called');
+    
     if (!user) {
+      console.log('❌ No user found, aborting scan');
       toast({
         title: "Authentication Required",
         description: "Please sign in to scan local files.",
@@ -217,6 +220,7 @@ export const useLocalMp3Scanner = () => {
 
     // Check if we're in an iframe (like Lovable preview)
     if (window.self !== window.top) {
+      console.log('❌ Running in iframe, aborting scan');
       toast({
         title: "Preview Limitation",
         description: "File picker doesn't work in preview. Please open your deployed app in a new tab to test local file scanning.",
@@ -227,6 +231,7 @@ export const useLocalMp3Scanner = () => {
 
     // Check if File System Access API is supported
     if (!('showDirectoryPicker' in window)) {
+      console.log('❌ File System Access API not supported');
       toast({
         title: "Browser Not Supported",
         description: "Your browser doesn't support the File System Access API. Please use Chrome, Edge, or another Chromium-based browser.",
@@ -235,15 +240,18 @@ export const useLocalMp3Scanner = () => {
       return;
     }
 
+    console.log('✅ All checks passed, proceeding with scan');
     setIsScanning(true);
     setScanProgress({ current: 0, total: 0 });
     
     try {
+      console.log('📂 About to show directory picker');
       // Let user select a directory
       const dirHandle = await (window as any).showDirectoryPicker({
         mode: 'read'
       });
 
+      console.log(`📁 Directory selected: ${dirHandle.name}`);
       toast({
         title: "Scan Started",
         description: `Scanning directory: ${dirHandle.name}`,
@@ -253,9 +261,11 @@ export const useLocalMp3Scanner = () => {
       
       // Recursively collect MP3 files
       const collectMP3Files = async (dirHandle: any, path = '') => {
+        console.log(`🔍 Collecting files from: ${path || 'root'}`);
         for await (const entry of dirHandle.values()) {
           if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.mp3')) {
             const file = await entry.getFile();
+            console.log(`🎵 Found MP3: ${entry.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
             mp3Files.push(file);
           } else if (entry.kind === 'directory') {
             await collectMP3Files(entry, `${path}/${entry.name}`);
@@ -265,7 +275,10 @@ export const useLocalMp3Scanner = () => {
 
       await collectMP3Files(dirHandle);
       
+      console.log(`📊 Total MP3 files found: ${mp3Files.length}`);
+      
       if (mp3Files.length === 0) {
+        console.log('❌ No MP3 files found in directory');
         toast({
           title: "No MP3 Files Found",
           description: "No MP3 files were found in the selected directory.",
@@ -278,13 +291,18 @@ export const useLocalMp3Scanner = () => {
 
       const scannedTracks: ScannedTrack[] = [];
       
+      console.log('🚀 Starting metadata extraction for all files...');
       // Process files in batches
       const batchSize = 5;
       for (let i = 0; i < mp3Files.length; i += batchSize) {
         const batch = mp3Files.slice(i, i + batchSize);
+        console.log(`📦 Processing batch ${Math.floor(i/batchSize) + 1}: files ${i + 1}-${Math.min(i + batchSize, mp3Files.length)}`);
+        
         const batchResults = await Promise.all(
           batch.map(async (file, index) => {
+            console.log(`🎯 About to extract metadata for: ${file.name}`);
             const track = await extractMetadata(file);
+            console.log(`✅ Metadata extraction completed for: ${file.name}`);
             setScanProgress({ current: i + index + 1, total: mp3Files.length });
             return track;
           })
@@ -292,28 +310,32 @@ export const useLocalMp3Scanner = () => {
         scannedTracks.push(...batchResults);
       }
 
+      console.log(`💾 Inserting ${scannedTracks.length} tracks into database...`);
       // Insert tracks into database
       const { error } = await supabase
         .from('local_mp3s')
         .insert(scannedTracks);
 
       if (error) {
+        console.error('❌ Database insertion error:', error);
         throw error;
       }
 
+      console.log('✅ Database insertion successful');
       toast({
         title: "Scan Complete",
         description: `Successfully scanned ${scannedTracks.length} MP3 files.`,
       });
 
     } catch (error: any) {
-      console.error('Scan error:', error);
+      console.error('❌ Scan error:', error);
       toast({
         title: "Scan Failed",
         description: error.message || "Failed to scan local files.",
         variant: "destructive",
       });
     } finally {
+      console.log('🏁 Scan process finished, cleaning up...');
       setIsScanning(false);
       setScanProgress({ current: 0, total: 0 });
     }
