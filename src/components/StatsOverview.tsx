@@ -59,7 +59,7 @@ const StatsOverview = () => {
       bgColor: "bg-green-400/10"
     },
     {
-      title: "Extracted",
+      title: "Metadata Extracted",
       value: loading ? "..." : likedSongsCount.toLocaleString(),
       icon: Download,
       color: "text-blue-400",
