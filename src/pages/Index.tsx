@@ -4,6 +4,7 @@ import SpotifyHeader from '@/components/SpotifyHeader';
 import StatsOverview from '@/components/StatsOverview';
 import MetadataExtractor from '@/components/MetadataExtractor';
 import TracksTable from '@/components/TracksTable';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface SpotifyTrack {
   id: string;
@@ -33,72 +34,106 @@ const Index = () => {
           </p>
         </div>
         
-        <div className="space-y-8">
-          <StatsOverview />
-          <TracksTable onTrackSelect={setSelectedTrack} selectedTrack={selectedTrack} />
-          {selectedTrack && (
-            <div className="bg-serato-dark/20 rounded-lg border border-serato-cyan/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Track Details</h3>
-              <div className="p-4 bg-serato-dark/30 rounded-lg border border-serato-cyan/10">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h4 className="font-semibold text-white text-lg">{selectedTrack.title}</h4>
-                    <p className="text-gray-300">{selectedTrack.artist} • {selectedTrack.album || 'Unknown Album'}</p>
-                  </div>
-                  <button 
-                    className="text-serato-cyan hover:text-serato-cyan/80 transition-colors"
-                    onClick={() => window.open(`https://open.spotify.com/track/${selectedTrack.spotify_id}`, '_blank')}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                  <div>
-                    <span className="text-xs text-gray-400 block">BPM</span>
-                    <span className="text-sm text-serato-cyan font-semibold">
-                      {selectedTrack.bpm ? Math.round(selectedTrack.bpm) : 'Unknown'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-400 block">Key</span>
-                    <span className="text-sm text-serato-cyan font-semibold">
-                      {selectedTrack.key ? (() => {
-                        const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-                        const keyNum = parseInt(selectedTrack.key);
-                        return keys[keyNum] || 'Unknown';
-                      })() : 'Unknown'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-400 block">Year</span>
-                    <span className="text-sm text-white">{selectedTrack.year || 'Unknown'}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-400 block">Added</span>
-                    <span className="text-sm text-white">
-                      {selectedTrack.added_at ? new Date(selectedTrack.added_at).toLocaleDateString() : 'Unknown'}
-                    </span>
-                  </div>
-                </div>
+        <Tabs defaultValue="spotify" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsTrigger value="spotify" className="flex items-center gap-2">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+              </svg>
+              Spotify Library
+            </TabsTrigger>
+            <TabsTrigger value="local" className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
+              Local Library
+            </TabsTrigger>
+          </TabsList>
 
-                <div className="flex space-x-2">
-                  {selectedTrack.danceability && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-serato-cyan/10 text-serato-cyan border border-serato-cyan/30">
-                      Danceability: {(selectedTrack.danceability * 100).toFixed(0)}%
+          <TabsContent value="spotify" className="space-y-8">
+            <StatsOverview />
+            <TracksTable onTrackSelect={setSelectedTrack} selectedTrack={selectedTrack} />
+            {selectedTrack && (
+              <div className="bg-serato-dark/20 rounded-lg border border-serato-cyan/20 p-6">
+                <h3 className="text-xl font-semibold text-white mb-4">Track Details</h3>
+                <div className="p-4 bg-serato-dark/30 rounded-lg border border-serato-cyan/10">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h4 className="font-semibold text-white text-lg">{selectedTrack.title}</h4>
+                      <p className="text-gray-300">{selectedTrack.artist} • {selectedTrack.album || 'Unknown Album'}</p>
+                    </div>
+                    <button 
+                      className="text-serato-cyan hover:text-serato-cyan/80 transition-colors"
+                      onClick={() => window.open(`https://open.spotify.com/track/${selectedTrack.spotify_id}`, '_blank')}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                    <div>
+                      <span className="text-xs text-gray-400 block">BPM</span>
+                      <span className="text-sm text-serato-cyan font-semibold">
+                        {selectedTrack.bpm ? Math.round(selectedTrack.bpm) : 'Unknown'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-400 block">Key</span>
+                      <span className="text-sm text-serato-cyan font-semibold">
+                        {selectedTrack.key ? (() => {
+                          const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                          const keyNum = parseInt(selectedTrack.key);
+                          return keys[keyNum] || 'Unknown';
+                        })() : 'Unknown'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-400 block">Year</span>
+                      <span className="text-sm text-white">{selectedTrack.year || 'Unknown'}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-400 block">Added</span>
+                      <span className="text-sm text-white">
+                        {selectedTrack.added_at ? new Date(selectedTrack.added_at).toLocaleDateString() : 'Unknown'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    {selectedTrack.danceability && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-serato-cyan/10 text-serato-cyan border border-serato-cyan/30">
+                        Danceability: {(selectedTrack.danceability * 100).toFixed(0)}%
+                      </span>
+                    )}
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-serato-orange/10 text-serato-orange border border-serato-orange/30">
+                      Spotify Track
                     </span>
-                  )}
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-serato-orange/10 text-serato-orange border border-serato-orange/30">
-                    Spotify Track
-                  </span>
+                  </div>
                 </div>
               </div>
+            )}
+            <MetadataExtractor selectedTrack={selectedTrack} />
+          </TabsContent>
+
+          <TabsContent value="local" className="space-y-8">
+            <div className="text-center py-12">
+              <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
+              <h3 className="text-xl font-semibold text-white mb-2">Local MP3 Library</h3>
+              <p className="text-gray-400 mb-6">
+                Scan and manage your local MP3 collection for Serato integration
+              </p>
+              <div className="bg-serato-dark/30 rounded-lg border border-serato-cyan/20 p-6 max-w-md mx-auto">
+                <p className="text-sm text-gray-300">
+                  MP3 scanner coming soon...
+                </p>
+              </div>
             </div>
-          )}
-          <MetadataExtractor selectedTrack={selectedTrack} />
-        </div>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
