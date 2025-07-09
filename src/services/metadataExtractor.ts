@@ -56,6 +56,7 @@ export interface ScannedTrack {
   genre: string | null;
   bpm: number | null;
   key: string | null;
+  bitrate: number | null;
   hash: string | null;
   file_size: number;
   last_modified: string;
@@ -124,6 +125,9 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
     let album = null;
     let year = null;
     let genre = null;
+    let bpm = null;
+    let key = null;
+    let bitrate = null;
     
     // Primary extraction from common metadata
     if (metadata.common) {
@@ -132,6 +136,8 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       album = metadata.common.album || null;
       year = metadata.common.year || null;
       genre = metadata.common.genre?.[0] || null;
+      bpm = metadata.common.bpm || null;
+      key = metadata.common.key || null;
       
       console.log(`📊 Common metadata for "${file.name}":`, {
         title: metadata.common.title,
@@ -157,9 +163,20 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
         }
       }
     }
+
+    // Extract format metadata (bitrate, etc.)
+    if (metadata.format) {
+      bitrate = metadata.format.bitrate || null;
+      console.log(`🎵 Format metadata for "${file.name}":`, {
+        bitrate: metadata.format.bitrate,
+        sampleRate: metadata.format.sampleRate,
+        numberOfChannels: metadata.format.numberOfChannels,
+        duration: metadata.format.duration
+      });
+    }
     
     // Fallback: Try extracting from native tags if common is missing
-    if (metadata.native && (!title || !artist || !album || !year || !genre)) {
+    if (metadata.native && (!title || !artist || !album || !year || !genre || !bpm || !key)) {
       console.log(`🔄 Attempting fallback extraction from native tags...`);
       
       // Try ID3v2.4 first, then ID3v2.3, then ID3v1
@@ -196,11 +213,20 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
             if (!genre && (tag.id === 'TCON' || tag.id === 'GENRE' || tag.id === 'Genre')) {
               genre = typeof tag.value === 'string' ? tag.value : null;
             }
+            if (!bpm && (tag.id === 'TBPM' || tag.id === 'BPM' || tag.id === 'Bpm')) {
+              const bpmValue = typeof tag.value === 'string' ? parseFloat(tag.value) : (typeof tag.value === 'number' ? tag.value : null);
+              if (bpmValue && bpmValue > 0 && bpmValue < 300) {
+                bpm = Math.round(bpmValue);
+              }
+            }
+            if (!key && (tag.id === 'TKEY' || tag.id === 'KEY' || tag.id === 'Key' || tag.id === 'INITIALKEY')) {
+              key = typeof tag.value === 'string' ? tag.value : null;
+            }
           }
           
           // If we found some data in this format, log it
-          if (title || artist || album || year || genre) {
-            console.log(`✅ Found metadata in ${format}:`, { title, artist, album, year, genre });
+          if (title || artist || album || year || genre || bpm || key) {
+            console.log(`✅ Found metadata in ${format}:`, { title, artist, album, year, genre, bpm, key });
             break;
           }
         }
@@ -214,8 +240,9 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       album,
       year,
       genre,
-      bpm: null, // Would need additional processing for BPM detection
-      key: null, // Would need additional processing for key detection
+      bpm,
+      key,
+      bitrate,
       hash,
       file_size: file.size,
       last_modified: new Date(file.lastModified).toISOString(),
@@ -228,6 +255,9 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       genre: trackData.genre || '❌ MISSING',
       year: trackData.year || '❌ MISSING',
       title: trackData.title || '❌ MISSING',
+      bpm: trackData.bpm || '❌ MISSING',
+      key: trackData.key || '❌ MISSING',
+      bitrate: trackData.bitrate ? `${trackData.bitrate} kbps` : '❌ MISSING',
       fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
       hash: trackData.hash?.substring(0, 8) + '...'
     });
@@ -246,6 +276,7 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       genre: null,
       bpm: null,
       key: null,
+      bitrate: null,
       hash: await generateFileHash(file),
       file_size: file.size,
       last_modified: new Date(file.lastModified).toISOString(),

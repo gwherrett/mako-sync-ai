@@ -31,6 +31,7 @@ interface LocalMP3 {
   year: number | null;
   bpm: number | null;
   key: string | null;
+  bitrate: number | null;
   file_path: string;
   file_size: number | null;
   last_modified: string | null;
@@ -167,32 +168,53 @@ const Index = () => {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                    <div>
-                      <span className="text-xs text-gray-400 block">Genre</span>
-                      <span className="text-sm text-serato-cyan font-semibold">
-                        {selectedLocalTrack.genre || 'Unknown'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-400 block">Year</span>
-                      <span className="text-sm text-white">{selectedLocalTrack.year || 'Unknown'}</span>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-400 block">File Size</span>
-                      <span className="text-sm text-white">
-                        {selectedLocalTrack.file_size ? 
-                          `${(selectedLocalTrack.file_size / (1024 * 1024)).toFixed(1)} MB` : 'Unknown'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-400 block">Last Modified</span>
-                      <span className="text-sm text-white">
-                        {selectedLocalTrack.last_modified ? 
-                          new Date(selectedLocalTrack.last_modified).toLocaleDateString() : 'Unknown'}
-                      </span>
-                    </div>
-                  </div>
+                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                     <div>
+                       <span className="text-xs text-gray-400 block">BPM</span>
+                       <span className="text-sm text-serato-cyan font-semibold">
+                         {selectedLocalTrack.bpm || 'Unknown'}
+                       </span>
+                     </div>
+                     <div>
+                       <span className="text-xs text-gray-400 block">Key</span>
+                       <span className="text-sm text-serato-cyan font-semibold">
+                         {selectedLocalTrack.key || 'Unknown'}
+                       </span>
+                     </div>
+                     <div>
+                       <span className="text-xs text-gray-400 block">Bitrate</span>
+                       <span className="text-sm text-white">
+                         {selectedLocalTrack.bitrate ? `${selectedLocalTrack.bitrate} kbps` : 'Unknown'}
+                       </span>
+                     </div>
+                     <div>
+                       <span className="text-xs text-gray-400 block">Genre</span>
+                       <span className="text-sm text-serato-cyan font-semibold">
+                         {selectedLocalTrack.genre || 'Unknown'}
+                       </span>
+                     </div>
+                   </div>
+                   
+                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-3">
+                     <div>
+                       <span className="text-xs text-gray-400 block">Year</span>
+                       <span className="text-sm text-white">{selectedLocalTrack.year || 'Unknown'}</span>
+                     </div>
+                     <div>
+                       <span className="text-xs text-gray-400 block">File Size</span>
+                       <span className="text-sm text-white">
+                         {selectedLocalTrack.file_size ? 
+                           `${(selectedLocalTrack.file_size / (1024 * 1024)).toFixed(1)} MB` : 'Unknown'}
+                       </span>
+                     </div>
+                     <div>
+                       <span className="text-xs text-gray-400 block">Last Modified</span>
+                       <span className="text-sm text-white">
+                         {selectedLocalTrack.last_modified ? 
+                           new Date(selectedLocalTrack.last_modified).toLocaleDateString() : 'Unknown'}
+                       </span>
+                     </div>
+                   </div>
 
                   <div className="flex space-x-2">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-serato-orange/10 text-serato-orange border border-serato-orange/30">

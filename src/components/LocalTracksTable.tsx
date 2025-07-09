@@ -41,6 +41,7 @@ interface LocalMP3 {
   year: number | null;
   bpm: number | null;
   key: string | null;
+  bitrate: number | null;
   file_path: string;
   file_size: number | null;
   last_modified: string | null;
@@ -564,7 +565,10 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                     )}
                   </div>
                 </TableHead>
+                 <TableHead>BPM</TableHead>
+                <TableHead>Key</TableHead>
                 <TableHead>Format</TableHead>
+                <TableHead>Bitrate</TableHead>
                 <TableHead>Size</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
@@ -604,17 +608,42 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                   <TableCell>
                     {track.genre || <span className="text-muted-foreground">Unknown</span>}
                   </TableCell>
-                  <TableCell>
-                    {track.year || <span className="text-muted-foreground">—</span>}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {getFileFormat(track.file_path)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {formatFileSize(track.file_size)}
-                  </TableCell>
+                   <TableCell>
+                     {track.year || <span className="text-muted-foreground">—</span>}
+                   </TableCell>
+                   <TableCell>
+                     {track.bpm ? (
+                       <Badge variant="secondary" className="bg-blue-500/10 text-blue-400 border-blue-500/30">
+                         {track.bpm} BPM
+                       </Badge>
+                     ) : (
+                       <span className="text-muted-foreground">—</span>
+                     )}
+                   </TableCell>
+                   <TableCell>
+                     {track.key ? (
+                       <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/30">
+                         {track.key}
+                       </Badge>
+                     ) : (
+                       <span className="text-muted-foreground">—</span>
+                     )}
+                   </TableCell>
+                   <TableCell>
+                     <Badge variant="outline">
+                       {getFileFormat(track.file_path)}
+                     </Badge>
+                   </TableCell>
+                   <TableCell>
+                     {track.bitrate ? (
+                       <span className="text-sm">{track.bitrate} kbps</span>
+                     ) : (
+                       <span className="text-muted-foreground">—</span>
+                     )}
+                   </TableCell>
+                   <TableCell>
+                     {formatFileSize(track.file_size)}
+                   </TableCell>
                   <TableCell>
                     {getMissingMetadataCount(track) === 0 ? (
                       <Badge variant="default" className="bg-green-500/10 text-green-400 border-green-500/30">

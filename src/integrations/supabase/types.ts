@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           album: string | null
           artist: string | null
+          bitrate: number | null
           bpm: number | null
           comment: string | null
           created_at: string | null
@@ -37,6 +38,7 @@ export type Database = {
         Insert: {
           album?: string | null
           artist?: string | null
+          bitrate?: number | null
           bpm?: number | null
           comment?: string | null
           created_at?: string | null
@@ -56,6 +58,7 @@ export type Database = {
         Update: {
           album?: string | null
           artist?: string | null
+          bitrate?: number | null
           bpm?: number | null
           comment?: string | null
           created_at?: string | null
