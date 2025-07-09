@@ -76,7 +76,16 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   useEffect(() => {
     fetchTracks();
     fetchFilterOptions();
-  }, [currentPage, sortField, sortDirection, searchQuery, yearFrom, yearTo, selectedArtist, selectedAlbum, dateFilter]);
+  }, [currentPage, sortField, sortDirection, yearFrom, yearTo, selectedArtist, selectedAlbum, dateFilter]);
+
+  // Separate useEffect for search with debouncing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchTracks();
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   const fetchTracks = async () => {
     try {
@@ -247,10 +256,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
               <Input
                 placeholder="Search tracks, artists, or albums..."
                 value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
