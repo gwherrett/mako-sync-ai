@@ -78,6 +78,16 @@ export const useLocalMp3Scanner = () => {
       return;
     }
 
+    // Check if we're in an iframe (like Lovable preview)
+    if (window.self !== window.top) {
+      toast({
+        title: "Preview Limitation",
+        description: "File picker doesn't work in preview. Please open your deployed app in a new tab to test local file scanning.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Check if File System Access API is supported
     if (!('showDirectoryPicker' in window)) {
       toast({
