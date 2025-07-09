@@ -493,20 +493,26 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                   />
                 </PaginationItem>
                 
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const page = Math.max(1, Math.min(totalPages, currentPage - 2 + i));
-                  return (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        onClick={() => setCurrentPage(page)}
-                        isActive={currentPage === page}
-                        className="cursor-pointer"
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  );
-                })}
+                {(() => {
+                  const maxVisiblePages = 5;
+                  const startPage = Math.max(1, Math.min(currentPage - Math.floor(maxVisiblePages / 2), totalPages - maxVisiblePages + 1));
+                  const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                  
+                  return Array.from({ length: endPage - startPage + 1 }, (_, i) => {
+                    const page = startPage + i;
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  });
+                })()}
                 
                 <PaginationItem>
                   <PaginationNext 
