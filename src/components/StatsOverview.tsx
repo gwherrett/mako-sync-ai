@@ -1,18 +1,32 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Music, Download, Zap, Clock } from 'lucide-react';
+import { Music, Database, RefreshCw, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { formatDistanceToNow } from 'date-fns';
 
 const StatsOverview = () => {
   const [likedSongsCount, setLikedSongsCount] = useState<number>(0);
+  const [metadataExtractedCount, setMetadataExtractedCount] = useState<number>(0);
+  const [lastSync, setLastSync] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchLikedSongsCount();
-    
-    // Set up real-time subscription for updates
-    const channel = supabase
+    fetchInitialData();
+    setupRealtimeSubscription();
+
+    return () => {
+      supabase.removeChannel('schema-db-changes');
+    };
+  }, []);
+
+  const fetchInitialData = async () => {
+    await fetchLikedSongsCount();
+    await fetchMetadataExtractedCount();
+    await fetchLastSync();
+  };
+
+  const setupRealtimeSubscription = () => {
+    supabase
       .channel('schema-db-changes')
       .on(
         'postgres_changes',
@@ -25,12 +39,30 @@ const StatsOverview = () => {
           fetchLikedSongsCount();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'local_mp3s'
+        },
+        () => {
+          fetchMetadataExtractedCount();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sync_history'
+        },
+        () => {
+          fetchLastSync();
+        }
+      )
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    }
-  }, []);
+  };
 
   const fetchLikedSongsCount = async () => {
     try {
@@ -50,6 +82,51 @@ const StatsOverview = () => {
       setLoading(false);
     }
   };
+
+  const fetchMetadataExtractedCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('local_mp3s')
+        .select('*', { count: 'exact', head: true });
+
+      if (error) {
+        console.error('Error fetching metadata extracted count:', error);
+        return;
+      }
+
+      setMetadataExtractedCount(count || 0);
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLastSync = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sync_history')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error fetching last sync:', error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        setLastSync(data[0].created_at);
+      } else {
+        setLastSync(null);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const stats = [
     {
       title: "Liked Songs",
@@ -60,8 +137,8 @@ const StatsOverview = () => {
     },
     {
       title: "Metadata Extracted",
-      value: loading ? "..." : likedSongsCount.toLocaleString(),
-      icon: Download,
+      value: loading ? "..." : metadataExtractedCount.toLocaleString(),
+      icon: Database,
       color: "text-blue-400",
       bgColor: "bg-blue-400/10"
     },
@@ -74,7 +151,7 @@ const StatsOverview = () => {
     },
     {
       title: "Last Sync",
-      value: "Just now",
+      value: loading ? "..." : (lastSync ? formatDistanceToNow(new Date(lastSync), { addSuffix: true }) : "Never"),
       icon: Clock,
       color: "text-orange-400",
       bgColor: "bg-orange-400/10"
