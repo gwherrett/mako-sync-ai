@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Music, Database, RefreshCw, Clock } from 'lucide-react';
@@ -6,8 +7,9 @@ import { formatDistanceToNow } from 'date-fns';
 
 const StatsOverview = () => {
   const [likedSongsCount, setLikedSongsCount] = useState<number>(0);
-  const [metadataExtractedCount, setMetadataExtractedCount] = useState<number>(0);
-  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [localFilesCount, setLocalFilesCount] = useState<number>(0);
+  const [lastSpotifySync, setLastSpotifySync] = useState<string | null>(null);
+  const [lastLocalSync, setLastLocalSync] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,8 +23,9 @@ const StatsOverview = () => {
 
   const fetchInitialData = async () => {
     await fetchLikedSongsCount();
-    await fetchMetadataExtractedCount();
-    await fetchLastSync();
+    await fetchLocalFilesCount();
+    await fetchLastSpotifySync();
+    await fetchLastLocalSync();
   };
 
   const setupRealtimeSubscription = () => {
@@ -37,6 +40,7 @@ const StatsOverview = () => {
         },
         () => {
           fetchLikedSongsCount();
+          fetchLastSpotifySync();
         }
       )
       .on(
@@ -47,18 +51,8 @@ const StatsOverview = () => {
           table: 'local_mp3s'
         },
         () => {
-          fetchMetadataExtractedCount();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'sync_history'
-        },
-        () => {
-          fetchLastSync();
+          fetchLocalFilesCount();
+          fetchLastLocalSync();
         }
       )
       .subscribe();
@@ -83,18 +77,18 @@ const StatsOverview = () => {
     }
   };
 
-  const fetchMetadataExtractedCount = async () => {
+  const fetchLocalFilesCount = async () => {
     try {
       const { count, error } = await supabase
         .from('local_mp3s')
         .select('*', { count: 'exact', head: true });
 
       if (error) {
-        console.error('Error fetching metadata extracted count:', error);
+        console.error('Error fetching local files count:', error);
         return;
       }
 
-      setMetadataExtractedCount(count || 0);
+      setLocalFilesCount(count || 0);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -102,23 +96,48 @@ const StatsOverview = () => {
     }
   };
 
-  const fetchLastSync = async () => {
+  const fetchLastSpotifySync = async () => {
     try {
       const { data, error } = await supabase
-        .from('sync_history')
+        .from('spotify_liked')
         .select('created_at')
         .order('created_at', { ascending: false })
         .limit(1);
 
       if (error) {
-        console.error('Error fetching last sync:', error);
+        console.error('Error fetching last Spotify sync:', error);
         return;
       }
 
       if (data && data.length > 0) {
-        setLastSync(data[0].created_at);
+        setLastSpotifySync(data[0].created_at);
       } else {
-        setLastSync(null);
+        setLastSpotifySync(null);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLastLocalSync = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('local_mp3s')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error fetching last local sync:', error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        setLastLocalSync(data[0].created_at);
+      } else {
+        setLastLocalSync(null);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -136,22 +155,22 @@ const StatsOverview = () => {
       bgColor: "bg-green-400/10"
     },
     {
-      title: "Metadata Extracted",
-      value: loading ? "..." : metadataExtractedCount.toLocaleString(),
-      icon: Database,
+      title: "Last Spotify Sync",
+      value: loading ? "..." : (lastSpotifySync ? formatDistanceToNow(new Date(lastSpotifySync), { addSuffix: true }) : "Never"),
+      icon: RefreshCw,
       color: "text-blue-400",
       bgColor: "bg-blue-400/10"
     },
     {
-      title: "Make Webhooks",
-      value: "0",
-      icon: Zap,
+      title: "Local Files",
+      value: loading ? "..." : localFilesCount.toLocaleString(),
+      icon: Database,
       color: "text-purple-400",
       bgColor: "bg-purple-400/10"
     },
     {
-      title: "Last Sync",
-      value: loading ? "..." : (lastSync ? formatDistanceToNow(new Date(lastSync), { addSuffix: true }) : "Never"),
+      title: "Last Local Sync",
+      value: loading ? "..." : (lastLocalSync ? formatDistanceToNow(new Date(lastLocalSync), { addSuffix: true }) : "Never"),
       icon: Clock,
       color: "text-orange-400",
       bgColor: "bg-orange-400/10"
