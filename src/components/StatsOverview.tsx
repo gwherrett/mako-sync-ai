@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Music, Database, RefreshCw, Clock } from 'lucide-react';
@@ -14,10 +13,12 @@ const StatsOverview = () => {
 
   useEffect(() => {
     fetchInitialData();
-    setupRealtimeSubscription();
+    const channel = setupRealtimeSubscription();
 
     return () => {
-      supabase.removeChannel('schema-db-changes');
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, []);
 
@@ -29,7 +30,7 @@ const StatsOverview = () => {
   };
 
   const setupRealtimeSubscription = () => {
-    supabase
+    const channel = supabase
       .channel('schema-db-changes')
       .on(
         'postgres_changes',
@@ -56,6 +57,8 @@ const StatsOverview = () => {
         }
       )
       .subscribe();
+
+    return channel;
   };
 
   const fetchLikedSongsCount = async () => {
