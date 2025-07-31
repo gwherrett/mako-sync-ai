@@ -14,6 +14,7 @@ interface SpotifyTrack {
   title: string;
   artist: string;
   album: string | null;
+  genre: string | null;
   bpm: number | null;
   key: string | null;
   danceability: number | null;
@@ -89,6 +90,9 @@ const Index = () => {
                     <div>
                       <h4 className="font-semibold text-white text-lg">{selectedTrack.title}</h4>
                       <p className="text-gray-300">{selectedTrack.artist} • {selectedTrack.album || 'Unknown Album'}</p>
+                      {selectedTrack.genre && (
+                        <p className="text-purple-400 text-sm">{selectedTrack.genre}</p>
+                      )}
                     </div>
                     <button 
                       className="text-serato-cyan hover:text-serato-cyan/80 transition-colors"

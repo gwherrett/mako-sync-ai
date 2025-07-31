@@ -36,6 +36,7 @@ interface SpotifyTrack {
   title: string;
   artist: string;
   album: string | null;
+  genre: string | null;
   bpm: number | null;
   key: string | null;
   danceability: number | null;
@@ -392,6 +393,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                   </div>
                 </TableHead>
                 <TableHead>Album</TableHead>
+                <TableHead>Genre</TableHead>
                 <TableHead>BPM</TableHead>
                 <TableHead>Key</TableHead>
                 <TableHead 
@@ -429,6 +431,13 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                     <div className="max-w-[150px] truncate" title={track.album || 'Unknown'}>
                       {track.album || 'Unknown'}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {track.genre ? (
+                      <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/30">{track.genre}</Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Genre</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     {track.bpm ? (
