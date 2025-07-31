@@ -10,10 +10,28 @@ export type Database = {
   // Allows to automatically instanciate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "12.2.12 (cd3cf9e)"
   }
   public: {
     Tables: {
+      artist_genres: {
+        Row: {
+          cached_at: string
+          genres: Json
+          spotify_artist_id: string
+        }
+        Insert: {
+          cached_at?: string
+          genres: Json
+          spotify_artist_id: string
+        }
+        Update: {
+          cached_at?: string
+          genres?: Json
+          spotify_artist_id?: string
+        }
+        Relationships: []
+      }
       local_mp3s: {
         Row: {
           album: string | null
@@ -198,6 +216,7 @@ export type Database = {
           bpm: number | null
           created_at: string | null
           danceability: number | null
+          genre: string | null
           id: string
           key: string | null
           spotify_id: string
@@ -212,6 +231,7 @@ export type Database = {
           bpm?: number | null
           created_at?: string | null
           danceability?: number | null
+          genre?: string | null
           id?: string
           key?: string | null
           spotify_id: string
@@ -226,6 +246,7 @@ export type Database = {
           bpm?: number | null
           created_at?: string | null
           danceability?: number | null
+          genre?: string | null
           id?: string
           key?: string | null
           spotify_id?: string

@@ -4,8 +4,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import type { SpotifyConnection } from './types.ts'
 import { getValidAccessToken, refreshSpotifyToken } from './spotify-auth.ts'
 import { fetchAllLikedSongs, fetchAudioFeatures } from './spotify-api.ts'
-import { processSongsData } from './data-processing.ts'
+import { extractUniqueArtistIds, processSongsData } from './data-processing.ts'
 import { clearAndInsertSongs } from './database.ts'
+import { getArtistGenresWithCache } from './artist-genres.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -80,8 +81,15 @@ serve(async (req) => {
     // Fetch all liked songs from Spotify
     const allTracks = await fetchAllLikedSongs(accessToken)
 
+    // Extract unique artist IDs for genre fetching
+    const artistIds = extractUniqueArtistIds(allTracks)
+    console.log(`Found ${artistIds.length} unique artists to fetch genres for`)
+
+    // Fetch artist genres with caching
+    const artistGenreMap = await getArtistGenresWithCache(accessToken, artistIds, supabaseClient)
+
     // Process and prepare songs for database insertion
-    const songsToInsert = processSongsData(allTracks, user.id)
+    const songsToInsert = processSongsData(allTracks, user.id, artistGenreMap)
 
     // Clear existing songs and insert new ones
     const insertedCount = await clearAndInsertSongs(songsToInsert, user.id, supabaseClient)
