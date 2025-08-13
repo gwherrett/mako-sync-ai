@@ -60,14 +60,13 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
-  const [yearFrom, setYearFrom] = useState<string>('');
-  const [yearTo, setYearTo] = useState<string>('');
   const [selectedArtist, setSelectedArtist] = useState<string>('');
+  const [selectedGenre, setSelectedGenre] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('');
-  const [filtersOpen, setFiltersOpen] = useState(false);
   
   // Filter options
   const [artists, setArtists] = useState<string[]>([]);
+  const [genres, setGenres] = useState<string[]>([]);
 
   const tracksPerPage = 50;
   const { toast } = useToast();
@@ -75,7 +74,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   useEffect(() => {
     fetchTracks();
     fetchFilterOptions();
-  }, [currentPage, sortField, sortDirection, selectedArtist, dateFilter]);
+  }, [currentPage, sortField, sortDirection, selectedArtist, selectedGenre, dateFilter]);
 
   // Separate useEffect for search with debouncing
   useEffect(() => {
@@ -86,14 +85,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  // Separate useEffect for year filters with debouncing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchTracks();
-    }, 300); // 300ms debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [yearFrom, yearTo]);
 
   const fetchTracks = async () => {
     try {
@@ -107,12 +98,9 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         query = query.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`);
       }
 
-      // Apply year range filter
-      if (yearFrom) {
-        query = query.gte('year', parseInt(yearFrom));
-      }
-      if (yearTo) {
-        query = query.lte('year', parseInt(yearTo));
+      // Apply genre filter
+      if (selectedGenre) {
+        query = query.eq('genre', selectedGenre);
       }
       
       // Apply artist filter
@@ -166,6 +154,17 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         setArtists(uniqueArtists);
       }
 
+      // Get unique genres
+      const { data: genreData } = await supabase
+        .from('spotify_liked')
+        .select('genre')
+        .not('genre', 'is', null);
+      
+      if (genreData) {
+        const uniqueGenres = [...new Set(genreData.map(item => item.genre))].sort();
+        setGenres(uniqueGenres);
+      }
+
     } catch (error) {
       console.error('Error fetching filter options:', error);
     }
@@ -181,9 +180,8 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
   const clearFilters = () => {
     setSearchQuery('');
-    setYearFrom('');
-    setYearTo('');
     setSelectedArtist('');
+    setSelectedGenre('');
     setDateFilter('');
     setCurrentPage(1);
   };
@@ -224,37 +222,22 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       </CardHeader>
       <CardContent>
         {/* Filters Panel */}
-        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen} className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                Filters
-                {filtersOpen ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
-              </Button>
-            </CollapsibleTrigger>
-            {(searchQuery || yearFrom || yearTo || selectedArtist || dateFilter) && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X className="h-4 w-4 mr-1" />
-                Clear Filters
-              </Button>
-            )}
-          </div>
-          
-          <CollapsibleContent className="space-y-4">
+        <div className="mb-4 space-y-4">
+          {/* Top Row: Search Bar + Date Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             {/* Search Bar */}
-            <div className="relative max-w-xs md:max-w-sm">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search tracks or artists…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 text-sm pl-8"
+                className="pl-8"
               />
             </div>
 
-            {/* Quick Date Filters */}
-            <div className="flex gap-2 flex-wrap">
+            {/* Date Filters */}
+            <div className="flex gap-2">
               <Button
                 variant={dateFilter === 'week' ? 'default' : 'outline'}
                 size="sm"
@@ -276,64 +259,67 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                 Last Month
               </Button>
             </div>
-            
-            {/* Advanced Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Year Range */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Year Range</label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="From"
-                    type="number"
-                    value={yearFrom}
-                    onChange={(e) => {
-                      setYearFrom(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    min="1900"
-                    max="2024"
-                  />
-                  <Input
-                    placeholder="To"
-                    type="number"
-                    value={yearTo}
-                    onChange={(e) => {
-                      setYearTo(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    min="1900"
-                    max="2024"
-                  />
-                </div>
-              </div>
-              
-              {/* Artist Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Artist</label>
-                <Select
-                  value={selectedArtist}
-                  onValueChange={(value) => {
-                    setSelectedArtist(value === 'all' ? '' : value);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All artists" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All artists</SelectItem>
-                    {artists.slice(0, 50).map((artist) => (
-                      <SelectItem key={artist} value={artist}>
-                        {artist}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          </div>
+          
+          {/* Bottom Row: Genre + Artist Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Genre Filter */}
+            <div className="flex-1 max-w-xs">
+              <Select
+                value={selectedGenre}
+                onValueChange={(value) => {
+                  setSelectedGenre(value === 'all' ? '' : value);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All genres" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All genres</SelectItem>
+                  {genres.slice(0, 50).map((genre) => (
+                    <SelectItem key={genre} value={genre}>
+                      {genre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </CollapsibleContent>
-        </Collapsible>
+            
+            {/* Artist Filter */}
+            <div className="flex-1 max-w-xs">
+              <Select
+                value={selectedArtist}
+                onValueChange={(value) => {
+                  setSelectedArtist(value === 'all' ? '' : value);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All artists" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All artists</SelectItem>
+                  {artists.slice(0, 50).map((artist) => (
+                    <SelectItem key={artist} value={artist}>
+                      {artist}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Clear Filters Button */}
+          {(searchQuery || selectedArtist || selectedGenre || dateFilter) && (
+            <div className="flex justify-start">
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <X className="h-4 w-4 mr-1" />
+                Clear Filters
+              </Button>
+            </div>
+          )}
+        </div>
         
         {tracks.length > 0 ? (
           <div className="rounded-md border">
