@@ -288,7 +288,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All genres</SelectItem>
-                  {genres.slice(0, 50).map((genre) => (
+                  {genres.map((genre) => (
                     <SelectItem key={genre} value={genre}>
                       {genre}
                     </SelectItem>
