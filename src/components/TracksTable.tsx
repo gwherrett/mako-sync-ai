@@ -63,21 +63,19 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const [yearFrom, setYearFrom] = useState<string>('');
   const [yearTo, setYearTo] = useState<string>('');
   const [selectedArtist, setSelectedArtist] = useState<string>('');
-  const [selectedAlbum, setSelectedAlbum] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   
   // Filter options
   const [artists, setArtists] = useState<string[]>([]);
-  const [albums, setAlbums] = useState<string[]>([]);
-  
+
   const tracksPerPage = 50;
   const { toast } = useToast();
 
   useEffect(() => {
     fetchTracks();
     fetchFilterOptions();
-  }, [currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, dateFilter]);
+  }, [currentPage, sortField, sortDirection, selectedArtist, dateFilter]);
 
   // Separate useEffect for search with debouncing
   useEffect(() => {
@@ -106,9 +104,9 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       
       // Apply search filter
       if (searchQuery.trim()) {
-        query = query.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%,album.ilike.%${searchQuery}%`);
+        query = query.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`);
       }
-      
+
       // Apply year range filter
       if (yearFrom) {
         query = query.gte('year', parseInt(yearFrom));
@@ -120,11 +118,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       // Apply artist filter
       if (selectedArtist) {
         query = query.eq('artist', selectedArtist);
-      }
-      
-      // Apply album filter
-      if (selectedAlbum) {
-        query = query.eq('album', selectedAlbum);
       }
       
       // Apply date filters
@@ -173,16 +166,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         setArtists(uniqueArtists);
       }
 
-      // Get unique albums
-      const { data: albumData } = await supabase
-        .from('spotify_liked')
-        .select('album')
-        .not('album', 'is', null);
-      
-      if (albumData) {
-        const uniqueAlbums = [...new Set(albumData.map(item => item.album))].sort();
-        setAlbums(uniqueAlbums);
-      }
     } catch (error) {
       console.error('Error fetching filter options:', error);
     }
@@ -201,7 +184,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     setYearFrom('');
     setYearTo('');
     setSelectedArtist('');
-    setSelectedAlbum('');
     setDateFilter('');
     setCurrentPage(1);
   };
@@ -251,7 +233,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                 {filtersOpen ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
               </Button>
             </CollapsibleTrigger>
-            {(searchQuery || yearFrom || yearTo || selectedArtist || selectedAlbum || dateFilter) && (
+            {(searchQuery || yearFrom || yearTo || selectedArtist || dateFilter) && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="h-4 w-4 mr-1" />
                 Clear Filters
@@ -261,16 +243,16 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
           
           <CollapsibleContent className="space-y-4">
             {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <div className="relative max-w-xs md:max-w-sm">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
               <Input
-                placeholder="Search tracks, artists, or albums..."
+                placeholder="Search tracks or artists…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="h-8 text-sm pl-8"
               />
             </div>
-            
+
             {/* Quick Date Filters */}
             <div className="flex gap-2 flex-wrap">
               <Button
@@ -350,32 +332,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                 </Select>
               </div>
               
-              {/* Album Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Album</label>
-                <Select
-                  value={selectedAlbum}
-                  onValueChange={(value) => {
-                    setSelectedAlbum(value === 'all' ? '' : value);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All albums" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All albums</SelectItem>
-                    {albums.slice(0, 50).map((album) => (
-                      <SelectItem key={album} value={album}>
-                        {album}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -392,7 +348,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                     )}
                   </div>
                 </TableHead>
-                <TableHead>Album</TableHead>
                 <TableHead>Genre</TableHead>
                 <TableHead>BPM</TableHead>
                 <TableHead>Key</TableHead>
@@ -425,11 +380,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                   <TableCell>
                     <div className="max-w-[150px] truncate" title={track.artist}>
                       {track.artist}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="max-w-[150px] truncate" title={track.album || 'Unknown'}>
-                      {track.album || 'Unknown'}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -484,8 +434,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
             </TableBody>
           </Table>
         </div>
-        
-        {tracks.length === 0 && !loading && (
           <div className="text-center py-8 text-muted-foreground">
             No tracks found. Sync your liked songs to see them here.
           </div>
