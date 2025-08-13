@@ -331,109 +331,114 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                   </SelectContent>
                 </Select>
               </div>
-              
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[300px]">Track</TableHead>
-                <TableHead 
-                  className="cursor-pointer hover:bg-muted/50 select-none"
-                  onClick={() => handleSort('artist')}
-                >
-                  <div className="flex items-center gap-1">
-                    Artist
-                    {sortField === 'artist' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-                    )}
-                  </div>
-                </TableHead>
-                <TableHead>Genre</TableHead>
-                <TableHead>BPM</TableHead>
-                <TableHead>Key</TableHead>
-                <TableHead 
-                  className="cursor-pointer hover:bg-muted/50 select-none"
-                  onClick={() => handleSort('year')}
-                >
-                  <div className="flex items-center gap-1">
-                    Year
-                    {sortField === 'year' && (
-                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-                    )}
-                  </div>
-                </TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tracks.map((track) => (
-                <TableRow 
-                  key={track.id} 
-                  className={`cursor-pointer ${selectedTrack?.id === track.id ? 'bg-muted' : ''}`}
-                  onClick={() => onTrackSelect(track)}
-                >
-                  <TableCell className="font-medium">
-                    <div className="max-w-[280px] truncate" title={track.title}>
-                      {track.title}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+        
+        {tracks.length > 0 ? (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[300px]">Track</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('artist')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Artist
+                      {sortField === 'artist' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="max-w-[150px] truncate" title={track.artist}>
-                      {track.artist}
+                  </TableHead>
+                  <TableHead>Genre</TableHead>
+                  <TableHead>BPM</TableHead>
+                  <TableHead>Key</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('year')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Year
+                      {sortField === 'year' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    {track.genre ? (
-                      <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/30">{track.genre}</Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Genre</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {track.bpm ? (
-                      <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">{Math.round(track.bpm)}</Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No BPM</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {track.key ? (
-                      <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/30">{getKeyName(track.key)}</Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Key</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {track.year || <span className="text-muted-foreground">—</span>}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openSpotifyTrack(track.spotify_id)}>
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Open in Spotify
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Download className="mr-2 h-4 w-4" />
-                          Export to Serato
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Play className="mr-2 h-4 w-4" />
-                          View Details
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                  </TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {tracks.map((track) => (
+                  <TableRow 
+                    key={track.id} 
+                    className={`cursor-pointer ${selectedTrack?.id === track.id ? 'bg-muted' : ''}`}
+                    onClick={() => onTrackSelect(track)}
+                  >
+                    <TableCell className="font-medium">
+                      <div className="max-w-[280px] truncate" title={track.title}>
+                        {track.title}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="max-w-[150px] truncate" title={track.artist}>
+                        {track.artist}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {track.genre ? (
+                        <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/30">{track.genre}</Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Genre</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {track.bpm ? (
+                        <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">{Math.round(track.bpm)}</Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No BPM</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {track.key ? (
+                        <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/30">{getKeyName(track.key)}</Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Key</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {track.year || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openSpotifyTrack(track.spotify_id)}>
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Open in Spotify
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Download className="mr-2 h-4 w-4" />
+                            Export to Serato
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Play className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
           <div className="text-center py-8 text-muted-foreground">
             No tracks found. Sync your liked songs to see them here.
           </div>
