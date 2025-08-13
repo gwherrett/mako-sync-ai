@@ -73,8 +73,12 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
   useEffect(() => {
     fetchTracks();
-    fetchFilterOptions();
   }, [currentPage, sortField, sortDirection, selectedArtist, selectedGenre, dateFilter]);
+
+  // Separate useEffect for filter options that updates when genre changes
+  useEffect(() => {
+    fetchFilterOptions();
+  }, [selectedGenre]);
 
   // Separate useEffect for search with debouncing
   useEffect(() => {
@@ -143,18 +147,24 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
   const fetchFilterOptions = async () => {
     try {
-      // Get unique artists
-      const { data: artistData } = await supabase
+      // Get unique artists filtered by genre if selected
+      let artistQuery = supabase
         .from('spotify_liked')
         .select('artist')
         .not('artist', 'is', null);
+      
+      if (selectedGenre) {
+        artistQuery = artistQuery.eq('genre', selectedGenre);
+      }
+      
+      const { data: artistData } = await artistQuery;
       
       if (artistData) {
         const uniqueArtists = [...new Set(artistData.map(item => item.artist))].sort();
         setArtists(uniqueArtists);
       }
 
-      // Get unique genres
+      // Get unique genres (not filtered)
       const { data: genreData } = await supabase
         .from('spotify_liked')
         .select('genre')
@@ -269,6 +279,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                 value={selectedGenre}
                 onValueChange={(value) => {
                   setSelectedGenre(value === 'all' ? '' : value);
+                  setSelectedArtist(''); // Clear artist filter when genre changes
                   setCurrentPage(1);
                 }}
               >
