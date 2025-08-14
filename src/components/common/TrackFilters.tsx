@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -51,7 +52,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
   callbacks,
   className = ""
 }) => {
-  const hasActiveFilters = state.searchQuery || state.selectedGenre || state.selectedArtist || state.dateFilter;
+  const hasActiveFilters = state.searchQuery || (state.selectedGenre && state.selectedGenre !== 'all') || (state.selectedArtist && state.selectedArtist !== 'all') || state.dateFilter;
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -104,7 +105,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
           {config.genre && (
             <div className="flex-1 max-w-xs">
               <Select
-                value={state.selectedGenre}
+                value={state.selectedGenre || 'all'}
                 onValueChange={(value) => {
                   callbacks.onGenreChange(value === 'all' ? '' : value);
                   callbacks.onArtistChange(''); // Clear artist filter when genre changes
@@ -130,7 +131,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
           {config.artist && (
             <div className="flex-1 max-w-xs">
               <Select
-                value={state.selectedArtist}
+                value={state.selectedArtist || 'all'}
                 onValueChange={(value) => {
                   callbacks.onArtistChange(value === 'all' ? '' : value);
                   callbacks.onPageChange(1);

@@ -460,12 +460,12 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
               {/* Album Filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Album</label>
-                <Select value={selectedAlbum} onValueChange={setSelectedAlbum}>
+                <Select value={selectedAlbum || 'all'} onValueChange={(value) => setSelectedAlbum(value === 'all' ? '' : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="All albums" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All albums</SelectItem>
+                    <SelectItem value="all">All albums</SelectItem>
                     {albums.slice(0, 50).map((album) => (
                       <SelectItem key={album} value={album}>
                         {album}
@@ -478,12 +478,12 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
               {/* File Format Filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">File Format</label>
-                <Select value={fileFormat} onValueChange={setFileFormat}>
+                <Select value={fileFormat || 'all'} onValueChange={(value) => setFileFormat(value === 'all' ? '' : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="All formats" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All formats</SelectItem>
+                    <SelectItem value="all">All formats</SelectItem>
                     {fileFormats.map((format) => (
                       <SelectItem key={format} value={format}>
                         .{format.toUpperCase()}
@@ -496,12 +496,12 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
               {/* File Size Filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">File Size</label>
-                <Select value={fileSizeFilter} onValueChange={setFileSizeFilter}>
+                <Select value={fileSizeFilter || 'all'} onValueChange={(value) => setFileSizeFilter(value === 'all' ? '' : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="All sizes" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All sizes</SelectItem>
+                    <SelectItem value="all">All sizes</SelectItem>
                     <SelectItem value="small">Small (&lt; 5MB)</SelectItem>
                     <SelectItem value="medium">Medium (5-20MB)</SelectItem>
                     <SelectItem value="large">Large (&gt; 20MB)</SelectItem>
@@ -512,12 +512,12 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
               {/* Missing Metadata Filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Missing Metadata</label>
-                <Select value={missingMetadata} onValueChange={setMissingMetadata}>
+                <Select value={missingMetadata || 'all'} onValueChange={(value) => setMissingMetadata(value === 'all' ? '' : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="All tracks" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All tracks</SelectItem>
+                    <SelectItem value="all">All tracks</SelectItem>
                     <SelectItem value="any">Missing any metadata</SelectItem>
                     <SelectItem value="title">Missing title</SelectItem>
                     <SelectItem value="artist">Missing artist</SelectItem>
