@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { MoreHorizontal, ChevronUp, ChevronDown, Search, Filter, X, Edit, Trash2, FileCheck, AlertCircle } from 'lucide-react';
+import { MoreHorizontal, ChevronUp, ChevronDown, Filter, X, Edit, Trash2, FileCheck, AlertCircle } from 'lucide-react';
+import { TrackFilters, FilterConfig, FilterState, FilterOptions, FilterCallbacks } from '@/components/common/TrackFilters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -365,36 +366,72 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Filters Panel */}
+        {/* Common Filters */}
+        <TrackFilters
+          config={{
+            search: true,
+            dateFilters: false,
+            genre: true,
+            artist: true
+          }}
+          state={{
+            searchQuery,
+            selectedGenre,
+            selectedArtist,
+            dateFilter: ''
+          }}
+          options={{
+            genres,
+            artists
+          }}
+          callbacks={{
+            onSearchChange: setSearchQuery,
+            onGenreChange: setSelectedGenre,
+            onArtistChange: setSelectedArtist,
+            onDateFilterChange: () => {}, // Not used for MP3s
+            onClearFilters: () => {
+              setSearchQuery('');
+              setSelectedGenre('');
+              setSelectedArtist('');
+            },
+            onPageChange: setCurrentPage
+          }}
+          className="mb-4"
+        />
+
+        {/* MP3-Specific Filters */}
         <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen} className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <CollapsibleTrigger asChild>
               <Button variant="outline" size="sm">
                 <Filter className="h-4 w-4 mr-2" />
-                Filters
+                Advanced Filters
                 {filtersOpen ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
               </Button>
             </CollapsibleTrigger>
+            {(yearFrom || yearTo || selectedAlbum || fileFormat || fileSizeFilter || missingMetadata) && (
+              <Button variant="ghost" size="sm" onClick={() => {
+                setYearFrom('');
+                setYearTo('');
+                setSelectedAlbum('');
+                setFileFormat('');
+                setFileSizeFilter('');
+                setMissingMetadata('');
+                setCurrentPage(1);
+              }}>
+                <X className="h-4 w-4 mr-1" />
+                Clear Advanced
+              </Button>
+            )}
             {(searchQuery || yearFrom || yearTo || selectedArtist || selectedAlbum || selectedGenre || fileFormat || fileSizeFilter || missingMetadata) && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="h-4 w-4 mr-1" />
-                Clear Filters
+                Clear All
               </Button>
             )}
           </div>
           
           <CollapsibleContent className="space-y-4">
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tracks, artists, albums, or file paths..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
             {/* Advanced Filters Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Year Range */}
@@ -420,24 +457,6 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                 </div>
               </div>
               
-              {/* Artist Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Artist</label>
-                <Select value={selectedArtist} onValueChange={setSelectedArtist}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All artists" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All artists</SelectItem>
-                    {artists.slice(0, 50).map((artist) => (
-                      <SelectItem key={artist} value={artist}>
-                        {artist}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
               {/* Album Filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Album</label>
@@ -450,24 +469,6 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                     {albums.slice(0, 50).map((album) => (
                       <SelectItem key={album} value={album}>
                         {album}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {/* Genre Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Genre</label>
-                <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All genres" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All genres</SelectItem>
-                    {genres.slice(0, 50).map((genre) => (
-                      <SelectItem key={genre} value={genre}>
-                        {genre}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -517,7 +518,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">All tracks</SelectItem>
-                    <SelectItem value="any">Any missing metadata</SelectItem>
+                    <SelectItem value="any">Missing any metadata</SelectItem>
                     <SelectItem value="title">Missing title</SelectItem>
                     <SelectItem value="artist">Missing artist</SelectItem>
                     <SelectItem value="album">Missing album</SelectItem>

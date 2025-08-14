@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { MoreHorizontal, Play, ExternalLink, Download, ChevronUp, ChevronDown, Search, Filter, X } from 'lucide-react';
+import { MoreHorizontal, Play, ExternalLink, Download, ChevronUp, ChevronDown } from 'lucide-react';
+import { TrackFilters, FilterConfig, FilterState, FilterOptions, FilterCallbacks } from '@/components/common/TrackFilters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -17,9 +18,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Pagination,
   PaginationContent,
@@ -232,105 +230,36 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       </CardHeader>
       <CardContent>
         {/* Filters Panel */}
-        <div className="mb-4 space-y-4">
-          {/* Top Row: Search Bar + Date Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            {/* Search Bar */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tracks or artists…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-
-            {/* Date Filters */}
-            <div className="flex gap-2">
-              <Button
-                variant={dateFilter === 'week' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  setDateFilter(dateFilter === 'week' ? '' : 'week');
-                  setCurrentPage(1);
-                }}
-              >
-                Last Week
-              </Button>
-              <Button
-                variant={dateFilter === 'month' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  setDateFilter(dateFilter === 'month' ? '' : 'month');
-                  setCurrentPage(1);
-                }}
-              >
-                Last Month
-              </Button>
-            </div>
-          </div>
-          
-          {/* Bottom Row: Genre + Artist Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Genre Filter */}
-            <div className="flex-1 max-w-xs">
-              <Select
-                value={selectedGenre}
-                onValueChange={(value) => {
-                  setSelectedGenre(value === 'all' ? '' : value);
-                  setSelectedArtist(''); // Clear artist filter when genre changes
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All genres" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All genres</SelectItem>
-                  {genres.map((genre) => (
-                    <SelectItem key={genre} value={genre}>
-                      {genre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* Artist Filter */}
-            <div className="flex-1 max-w-xs">
-              <Select
-                value={selectedArtist}
-                onValueChange={(value) => {
-                  setSelectedArtist(value === 'all' ? '' : value);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All artists" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All artists</SelectItem>
-                  {artists.slice(0, 50).map((artist) => (
-                    <SelectItem key={artist} value={artist}>
-                      {artist}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Clear Filters Button */}
-          {(searchQuery || selectedArtist || selectedGenre || dateFilter) && (
-            <div className="flex justify-start">
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X className="h-4 w-4 mr-1" />
-                Clear Filters
-              </Button>
-            </div>
-          )}
-        </div>
+        <TrackFilters
+          config={{
+            search: true,
+            dateFilters: true,
+            genre: true,
+            artist: true
+          }}
+          state={{
+            searchQuery,
+            selectedGenre,
+            selectedArtist,
+            dateFilter
+          }}
+          options={{
+            genres,
+            artists
+          }}
+          callbacks={{
+            onSearchChange: setSearchQuery,
+            onGenreChange: (value) => {
+              setSelectedGenre(value);
+              setSelectedArtist(''); // Clear artist filter when genre changes
+            },
+            onArtistChange: setSelectedArtist,
+            onDateFilterChange: setDateFilter,
+            onClearFilters: clearFilters,
+            onPageChange: setCurrentPage
+          }}
+          className="mb-4"
+        />
         
         {tracks.length > 0 ? (
           <div className="rounded-md border">
