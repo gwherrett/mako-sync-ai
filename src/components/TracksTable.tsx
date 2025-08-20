@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MoreHorizontal, Play, ExternalLink, Download, ChevronUp, ChevronDown } from 'lucide-react';
+import { ExternalLink, ChevronUp, ChevronDown } from 'lucide-react';
 import { TrackFilters, FilterConfig, FilterState, FilterOptions, FilterCallbacks } from '@/components/common/TrackFilters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,12 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import {
   Pagination,
@@ -207,14 +201,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     }
   };
 
-  const getKeyName = (key: string | null) => {
-    if (!key) return 'Unknown';
-    const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const keyNum = parseInt(key);
-    return keys[keyNum] || 'Unknown';
-  };
-
-
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedArtist('');
@@ -329,8 +315,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                   </TableHead>
                   <TableHead>Genre</TableHead>
                   <TableHead>Super Genre</TableHead>
-                  <TableHead>BPM</TableHead>
-                  <TableHead>Key</TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50 select-none"
                     onClick={() => handleSort('year')}
@@ -374,20 +358,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                         <Badge variant="default" className="bg-blue-500/10 text-blue-400 border-blue-500/30">{track.super_genre}</Badge>
                       ) : (
                         <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Super Genre</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {track.bpm ? (
-                        <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">{Math.round(track.bpm)}</Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No BPM</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {track.key ? (
-                        <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/30">{getKeyName(track.key)}</Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Key</Badge>
                       )}
                     </TableCell>
                     <TableCell>
