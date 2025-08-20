@@ -235,14 +235,18 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   };
 
   const openSpotifyTrack = (spotifyId: string) => {
-    console.log('Opening Spotify track:', spotifyId);
     if (!spotifyId) {
       console.error('No Spotify ID provided');
       return;
     }
     const url = `https://open.spotify.com/track/${spotifyId}`;
-    console.log('Opening URL:', url);
-    window.open(url, '_blank');
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
 
