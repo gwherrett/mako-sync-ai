@@ -174,11 +174,17 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         setArtists(uniqueArtists);
       }
 
-      // Get unique genres (not filtered)
-      const { data: genreData } = await supabase
+      // Get unique genres filtered by super genre if selected
+      let genreQuery = supabase
         .from('spotify_liked')
         .select('genre')
         .not('genre', 'is', null);
+
+      if (selectedSuperGenre) {
+        genreQuery = genreQuery.eq('super_genre', selectedSuperGenre as any);
+      }
+      
+      const { data: genreData } = await genreQuery;
       
       if (genreData) {
         const uniqueGenres = [...new Set(genreData.map(item => item.genre))].sort();
@@ -282,6 +288,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
             },
             onSuperGenreChange: (value) => {
               setSelectedSuperGenre(value);
+              setSelectedGenre(''); // Clear genre filter when super genre changes
               setSelectedArtist(''); // Clear artist filter when super genre changes
             },
             onArtistChange: setSelectedArtist,

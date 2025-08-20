@@ -112,6 +112,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
                 value={state.selectedSuperGenre || 'all'}
                 onValueChange={(value) => {
                   callbacks.onSuperGenreChange(value === 'all' ? '' : value);
+                  callbacks.onGenreChange(''); // Clear genre filter when super genre changes
                   callbacks.onArtistChange(''); // Clear artist filter when super genre changes
                   callbacks.onPageChange(1);
                 }}
