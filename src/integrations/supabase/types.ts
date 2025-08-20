@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -208,6 +208,63 @@ export type Database = {
         }
         Relationships: []
       }
+      spotify_genre_map_base: {
+        Row: {
+          spotify_genre: string
+          super_genre: Database["public"]["Enums"]["super_genre"]
+          updated_at: string
+        }
+        Insert: {
+          spotify_genre: string
+          super_genre: Database["public"]["Enums"]["super_genre"]
+          updated_at?: string
+        }
+        Update: {
+          spotify_genre?: string
+          super_genre?: Database["public"]["Enums"]["super_genre"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      spotify_genre_map_overrides: {
+        Row: {
+          id: string
+          spotify_genre: string
+          super_genre: Database["public"]["Enums"]["super_genre"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          spotify_genre: string
+          super_genre: Database["public"]["Enums"]["super_genre"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          spotify_genre?: string
+          super_genre?: Database["public"]["Enums"]["super_genre"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spotify_genre_map_overrides_spotify_genre_fkey"
+            columns: ["spotify_genre"]
+            isOneToOne: false
+            referencedRelation: "spotify_genre_map_base"
+            referencedColumns: ["spotify_genre"]
+          },
+          {
+            foreignKeyName: "spotify_genre_map_overrides_spotify_genre_fkey"
+            columns: ["spotify_genre"]
+            isOneToOne: false
+            referencedRelation: "v_effective_spotify_genre_map"
+            referencedColumns: ["spotify_genre"]
+          },
+        ]
+      }
       spotify_liked: {
         Row: {
           added_at: string | null
@@ -327,7 +384,14 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_effective_spotify_genre_map: {
+        Row: {
+          is_overridden: boolean | null
+          spotify_genre: string | null
+          super_genre: Database["public"]["Enums"]["super_genre"] | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_user_role: {
@@ -336,14 +400,31 @@ export type Database = {
       }
       has_role: {
         Args: {
-          _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
         }
         Returns: boolean
       }
     }
     Enums: {
       app_role: "admin" | "user"
+      super_genre:
+        | "House"
+        | "Drum & Bass"
+        | "Garage"
+        | "Hip Hop"
+        | "Soul/R&B"
+        | "Pop"
+        | "Rock"
+        | "Jazz"
+        | "Blues"
+        | "Country/Folk"
+        | "Electronic"
+        | "Classical"
+        | "Latin"
+        | "Reggae/Dancehall"
+        | "World"
+        | "Other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -472,6 +553,24 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      super_genre: [
+        "House",
+        "Drum & Bass",
+        "Garage",
+        "Hip Hop",
+        "Soul/R&B",
+        "Pop",
+        "Rock",
+        "Jazz",
+        "Blues",
+        "Country/Folk",
+        "Electronic",
+        "Classical",
+        "Latin",
+        "Reggae/Dancehall",
+        "World",
+        "Other",
+      ],
     },
   },
 } as const
