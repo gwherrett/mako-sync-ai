@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import NewAuth from "./pages/NewAuth";
 import SpotifyCallback from "./pages/SpotifyCallback";
 import NotFound from "./pages/NotFound";
+import { GenreMapping } from "./pages/GenreMapping";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,11 @@ const App = () => (
             <Route path="/" element={
               <NewProtectedRoute>
                 <Index />
+              </NewProtectedRoute>
+            } />
+            <Route path="/genre-mapping" element={
+              <NewProtectedRoute>
+                <GenreMapping />
               </NewProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />

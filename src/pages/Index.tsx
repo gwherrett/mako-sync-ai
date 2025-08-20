@@ -1,5 +1,7 @@
 
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Settings } from 'lucide-react';
 import LibraryHeader from '@/components/LibraryHeader';
 import StatsOverview from '@/components/StatsOverview';
 import MetadataExtractor from '@/components/MetadataExtractor';
@@ -8,6 +10,7 @@ import LocalTracksTable from '@/components/LocalTracksTable';
 import SpotifySyncButton from '@/components/SpotifySyncButton';
 import LocalScanButton from '@/components/LocalScanButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 
 interface SpotifyTrack {
   id: string;
@@ -52,10 +55,20 @@ const Index = () => {
       
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-white mb-2">Spotify - MP3 Sync Dashboard</h2>
-          <p className="text-gray-400">
-            Use Spotify metadata to find matches with local MP3 library
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-3xl font-bold text-white mb-2">Spotify - MP3 Sync Dashboard</h2>
+              <p className="text-gray-400">
+                Use Spotify metadata to find matches with local MP3 library
+              </p>
+            </div>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/genre-mapping" className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Genre Mapping
+              </Link>
+            </Button>
+          </div>
         </div>
         
         <Tabs defaultValue="spotify" className="w-full">
