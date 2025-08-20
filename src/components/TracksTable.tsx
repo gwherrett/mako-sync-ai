@@ -383,27 +383,14 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                       {track.year || <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openSpotifyTrack(track.spotify_id)}>
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            Open in Spotify
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Download className="mr-2 h-4 w-4" />
-                            Export to Serato
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Play className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => openSpotifyTrack(track.spotify_id)}
+                        title="Open in Spotify"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
