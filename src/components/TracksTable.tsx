@@ -313,8 +313,8 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                       )}
                     </div>
                   </TableHead>
-                  <TableHead>Genre</TableHead>
                   <TableHead>Super Genre</TableHead>
+                  <TableHead>Genre</TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50 select-none"
                     onClick={() => handleSort('year')}
@@ -347,17 +347,17 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {track.genre ? (
-                        <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/30">{track.genre}</Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Genre</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
                       {track.super_genre ? (
                         <Badge variant="default" className="bg-blue-500/10 text-blue-400 border-blue-500/30">{track.super_genre}</Badge>
                       ) : (
                         <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Super Genre</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {track.genre ? (
+                        <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/30">{track.genre}</Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Genre</Badge>
                       )}
                     </TableCell>
                     <TableCell>
