@@ -386,7 +386,10 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => openSpotifyTrack(track.spotify_id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openSpotifyTrack(track.spotify_id);
+                        }}
                         title="Open in Spotify"
                       >
                         <ExternalLink className="h-4 w-4" />
