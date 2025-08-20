@@ -35,6 +35,7 @@ interface SpotifyTrack {
   artist: string;
   album: string | null;
   genre: string | null;
+  super_genre: string | null;
   bpm: number | null;
   key: string | null;
   danceability: number | null;
@@ -60,23 +61,25 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedArtist, setSelectedArtist] = useState<string>('');
   const [selectedGenre, setSelectedGenre] = useState<string>('');
+  const [selectedSuperGenre, setSelectedSuperGenre] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('');
   
   // Filter options
   const [artists, setArtists] = useState<string[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
+  const [superGenres, setSuperGenres] = useState<string[]>([]);
 
   const tracksPerPage = 50;
   const { toast } = useToast();
 
   useEffect(() => {
     fetchTracks();
-  }, [currentPage, sortField, sortDirection, selectedArtist, selectedGenre, dateFilter]);
+  }, [currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter]);
 
   // Separate useEffect for filter options that updates when genre changes
   useEffect(() => {
     fetchFilterOptions();
-  }, [selectedGenre]);
+  }, [selectedGenre, selectedSuperGenre]);
 
   // Separate useEffect for search with debouncing
   useEffect(() => {
@@ -103,6 +106,11 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       // Apply genre filter
       if (selectedGenre) {
         query = query.eq('genre', selectedGenre);
+      }
+      
+      // Apply super genre filter
+      if (selectedSuperGenre) {
+        query = query.eq('super_genre', selectedSuperGenre as any);
       }
       
       // Apply artist filter
@@ -145,7 +153,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
   const fetchFilterOptions = async () => {
     try {
-      // Get unique artists filtered by genre if selected
+      // Get unique artists filtered by genre and super genre if selected
       let artistQuery = supabase
         .from('spotify_liked')
         .select('artist')
@@ -153,6 +161,10 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       
       if (selectedGenre) {
         artistQuery = artistQuery.eq('genre', selectedGenre);
+      }
+      
+      if (selectedSuperGenre) {
+        artistQuery = artistQuery.eq('super_genre', selectedSuperGenre as any);
       }
       
       const { data: artistData } = await artistQuery;
@@ -173,6 +185,17 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         setGenres(uniqueGenres);
       }
 
+      // Get unique super genres (not filtered)
+      const { data: superGenreData } = await supabase
+        .from('spotify_liked')
+        .select('super_genre')
+        .not('super_genre', 'is', null);
+      
+      if (superGenreData) {
+        const uniqueSuperGenres = [...new Set(superGenreData.map(item => item.super_genre))].sort();
+        setSuperGenres(uniqueSuperGenres);
+      }
+
     } catch (error) {
       console.error('Error fetching filter options:', error);
     }
@@ -190,6 +213,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     setSearchQuery('');
     setSelectedArtist('');
     setSelectedGenre('');
+    setSelectedSuperGenre('');
     setDateFilter('');
     setCurrentPage(1);
   };
@@ -235,16 +259,19 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
             search: true,
             dateFilters: true,
             genre: true,
+            superGenre: true,
             artist: true
           }}
           state={{
             searchQuery,
             selectedGenre,
+            selectedSuperGenre,
             selectedArtist,
             dateFilter
           }}
           options={{
             genres,
+            superGenres,
             artists
           }}
           callbacks={{
@@ -252,6 +279,10 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
             onGenreChange: (value) => {
               setSelectedGenre(value);
               setSelectedArtist(''); // Clear artist filter when genre changes
+            },
+            onSuperGenreChange: (value) => {
+              setSelectedSuperGenre(value);
+              setSelectedArtist(''); // Clear artist filter when super genre changes
             },
             onArtistChange: setSelectedArtist,
             onDateFilterChange: setDateFilter,
@@ -279,6 +310,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                     </div>
                   </TableHead>
                   <TableHead>Genre</TableHead>
+                  <TableHead>Super Genre</TableHead>
                   <TableHead>BPM</TableHead>
                   <TableHead>Key</TableHead>
                   <TableHead 
@@ -317,6 +349,13 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                         <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/30">{track.genre}</Badge>
                       ) : (
                         <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Genre</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {track.super_genre ? (
+                        <Badge variant="default" className="bg-blue-500/10 text-blue-400 border-blue-500/30">{track.super_genre}</Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Super Genre</Badge>
                       )}
                     </TableCell>
                     <TableCell>

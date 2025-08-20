@@ -18,6 +18,7 @@ interface SpotifyTrack {
   artist: string;
   album: string | null;
   genre: string | null;
+  super_genre: string | null;
   bpm: number | null;
   key: string | null;
   danceability: number | null;

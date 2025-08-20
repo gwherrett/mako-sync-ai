@@ -377,16 +377,19 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
           state={{
             searchQuery,
             selectedGenre,
+            selectedSuperGenre: '', // Not used for local MP3s
             selectedArtist,
             dateFilter: ''
           }}
           options={{
             genres,
+            superGenres: [], // Not used for local MP3s
             artists
           }}
           callbacks={{
             onSearchChange: setSearchQuery,
             onGenreChange: setSelectedGenre,
+            onSuperGenreChange: () => {}, // Not used for local MP3s
             onArtistChange: setSelectedArtist,
             onDateFilterChange: () => {}, // Not used for MP3s
             onClearFilters: () => {

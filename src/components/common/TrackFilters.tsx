@@ -10,6 +10,7 @@ export interface FilterConfig {
   search?: boolean;
   dateFilters?: boolean;
   genre?: boolean;
+  superGenre?: boolean;
   artist?: boolean;
 }
 
@@ -17,6 +18,7 @@ export interface FilterConfig {
 export interface FilterState {
   searchQuery: string;
   selectedGenre: string;
+  selectedSuperGenre: string;
   selectedArtist: string;
   dateFilter: string;
 }
@@ -24,6 +26,7 @@ export interface FilterState {
 // Filter options interface
 export interface FilterOptions {
   genres: string[];
+  superGenres: string[];
   artists: string[];
 }
 
@@ -31,6 +34,7 @@ export interface FilterOptions {
 export interface FilterCallbacks {
   onSearchChange: (value: string) => void;
   onGenreChange: (value: string) => void;
+  onSuperGenreChange: (value: string) => void;
   onArtistChange: (value: string) => void;
   onDateFilterChange: (value: string) => void;
   onClearFilters: () => void;
@@ -52,7 +56,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
   callbacks,
   className = ""
 }) => {
-  const hasActiveFilters = state.searchQuery || (state.selectedGenre && state.selectedGenre !== 'all') || (state.selectedArtist && state.selectedArtist !== 'all') || state.dateFilter;
+  const hasActiveFilters = state.searchQuery || (state.selectedGenre && state.selectedGenre !== 'all') || (state.selectedSuperGenre && state.selectedSuperGenre !== 'all') || (state.selectedArtist && state.selectedArtist !== 'all') || state.dateFilter;
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -98,8 +102,8 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
         )}
       </div>
       
-      {/* Bottom Row: Genre + Artist Filters */}
-      {(config.genre || config.artist) && (
+      {/* Bottom Row: Genre + Super Genre + Artist Filters */}
+      {(config.genre || config.superGenre || config.artist) && (
         <div className="flex flex-col sm:flex-row gap-4">
           {/* Genre Filter */}
           {config.genre && (
@@ -120,6 +124,32 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
                   {options.genres.map((genre) => (
                     <SelectItem key={genre} value={genre}>
                       {genre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Super Genre Filter */}
+          {config.superGenre && (
+            <div className="flex-1 max-w-xs">
+              <Select
+                value={state.selectedSuperGenre || 'all'}
+                onValueChange={(value) => {
+                  callbacks.onSuperGenreChange(value === 'all' ? '' : value);
+                  callbacks.onArtistChange(''); // Clear artist filter when super genre changes
+                  callbacks.onPageChange(1);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All super genres" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All super genres</SelectItem>
+                  {options.superGenres.map((superGenre) => (
+                    <SelectItem key={superGenre} value={superGenre}>
+                      {superGenre}
                     </SelectItem>
                   ))}
                 </SelectContent>

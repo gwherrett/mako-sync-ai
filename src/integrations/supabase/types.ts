@@ -277,6 +277,7 @@ export type Database = {
           id: string
           key: string | null
           spotify_id: string
+          super_genre: Database["public"]["Enums"]["super_genre"] | null
           title: string
           user_id: string | null
           year: number | null
@@ -292,6 +293,7 @@ export type Database = {
           id?: string
           key?: string | null
           spotify_id: string
+          super_genre?: Database["public"]["Enums"]["super_genre"] | null
           title: string
           user_id?: string | null
           year?: number | null
@@ -307,6 +309,7 @@ export type Database = {
           id?: string
           key?: string | null
           spotify_id?: string
+          super_genre?: Database["public"]["Enums"]["super_genre"] | null
           title?: string
           user_id?: string | null
           year?: number | null
