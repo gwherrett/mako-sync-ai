@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ExternalLink, ChevronUp, ChevronDown } from 'lucide-react';
 import { TrackFilters, FilterConfig, FilterState, FilterOptions, FilterCallbacks } from '@/components/common/TrackFilters';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -220,19 +221,13 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     setCurrentPage(1); // Reset to first page when sorting
   };
 
-  const openSpotifyTrack = (spotifyId: string) => {
-    if (!spotifyId) {
-      console.error('No Spotify ID provided');
-      return;
+  const handleSpotifyClick = (e: React.MouseEvent, spotifyId: string) => {
+    e.stopPropagation();
+    
+    // Dev-only logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Spotify link clicked for track:', spotifyId);
     }
-    const url = `https://open.spotify.com/track/${spotifyId}`;
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
 
@@ -364,17 +359,39 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                       {track.year || <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openSpotifyTrack(track.spotify_id);
-                        }}
-                        title="Open in Spotify"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
+                      {track.spotify_id ? (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          asChild
+                        >
+                          <a
+                            href={`https://open.spotify.com/track/${track.spotify_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => handleSpotifyClick(e, track.spotify_id)}
+                            title="Open in Spotify"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      ) : (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              disabled
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>No Spotify link available</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
