@@ -102,35 +102,9 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
         )}
       </div>
       
-      {/* Bottom Row: Genre + Super Genre + Artist Filters */}
+      {/* Bottom Row: Super Genre + Genre + Artist Filters */}
       {(config.genre || config.superGenre || config.artist) && (
         <div className="flex flex-col sm:flex-row gap-4">
-          {/* Genre Filter */}
-          {config.genre && (
-            <div className="flex-1 max-w-xs">
-              <Select
-                value={state.selectedGenre || 'all'}
-                onValueChange={(value) => {
-                  callbacks.onGenreChange(value === 'all' ? '' : value);
-                  callbacks.onArtistChange(''); // Clear artist filter when genre changes
-                  callbacks.onPageChange(1);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All genres" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All genres</SelectItem>
-                  {options.genres.map((genre) => (
-                    <SelectItem key={genre} value={genre}>
-                      {genre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           {/* Super Genre Filter */}
           {config.superGenre && (
             <div className="flex-1 max-w-xs">
@@ -150,6 +124,32 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
                   {options.superGenres.map((superGenre) => (
                     <SelectItem key={superGenre} value={superGenre}>
                       {superGenre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Genre Filter */}
+          {config.genre && (
+            <div className="flex-1 max-w-xs">
+              <Select
+                value={state.selectedGenre || 'all'}
+                onValueChange={(value) => {
+                  callbacks.onGenreChange(value === 'all' ? '' : value);
+                  callbacks.onArtistChange(''); // Clear artist filter when genre changes
+                  callbacks.onPageChange(1);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All genres" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All genres</SelectItem>
+                  {options.genres.map((genre) => (
+                    <SelectItem key={genre} value={genre}>
+                      {genre}
                     </SelectItem>
                   ))}
                 </SelectContent>
