@@ -221,7 +221,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     setCurrentPage(1); // Reset to first page when sorting
   };
 
-  const handleSpotifyClick = (e: React.MouseEvent, spotifyId: string) => {
+  const handleSpotifyClick = (e: React.MouseEvent<HTMLAnchorElement>, spotifyId: string) => {
     e.stopPropagation();
     
     // Dev-only logging
@@ -382,7 +382,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                               variant="ghost" 
                               size="sm"
                               disabled
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
                             >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
