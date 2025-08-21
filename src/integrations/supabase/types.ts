@@ -256,13 +256,6 @@ export type Database = {
             referencedRelation: "spotify_genre_map_base"
             referencedColumns: ["spotify_genre"]
           },
-          {
-            foreignKeyName: "spotify_genre_map_overrides_spotify_genre_fkey"
-            columns: ["spotify_genre"]
-            isOneToOne: false
-            referencedRelation: "v_effective_spotify_genre_map"
-            referencedColumns: ["spotify_genre"]
-          },
         ]
       }
       spotify_liked: {
@@ -414,9 +407,9 @@ export type Database = {
       super_genre:
         | "House"
         | "Drum & Bass"
-        | "Garage"
+        | "UK Garage"
         | "Hip Hop"
-        | "Soul/R&B"
+        | "Urban"
         | "Pop"
         | "Rock"
         | "Jazz"
@@ -427,8 +420,9 @@ export type Database = {
         | "Latin"
         | "Reggae/Dancehall"
         | "World"
+        | "Disco"
+        | "Metal"
         | "Other"
-        | "UK Garage"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -560,9 +554,9 @@ export const Constants = {
       super_genre: [
         "House",
         "Drum & Bass",
-        "Garage",
+        "UK Garage",
         "Hip Hop",
-        "Soul/R&B",
+        "Urban",
         "Pop",
         "Rock",
         "Jazz",
@@ -573,8 +567,9 @@ export const Constants = {
         "Latin",
         "Reggae/Dancehall",
         "World",
+        "Disco",
+        "Metal",
         "Other",
-        "UK Garage",
       ],
     },
   },

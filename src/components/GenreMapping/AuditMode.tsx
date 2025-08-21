@@ -195,15 +195,14 @@ export const AuditMode: React.FC<AuditModeProps> = ({
               <h3 className="text-3xl font-bold text-primary">
                 {currentMapping.spotify_genre}
               </h3>
-              <p className="text-muted-foreground">
-                Current mapping: <span className="font-medium">{currentMapping.super_genre || 'None'}</span>
+              <div className="text-muted-foreground flex items-center justify-center gap-2">
+                <span>Current mapping: <span className="font-medium">{currentMapping.super_genre || 'None'}</span></span>
                 <Badge 
                   variant={currentMapping.is_overridden ? 'secondary' : 'outline'}
-                  className="ml-2"
                 >
                   {currentMapping.is_overridden ? 'Override' : 'Base'}
                 </Badge>
-              </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
