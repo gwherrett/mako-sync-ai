@@ -316,13 +316,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
               setSelectedArtist(''); // Clear artist filter when genre changes
             },
             onSuperGenreChange: (value) => {
-              if (value === 'no-super-genre') {
-                setNoSuperGenre(true);
-                setSelectedSuperGenre('');
-              } else {
-                setNoSuperGenre(false);
-                setSelectedSuperGenre(value);
-              }
+              setSelectedSuperGenre(value);
               setSelectedGenre(''); // Clear genre filter when super genre changes
               setSelectedArtist(''); // Clear artist filter when super genre changes
             },
