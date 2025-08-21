@@ -37,7 +37,7 @@ export const SUPER_GENRES: SuperGenre[] = [
 
 export interface GenreMapping {
   spotify_genre: string;
-  super_genre: SuperGenre;
+  super_genre: SuperGenre | null;
   is_overridden: boolean;
 }
 

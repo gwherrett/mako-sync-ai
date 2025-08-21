@@ -31,7 +31,14 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
 
   const filteredMappings = mappings.filter(mapping => {
     const matchesSearch = mapping.spotify_genre.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterSuperGenre === 'all' || mapping.super_genre === filterSuperGenre;
+    
+    let matchesFilter = true;
+    if (filterSuperGenre === 'no-super-genre') {
+      matchesFilter = !mapping.super_genre;
+    } else if (filterSuperGenre !== 'all') {
+      matchesFilter = mapping.super_genre === filterSuperGenre;
+    }
+    
     return matchesSearch && matchesFilter;
   });
 
@@ -103,6 +110,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Super-Genres</SelectItem>
+              <SelectItem value="no-super-genre">No Super Genre</SelectItem>
               {SUPER_GENRES.map(genre => (
                 <SelectItem key={genre} value={genre}>{genre}</SelectItem>
               ))}
@@ -141,25 +149,31 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
                   />
                 </TableCell>
                 <TableCell className="font-medium">{mapping.spotify_genre}</TableCell>
-                <TableCell>
-                  {editingRow === mapping.spotify_genre ? (
-                    <Select
-                      value={mapping.super_genre}
-                      onValueChange={(value) => handleInlineEdit(mapping.spotify_genre, value as SuperGenre)}
-                    >
-                      <SelectTrigger className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SUPER_GENRES.map(genre => (
-                          <SelectItem key={genre} value={genre}>{genre}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span>{mapping.super_genre}</span>
-                  )}
-                </TableCell>
+                 <TableCell>
+                   {editingRow === mapping.spotify_genre ? (
+                     <Select
+                       value={mapping.super_genre || ''}
+                       onValueChange={(value) => handleInlineEdit(mapping.spotify_genre, value as SuperGenre)}
+                     >
+                       <SelectTrigger className="w-40">
+                         <SelectValue />
+                       </SelectTrigger>
+                       <SelectContent>
+                         {SUPER_GENRES.map(genre => (
+                           <SelectItem key={genre} value={genre}>{genre}</SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                     ) : (
+                       <span>
+                         {mapping.super_genre ? (
+                           mapping.super_genre
+                         ) : (
+                           <span className="text-muted-foreground italic">No super genre</span>
+                         )}
+                       </span>
+                     )}
+                 </TableCell>
                 <TableCell>
                   <Badge variant={mapping.is_overridden ? 'secondary' : 'outline'}>
                     {mapping.is_overridden ? 'Override' : 'Base'}
