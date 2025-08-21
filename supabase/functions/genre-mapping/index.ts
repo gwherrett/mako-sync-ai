@@ -69,19 +69,31 @@ serve(async (req) => {
       }
 
       // Ensure the spotify_genre exists in the base table first
-      const { error: baseUpsertError } = await supabase
+      // Check if genre already exists in base table
+      const { data: existingGenre, error: checkError } = await supabase
         .from('spotify_genre_map_base')
-        .upsert({
-          spotify_genre,
-          super_genre: null // Default to null in base table
-        }, {
-          onConflict: 'spotify_genre',
-          ignoreDuplicates: true
-        });
+        .select('spotify_genre')
+        .eq('spotify_genre', spotify_genre)
+        .maybeSingle();
 
-      if (baseUpsertError) {
-        console.error('Error ensuring base genre exists:', baseUpsertError);
-        throw baseUpsertError;
+      if (checkError) {
+        console.error('Error checking existing genre:', checkError);
+        throw checkError;
+      }
+
+      // If genre doesn't exist in base table, insert it with "Other" as default
+      if (!existingGenre) {
+        const { error: baseInsertError } = await supabase
+          .from('spotify_genre_map_base')
+          .insert({
+            spotify_genre,
+            super_genre: 'Other' // Default value since base table requires non-null
+          });
+
+        if (baseInsertError && baseInsertError.code !== '23505') { // Ignore duplicate key errors
+          console.error('Error inserting base genre:', baseInsertError);
+          throw baseInsertError;
+        }
       }
 
       // Now create/update the user override
