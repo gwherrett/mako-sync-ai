@@ -58,7 +58,7 @@ const Index = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-3xl font-bold text-white mb-2">Spotify Local Library Sync</h2>
+              <h2 className="text-3xl font-bold text-white mb-2">Spotify - Local Collection Dashboard</h2>
               <p className="text-gray-400">
                 Use Spotify metadata to find matches with local library
               </p>
