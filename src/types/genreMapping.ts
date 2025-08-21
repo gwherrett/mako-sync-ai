@@ -3,7 +3,7 @@ export type SuperGenre =
   | 'Drum & Bass'
   | 'UK Garage'
   | 'Hip Hop'
-  | 'Soul/R&B'
+  | 'Urban'
   | 'Pop'
   | 'Rock'
   | 'Jazz'
@@ -23,7 +23,7 @@ export const SUPER_GENRES: SuperGenre[] = [
   'Drum & Bass',
   'UK Garage',
   'Hip Hop',
-  'Soul/R&B',
+  'Urban',
   'Pop',
   'Rock',
   'Jazz',

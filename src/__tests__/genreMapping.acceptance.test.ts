@@ -1,3 +1,4 @@
+
 /**
  * Acceptance Test Documentation for Genre Mapping Features
  * 
@@ -15,7 +16,7 @@ import { SUPER_GENRES } from '@/types/genreMapping';
  * 
  * Expected core genres (alphabetically):
  * - Blues, Classical, Country/Folk, Disco, Drum & Bass, Electronic, Hip Hop, 
- *   House, Jazz, Latin, Metal, Other, Pop, Reggae/Dancehall, Rock, Soul/R&B, UK Garage, World
+ *   House, Jazz, Latin, Metal, Other, Pop, Reggae/Dancehall, Rock, UK Garage, Urban, World
  */
 
 /**
@@ -58,11 +59,11 @@ import { SUPER_GENRES } from '@/types/genreMapping';
  * - All existing database records must be updated to match new type values
  * - This includes: spotify_liked.super_genre, spotify_genre_map_overrides.super_genre, spotify_genre_map_base.super_genre
  * 
- * Example scenario (Garage -> UK Garage):
- * 1. ALTER TYPE super_genre ADD VALUE 'UK Garage'
- * 2. UPDATE spotify_liked SET super_genre = 'UK Garage' WHERE super_genre = 'Garage'
- * 3. UPDATE spotify_genre_map_overrides SET super_genre = 'UK Garage' WHERE super_genre = 'Garage'  
- * 4. UPDATE spotify_genre_map_base SET super_genre = 'UK Garage' WHERE super_genre = 'Garage'
+ * Example scenario (Soul/R&B -> Urban):
+ * 1. CREATE TYPE super_genre_new AS ENUM (with 'Urban' replacing 'Soul/R&B')
+ * 2. UPDATE all tables using CASE statement to map 'Soul/R&B' -> 'Urban'
+ * 3. DROP old enum and rename new enum
+ * 4. INSERT base mappings for Urban genres (r&b, soul, funk variants)
  * 
  * Critical requirements:
  * - Filtering functionality must work correctly after type changes (no orphaned values)
