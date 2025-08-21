@@ -68,9 +68,23 @@ serve(async (req) => {
         throw new Error('spotify_genre and super_genre are required');
       }
 
-      // Allow overrides for any spotify_genre (including those from user's liked songs)
+      // Ensure the spotify_genre exists in the base table first
+      const { error: baseUpsertError } = await supabase
+        .from('spotify_genre_map_base')
+        .upsert({
+          spotify_genre,
+          super_genre: null // Default to null in base table
+        }, {
+          onConflict: 'spotify_genre',
+          ignoreDuplicates: true
+        });
 
-      // Validate super_genre is in enum (this will be validated by the database)
+      if (baseUpsertError) {
+        console.error('Error ensuring base genre exists:', baseUpsertError);
+        throw baseUpsertError;
+      }
+
+      // Now create/update the user override
       const { data, error } = await supabase
         .from('spotify_genre_map_overrides')
         .upsert({
