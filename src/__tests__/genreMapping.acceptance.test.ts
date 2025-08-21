@@ -45,8 +45,29 @@ import { SUPER_GENRES } from '@/types/genreMapping';
  * - is_overridden: true when user has custom mapping
  * - Should support user-specific mappings
  * 
+/**
  * UI sorting:
  * - All dropdowns must use [...SUPER_GENRES].sort() for alphabetical display
+ */
+
+/**
+ * DATABASE CONSISTENCY REQUIREMENTS
+ * 
+ * When updating super-genre type definitions:
+ * - Database enum type must be updated first: ALTER TYPE super_genre ADD VALUE 'New Value'
+ * - All existing database records must be updated to match new type values
+ * - This includes: spotify_liked.super_genre, spotify_genre_map_overrides.super_genre, spotify_genre_map_base.super_genre
+ * 
+ * Example scenario (Garage -> UK Garage):
+ * 1. ALTER TYPE super_genre ADD VALUE 'UK Garage'
+ * 2. UPDATE spotify_liked SET super_genre = 'UK Garage' WHERE super_genre = 'Garage'
+ * 3. UPDATE spotify_genre_map_overrides SET super_genre = 'UK Garage' WHERE super_genre = 'Garage'  
+ * 4. UPDATE spotify_genre_map_base SET super_genre = 'UK Garage' WHERE super_genre = 'Garage'
+ * 
+ * Critical requirements:
+ * - Filtering functionality must work correctly after type changes (no orphaned values)
+ * - Enum updates require separate transactions from data updates
+ * - All UI components must handle the new values immediately after database update
  */
 
 export {}; // Make this a module
