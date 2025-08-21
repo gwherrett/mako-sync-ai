@@ -14,8 +14,8 @@ import { SUPER_GENRES } from '@/types/genreMapping';
  * All UI components should display super-genre options alphabetically using [...SUPER_GENRES].sort().
  * 
  * Expected core genres (alphabetically):
- * - Blues, Classical, Country/Folk, Disco, Drum & Bass, Electronic, Garage, 
- *   Hip Hop, House, Jazz, Latin, Metal, Other, Pop, Reggae/Dancehall, Rock, Soul/R&B, World
+ * - Blues, Classical, Country/Folk, Disco, Drum & Bass, Electronic, Hip Hop, 
+ *   House, Jazz, Latin, Metal, Other, Pop, Reggae/Dancehall, Rock, Soul/R&B, UK Garage, World
  */
 
 /**
