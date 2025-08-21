@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Check, X, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,12 +23,30 @@ export const AuditMode: React.FC<AuditModeProps> = ({
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reviewedGenres, setReviewedGenres] = useState<Set<string>>(new Set());
+  const [selectedSuperGenre, setSelectedSuperGenre] = useState<SuperGenre | 'all'>('all');
 
-  const currentMapping = mappings[currentIndex];
-  const progress = ((reviewedGenres.size) / mappings.length) * 100;
+  const filteredMappings = useMemo(() => {
+    if (selectedSuperGenre === 'all') {
+      return mappings;
+    }
+    return mappings.filter(mapping => mapping.super_genre === selectedSuperGenre);
+  }, [mappings, selectedSuperGenre]);
+
+  const currentMapping = filteredMappings[currentIndex];
+  const filteredReviewedCount = filteredMappings.filter(mapping => 
+    reviewedGenres.has(mapping.spotify_genre)
+  ).length;
+  const progress = filteredMappings.length > 0 
+    ? (filteredReviewedCount / filteredMappings.length) * 100 
+    : 0;
+
+  const handleSuperGenreChange = (value: string) => {
+    setSelectedSuperGenre(value as SuperGenre | 'all');
+    setCurrentIndex(0); // Reset to first item when filter changes
+  };
 
   const handleNext = () => {
-    if (currentIndex < mappings.length - 1) {
+    if (currentIndex < filteredMappings.length - 1) {
       setCurrentIndex(currentIndex + 1);
     }
   };
@@ -58,13 +76,15 @@ export const AuditMode: React.FC<AuditModeProps> = ({
     
     // Auto-advance to next item
     setTimeout(() => {
-      if (currentIndex < mappings.length - 1) {
+      if (currentIndex < filteredMappings.length - 1) {
         handleNext();
       }
     }, 500);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (filteredMappings.length === 0) return;
+    
     switch (e.key.toLowerCase()) {
       case 'a':
         e.preventDefault();
@@ -81,7 +101,9 @@ export const AuditMode: React.FC<AuditModeProps> = ({
     }
   };
 
-  const isReviewed = reviewedGenres.has(currentMapping.spotify_genre);
+  const isReviewed = currentMapping && reviewedGenres.has(currentMapping.spotify_genre);
+  const allFilteredReviewed = filteredMappings.length > 0 && 
+    filteredMappings.every(mapping => reviewedGenres.has(mapping.spotify_genre));
 
   return (
     <div className="space-y-6" onKeyDown={handleKeyDown} tabIndex={0}>
@@ -89,7 +111,12 @@ export const AuditMode: React.FC<AuditModeProps> = ({
         <div className="space-y-1">
           <h2 className="text-2xl font-bold">Audit Mode</h2>
           <p className="text-muted-foreground">
-            Review and override genre mappings • {reviewedGenres.size}/{mappings.length} reviewed
+            Review and override genre mappings • {filteredReviewedCount}/{filteredMappings.length} reviewed
+            {selectedSuperGenre !== 'all' && (
+              <span className="ml-2">
+                (filtered by {selectedSuperGenre})
+              </span>
+            )}
           </p>
         </div>
         <Button onClick={onExit} variant="outline">
@@ -97,105 +124,139 @@ export const AuditMode: React.FC<AuditModeProps> = ({
         </Button>
       </div>
 
-      <Progress value={progress} className="w-full" />
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 flex-1">
+          <Filter className="w-4 h-4 text-muted-foreground" />
+          <Select value={selectedSuperGenre} onValueChange={handleSuperGenreChange}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All super-genres</SelectItem>
+              {SUPER_GENRES.map(genre => (
+                <SelectItem key={genre} value={genre}>
+                  {genre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Progress value={progress} className="flex-1" />
+      </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              Genre {currentIndex + 1} of {mappings.length}
-              {isReviewed && <Badge variant="secondary">Reviewed</Badge>}
-            </CardTitle>
-            <div className="flex gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrevious}
-                disabled={currentIndex === 0}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNext}
-                disabled={currentIndex === mappings.length - 1}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
+      {filteredMappings.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center space-y-2">
+              <Filter className="w-12 h-12 text-muted-foreground mx-auto" />
+              <h3 className="text-lg font-semibold text-muted-foreground">
+                No mappings found
+              </h3>
+              <p className="text-muted-foreground">
+                No genre mappings match the selected super-genre filter.
+              </p>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="text-center space-y-2">
-            <h3 className="text-3xl font-bold text-primary">
-              {currentMapping.spotify_genre}
-            </h3>
-            <p className="text-muted-foreground">
-              Current mapping: <span className="font-medium">{currentMapping.super_genre}</span>
-              <Badge 
-                variant={currentMapping.is_overridden ? 'secondary' : 'outline'}
-                className="ml-2"
-              >
-                {currentMapping.is_overridden ? 'Override' : 'Base'}
-              </Badge>
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="p-4">
-              <h4 className="font-medium mb-3">Quick Actions</h4>
-              <div className="space-y-2">
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                Genre {currentIndex + 1} of {filteredMappings.length}
+                {isReviewed && <Badge variant="secondary">Reviewed</Badge>}
+              </CardTitle>
+              <div className="flex gap-1">
                 <Button
-                  onClick={handleAcceptBase}
                   variant="outline"
-                  className="w-full justify-start"
+                  size="sm"
+                  onClick={handlePrevious}
+                  disabled={currentIndex === 0}
                 >
-                  <Check className="w-4 h-4 mr-2" />
-                  Accept Current ({currentMapping.super_genre})
-                  <Badge className="ml-auto">A</Badge>
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNext}
+                  disabled={currentIndex === filteredMappings.length - 1}
+                >
+                  <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
-            </Card>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="text-center space-y-2">
+              <h3 className="text-3xl font-bold text-primary">
+                {currentMapping.spotify_genre}
+              </h3>
+              <p className="text-muted-foreground">
+                Current mapping: <span className="font-medium">{currentMapping.super_genre}</span>
+                <Badge 
+                  variant={currentMapping.is_overridden ? 'secondary' : 'outline'}
+                  className="ml-2"
+                >
+                  {currentMapping.is_overridden ? 'Override' : 'Base'}
+                </Badge>
+              </p>
+            </div>
 
-            <Card className="p-4">
-              <h4 className="font-medium mb-3">Override with Different Genre</h4>
-              <Select onValueChange={(value) => handleSetOverride(value as SuperGenre)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose super-genre..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUPER_GENRES.map(genre => (
-                    <SelectItem 
-                      key={genre} 
-                      value={genre}
-                      disabled={genre === currentMapping.super_genre}
-                    >
-                      {genre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Card>
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="p-4">
+                <h4 className="font-medium mb-3">Quick Actions</h4>
+                <div className="space-y-2">
+                  <Button
+                    onClick={handleAcceptBase}
+                    variant="outline"
+                    className="w-full justify-start"
+                  >
+                    <Check className="w-4 h-4 mr-2" />
+                    Accept Current ({currentMapping.super_genre})
+                    <Badge className="ml-auto">A</Badge>
+                  </Button>
+                </div>
+              </Card>
 
-          <div className="text-center text-sm text-muted-foreground space-y-1">
-            <p>Keyboard shortcuts: [A] Accept • [←] Previous • [→] Next</p>
-            <p>Progress saved automatically</p>
-          </div>
-        </CardContent>
-      </Card>
+              <Card className="p-4">
+                <h4 className="font-medium mb-3">Override with Different Genre</h4>
+                <Select onValueChange={(value) => handleSetOverride(value as SuperGenre)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose super-genre..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUPER_GENRES.map(genre => (
+                      <SelectItem 
+                        key={genre} 
+                        value={genre}
+                        disabled={genre === currentMapping.super_genre}
+                      >
+                        {genre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Card>
+            </div>
 
-      {reviewedGenres.size === mappings.length && (
+            <div className="text-center text-sm text-muted-foreground space-y-1">
+              <p>Keyboard shortcuts: [A] Accept • [←] Previous • [→] Next</p>
+              <p>Progress saved automatically</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {allFilteredReviewed && filteredMappings.length > 0 && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="pt-6">
             <div className="text-center space-y-2">
               <Check className="w-12 h-12 text-green-600 mx-auto" />
               <h3 className="text-lg font-semibold text-green-800">
-                Audit Complete!
+                {selectedSuperGenre === 'all' ? 'Audit Complete!' : `${selectedSuperGenre} Filter Complete!`}
               </h3>
               <p className="text-green-700">
-                You've reviewed all {mappings.length} genre mappings.
+                You've reviewed all {filteredMappings.length} {selectedSuperGenre === 'all' ? 'genre mappings' : `${selectedSuperGenre} mappings`}.
               </p>
               <Button onClick={onExit} className="mt-4">
                 Return to Mapping Table
