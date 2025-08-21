@@ -112,4 +112,21 @@ export class GenreMappingService {
 
     await Promise.all(promises);
   }
+
+  /**
+   * Get count of tracks with no Spotify genre
+   */
+  static async getNoGenreCount(): Promise<number> {
+    const { count, error } = await supabase
+      .from('spotify_liked')
+      .select('*', { count: 'exact', head: true })
+      .is('genre', null);
+
+    if (error) {
+      console.error('Error fetching no-genre count:', error);
+      return 0;
+    }
+
+    return count || 0;
+  }
 }

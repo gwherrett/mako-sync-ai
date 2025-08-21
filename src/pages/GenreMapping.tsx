@@ -1,13 +1,16 @@
-import { useState } from 'react';
-import { ArrowLeft, Eye, Table } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Eye, Table, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { GenreMappingTable } from '@/components/GenreMapping/GenreMappingTable';
 import { AuditMode } from '@/components/GenreMapping/AuditMode';
 import { useGenreMapping } from '@/hooks/useGenreMapping';
+import { GenreMappingService } from '@/services/genreMapping.service';
 import { Link } from 'react-router-dom';
 export const GenreMapping = () => {
   const [activeTab, setActiveTab] = useState<'table' | 'audit'>('table');
+  const [noGenreCount, setNoGenreCount] = useState<number>(0);
   const {
     mappings,
     isLoading,
@@ -17,6 +20,19 @@ export const GenreMapping = () => {
     setBulkOverrides,
     exportToCSV
   } = useGenreMapping();
+
+  useEffect(() => {
+    const fetchNoGenreCount = async () => {
+      try {
+        const count = await GenreMappingService.getNoGenreCount();
+        setNoGenreCount(count);
+      } catch (error) {
+        console.error('Error fetching no-genre count:', error);
+      }
+    };
+
+    fetchNoGenreCount();
+  }, []);
   if (error) {
     return <div className="container mx-auto py-8">
         <div className="text-center">
@@ -43,6 +59,18 @@ export const GenreMapping = () => {
           </div>
         </div>
       </div>
+
+      {noGenreCount > 0 && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <span className="font-medium">{noGenreCount} tracks</span> have no Spotify-provided genre and cannot be mapped via the genre map.{' '}
+            <Button variant="link" asChild className="h-auto p-0 text-foreground underline">
+              <Link to="/?filter=unmapped">View these tracks in Liked Songs</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'table' | 'audit')}>
         <TabsList>

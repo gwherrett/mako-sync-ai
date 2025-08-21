@@ -23,11 +23,14 @@ export const AuditMode: React.FC<AuditModeProps> = ({
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reviewedGenres, setReviewedGenres] = useState<Set<string>>(new Set());
-  const [selectedSuperGenre, setSelectedSuperGenre] = useState<SuperGenre | 'all'>('all');
+  const [selectedSuperGenre, setSelectedSuperGenre] = useState<SuperGenre | 'all' | 'unmapped'>('all');
 
   const filteredMappings = useMemo(() => {
     if (selectedSuperGenre === 'all') {
       return mappings;
+    }
+    if (selectedSuperGenre === 'unmapped') {
+      return mappings.filter(mapping => mapping.super_genre === null);
     }
     return mappings.filter(mapping => mapping.super_genre === selectedSuperGenre);
   }, [mappings, selectedSuperGenre]);
@@ -41,7 +44,7 @@ export const AuditMode: React.FC<AuditModeProps> = ({
     : 0;
 
   const handleSuperGenreChange = (value: string) => {
-    setSelectedSuperGenre(value as SuperGenre | 'all');
+    setSelectedSuperGenre(value as SuperGenre | 'all' | 'unmapped');
     setCurrentIndex(0); // Reset to first item when filter changes
   };
 
@@ -133,6 +136,7 @@ export const AuditMode: React.FC<AuditModeProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All super-genres</SelectItem>
+              <SelectItem value="unmapped">Unmapped</SelectItem>
               {SUPER_GENRES.map(genre => (
                 <SelectItem key={genre} value={genre}>
                   {genre}
@@ -192,7 +196,7 @@ export const AuditMode: React.FC<AuditModeProps> = ({
                 {currentMapping.spotify_genre}
               </h3>
               <p className="text-muted-foreground">
-                Current mapping: <span className="font-medium">{currentMapping.super_genre}</span>
+                Current mapping: <span className="font-medium">{currentMapping.super_genre || 'None'}</span>
                 <Badge 
                   variant={currentMapping.is_overridden ? 'secondary' : 'outline'}
                   className="ml-2"
@@ -210,11 +214,20 @@ export const AuditMode: React.FC<AuditModeProps> = ({
                     onClick={handleAcceptBase}
                     variant="outline"
                     className="w-full justify-start"
+                    disabled={!currentMapping.super_genre}
                   >
                     <Check className="w-4 h-4 mr-2" />
-                    Accept Current ({currentMapping.super_genre})
+                    {currentMapping.super_genre ? 
+                      `Accept Current (${currentMapping.super_genre})` : 
+                      'No mapping to accept'
+                    }
                     <Badge className="ml-auto">A</Badge>
                   </Button>
+                  {!currentMapping.super_genre && (
+                    <p className="text-sm text-muted-foreground">
+                      Select a super-genre to set an override.
+                    </p>
+                  )}
                 </div>
               </Card>
 

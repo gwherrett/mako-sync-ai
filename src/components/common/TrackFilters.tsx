@@ -22,6 +22,7 @@ export interface FilterState {
   selectedArtist: string;
   dateFilter: string;
   noSuperGenre: boolean;
+  noGenre?: boolean;
 }
 
 // Filter options interface
@@ -39,6 +40,7 @@ export interface FilterCallbacks {
   onArtistChange: (value: string) => void;
   onDateFilterChange: (value: string) => void;
   onNoSuperGenreChange: (value: boolean) => void;
+  onNoGenreChange?: (value: boolean) => void;
   onClearFilters: () => void;
   onPageChange: (page: number) => void;
 }
@@ -58,7 +60,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
   callbacks,
   className = ""
 }) => {
-  const hasActiveFilters = state.searchQuery || (state.selectedGenre && state.selectedGenre !== 'all') || (state.selectedSuperGenre && state.selectedSuperGenre !== 'all') || (state.selectedArtist && state.selectedArtist !== 'all') || state.dateFilter || state.noSuperGenre;
+  const hasActiveFilters = state.searchQuery || (state.selectedGenre && state.selectedGenre !== 'all') || (state.selectedSuperGenre && state.selectedSuperGenre !== 'all') || (state.selectedArtist && state.selectedArtist !== 'all') || state.dateFilter || state.noSuperGenre || state.noGenre;
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -100,6 +102,19 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
             >
               Last Month
             </Button>
+            {callbacks.onNoGenreChange && (
+              <Button
+                variant={state.noGenre ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  const newValue = !state.noGenre;
+                  callbacks.onNoGenreChange!(newValue);
+                  callbacks.onPageChange(1);
+                }}
+              >
+                No Spotify Genre Only
+              </Button>
+            )}
           </div>
         )}
       </div>

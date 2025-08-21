@@ -61,6 +61,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const [selectedSuperGenre, setSelectedSuperGenre] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('');
   const [noSuperGenre, setNoSuperGenre] = useState<boolean>(false);
+  const [noGenre, setNoGenre] = useState<boolean>(false);
   
   // Filter options
   const [artists, setArtists] = useState<string[]>([]);
@@ -72,7 +73,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
   useEffect(() => {
     fetchTracks();
-  }, [currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter, noSuperGenre]);
+  }, [currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter, noSuperGenre, noGenre]);
 
   // Separate useEffect for filter options that updates when genre changes
   useEffect(() => {
@@ -106,6 +107,11 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         query = query.eq('genre', selectedGenre);
       }
       
+      // Apply "No Genre" filter
+      if (noGenre) {
+        query = query.is('genre', null);
+      }
+      
       // Apply "No Super Genre" filter
       if (noSuperGenre) {
         query = query.is('super_genre', null);
@@ -132,8 +138,39 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         query = query.gte('added_at', monthAgo.toISOString());
       }
 
-      // Get total count with filters
-      const { count } = await query;
+      // Get total count with filters (clone query to avoid mutation issues)
+      let countQuery = supabase.from('spotify_liked').select('*', { count: 'exact', head: true });
+      
+      // Apply the same filters for count query
+      if (searchQuery.trim()) {
+        countQuery = countQuery.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`);
+      }
+      if (selectedGenre) {
+        countQuery = countQuery.eq('genre', selectedGenre);
+      }
+      if (noGenre) {
+        countQuery = countQuery.is('genre', null);
+      }
+      if (noSuperGenre) {
+        countQuery = countQuery.is('super_genre', null);
+      }
+      if (selectedSuperGenre) {
+        countQuery = countQuery.eq('super_genre', selectedSuperGenre as any);
+      }
+      if (selectedArtist) {
+        countQuery = countQuery.eq('artist', selectedArtist);
+      }
+      if (dateFilter === 'week') {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        countQuery = countQuery.gte('added_at', weekAgo.toISOString());
+      } else if (dateFilter === 'month') {
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        countQuery = countQuery.gte('added_at', monthAgo.toISOString());
+      }
+      
+      const { count } = await countQuery;
       setTotalTracks(count || 0);
 
       // Get paginated tracks with filters
@@ -217,6 +254,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     setSelectedSuperGenre('');
     setDateFilter('');
     setNoSuperGenre(false);
+    setNoGenre(false);
     setCurrentPage(1);
   };
 
@@ -302,7 +340,8 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
             selectedSuperGenre,
             selectedArtist,
             dateFilter,
-            noSuperGenre
+            noSuperGenre,
+            noGenre
           }}
           options={{
             genres,
@@ -323,6 +362,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
             onArtistChange: setSelectedArtist,
             onDateFilterChange: setDateFilter,
             onNoSuperGenreChange: setNoSuperGenre,
+            onNoGenreChange: setNoGenre,
             onClearFilters: clearFilters,
             onPageChange: setCurrentPage
           }}
