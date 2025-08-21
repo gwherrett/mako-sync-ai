@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/pagination';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { IframeBanner } from '@/components/common/IframeBanner';
+import { openInNewTab, copyToClipboard } from '@/utils/linkUtils';
 
 interface SpotifyTrack {
   id: string;
@@ -221,17 +223,38 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     setCurrentPage(1); // Reset to first page when sorting
   };
 
-  const handleSpotifyClick = (e: React.MouseEvent<HTMLAnchorElement>, spotifyId: string) => {
+  const handleSpotifyClick = async (e: React.MouseEvent<HTMLAnchorElement>, spotifyId: string) => {
     e.stopPropagation();
-    // Don't prevent default - let the link open naturally
+    
+    const url = `https://open.spotify.com/track/${spotifyId}`;
+    
+    // Handle Ctrl/Cmd+Click - let browser handle it naturally
+    if (e.ctrlKey || e.metaKey) {
+      return; // Don't preventDefault, let the browser handle it
+    }
+    
+    // Prevent default link behavior for our custom handling
+    e.preventDefault();
     
     // Dev-only logging
     if (process.env.NODE_ENV === 'development') {
-      console.log('Spotify link clicked for track:', spotifyId);
+      console.log('Opening Spotify track:', spotifyId);
     }
     
-    // Ensure the link opens in a new tab
-    window.open(`https://open.spotify.com/track/${spotifyId}`, '_blank', 'noopener,noreferrer');
+    // Use our robust link opener
+    await openInNewTab({ url });
+  };
+
+  const handleCopySpotifyLink = async (spotifyId: string) => {
+    const url = `https://open.spotify.com/track/${spotifyId}`;
+    const success = await copyToClipboard(url);
+    
+    if (success) {
+      toast({
+        title: "Link Copied",
+        description: "Spotify link copied to clipboard!",
+      });
+    }
   };
 
 
@@ -255,6 +278,8 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <IframeBanner />
+        
         {/* Filters Panel */}
         <TrackFilters
           config={{
@@ -364,21 +389,34 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                     </TableCell>
                     <TableCell>
                       {track.spotify_id ? (
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          asChild
-                        >
-                          <a
-                            href={`https://open.spotify.com/track/${track.spotify_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => handleSpotifyClick(e, track.spotify_id)}
-                            title="Open in Spotify"
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            asChild
                           >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </Button>
+                            <a
+                              href={`https://open.spotify.com/track/${track.spotify_id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => handleSpotifyClick(e, track.spotify_id)}
+                              title="Open in Spotify (Ctrl+Click for new tab)"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopySpotifyLink(track.spotify_id)}
+                            title="Copy Spotify link"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                              <path d="M4 16c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"/>
+                            </svg>
+                          </Button>
+                        </div>
                       ) : (
                         <Tooltip>
                           <TooltipTrigger asChild>
