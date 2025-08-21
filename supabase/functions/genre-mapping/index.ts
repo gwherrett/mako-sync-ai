@@ -68,16 +68,7 @@ serve(async (req) => {
         throw new Error('spotify_genre and super_genre are required');
       }
 
-      // Validate that spotify_genre exists in base mapping
-      const { data: baseGenre, error: baseError } = await supabase
-        .from('spotify_genre_map_base')
-        .select('spotify_genre')
-        .eq('spotify_genre', spotify_genre)
-        .single();
-
-      if (baseError || !baseGenre) {
-        throw new Error('Invalid spotify_genre');
-      }
+      // Allow overrides for any spotify_genre (including those from user's liked songs)
 
       // Validate super_genre is in enum (this will be validated by the database)
       const { data, error } = await supabase
@@ -100,12 +91,12 @@ serve(async (req) => {
       });
     }
 
-    // DELETE /override/:spotify_genre - remove user override
+    // DELETE /override - remove user override
     if (req.method === 'DELETE') {
-      const spotify_genre = url.searchParams.get('spotify_genre');
+      const { spotify_genre } = await req.json();
       
       if (!spotify_genre) {
-        throw new Error('spotify_genre parameter is required');
+        throw new Error('spotify_genre is required in request body');
       }
 
       const { error } = await supabase

@@ -137,7 +137,7 @@ export const AuditMode: React.FC<AuditModeProps> = ({
             <SelectContent>
               <SelectItem value="all">All super-genres</SelectItem>
               <SelectItem value="unmapped">Unmapped</SelectItem>
-              {SUPER_GENRES.map(genre => (
+              {[...SUPER_GENRES].sort().map(genre => (
                 <SelectItem key={genre} value={genre}>
                   {genre}
                 </SelectItem>
@@ -238,7 +238,7 @@ export const AuditMode: React.FC<AuditModeProps> = ({
                     <SelectValue placeholder="Choose super-genre..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {SUPER_GENRES.map(genre => (
+                    {[...SUPER_GENRES].sort().map(genre => (
                       <SelectItem 
                         key={genre} 
                         value={genre}

@@ -94,7 +94,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
             <SelectContent>
               <SelectItem value="all">All Super-Genres</SelectItem>
               <SelectItem value="no-super-genre">Unmapped</SelectItem>
-              {SUPER_GENRES.map(genre => <SelectItem key={genre} value={genre}>{genre}</SelectItem>)}
+              {[...SUPER_GENRES].sort().map(genre => <SelectItem key={genre} value={genre}>{genre}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -125,7 +125,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
                          <SelectValue />
                        </SelectTrigger>
                        <SelectContent>
-                         {SUPER_GENRES.map(genre => <SelectItem key={genre} value={genre}>{genre}</SelectItem>)}
+                          {[...SUPER_GENRES].sort().map(genre => <SelectItem key={genre} value={genre}>{genre}</SelectItem>)}
                        </SelectContent>
                      </Select> : <span>
                          {mapping.super_genre ? mapping.super_genre : <span className="text-muted-foreground italic">Unmapped</span>}
@@ -167,7 +167,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
                   <SelectValue placeholder="Set super-genre for selected" />
                 </SelectTrigger>
                 <SelectContent>
-                  {SUPER_GENRES.map(genre => <SelectItem key={genre} value={genre}>{genre}</SelectItem>)}
+                  {[...SUPER_GENRES].sort().map(genre => <SelectItem key={genre} value={genre}>{genre}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Button variant="outline" size="sm" onClick={() => setSelectedRows(new Set())}>
