@@ -389,7 +389,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                       {track.super_genre ? (
                         <Badge variant="default" className="bg-blue-500/10 text-blue-400 border-blue-500/30">{track.super_genre}</Badge>
                       ) : (
-                        <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Super Genre</Badge>
+                        <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">Unmapped</Badge>
                       )}
                     </TableCell>
                     <TableCell>

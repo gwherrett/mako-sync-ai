@@ -111,7 +111,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Super-Genres</SelectItem>
-              <SelectItem value="no-super-genre">No Super Genre</SelectItem>
+              <SelectItem value="no-super-genre">Unmapped</SelectItem>
               {SUPER_GENRES.map(genre => (
                 <SelectItem key={genre} value={genre}>{genre}</SelectItem>
               ))}
@@ -170,7 +170,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
                          {mapping.super_genre ? (
                            mapping.super_genre
                          ) : (
-                           <span className="text-muted-foreground italic">No super genre</span>
+                           <span className="text-muted-foreground italic">Unmapped</span>
                          )}
                        </span>
                      )}

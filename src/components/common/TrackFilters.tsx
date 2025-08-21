@@ -130,7 +130,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All super genres</SelectItem>
-                  <SelectItem value="no-super-genre">No Super Genre</SelectItem>
+                  <SelectItem value="no-super-genre">Unmapped</SelectItem>
                   {options.superGenres.map((superGenre) => (
                     <SelectItem key={superGenre} value={superGenre}>
                       {superGenre}
