@@ -21,6 +21,7 @@ export interface FilterState {
   selectedSuperGenre: string;
   selectedArtist: string;
   dateFilter: string;
+  noSuperGenre: boolean;
 }
 
 // Filter options interface
@@ -37,6 +38,7 @@ export interface FilterCallbacks {
   onSuperGenreChange: (value: string) => void;
   onArtistChange: (value: string) => void;
   onDateFilterChange: (value: string) => void;
+  onNoSuperGenreChange: (value: boolean) => void;
   onClearFilters: () => void;
   onPageChange: (page: number) => void;
 }
@@ -56,7 +58,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
   callbacks,
   className = ""
 }) => {
-  const hasActiveFilters = state.searchQuery || (state.selectedGenre && state.selectedGenre !== 'all') || (state.selectedSuperGenre && state.selectedSuperGenre !== 'all') || (state.selectedArtist && state.selectedArtist !== 'all') || state.dateFilter;
+  const hasActiveFilters = state.searchQuery || (state.selectedGenre && state.selectedGenre !== 'all') || (state.selectedSuperGenre && state.selectedSuperGenre !== 'all') || (state.selectedArtist && state.selectedArtist !== 'all') || state.dateFilter || state.noSuperGenre;
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -102,26 +104,33 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
         )}
       </div>
       
-      {/* Bottom Row: Super Genre + Genre + Artist Filters */}
+      {/* Bottom Row: Super Genre + Genre + Artist Filters + No Super Genre */}
       {(config.genre || config.superGenre || config.artist) && (
         <div className="flex flex-col sm:flex-row gap-4">
           {/* Super Genre Filter */}
           {config.superGenre && (
             <div className="flex-1 max-w-xs">
               <Select
-                value={state.selectedSuperGenre || 'all'}
-                onValueChange={(value) => {
-                  callbacks.onSuperGenreChange(value === 'all' ? '' : value);
-                  callbacks.onGenreChange(''); // Clear genre filter when super genre changes
-                  callbacks.onArtistChange(''); // Clear artist filter when super genre changes
-                  callbacks.onPageChange(1);
-                }}
+                value={state.noSuperGenre ? 'no-super-genre' : (state.selectedSuperGenre || 'all')}
+          onValueChange={(value) => {
+            if (value === 'no-super-genre') {
+              callbacks.onNoSuperGenreChange(true);
+              callbacks.onSuperGenreChange('');
+            } else {
+              callbacks.onNoSuperGenreChange(false);
+              callbacks.onSuperGenreChange(value === 'all' ? '' : value);
+            }
+            callbacks.onGenreChange(''); // Clear genre filter when super genre changes
+            callbacks.onArtistChange(''); // Clear artist filter when super genre changes
+            callbacks.onPageChange(1);
+          }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All super genres" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All super genres</SelectItem>
+                  <SelectItem value="no-super-genre">No Super Genre</SelectItem>
                   {options.superGenres.map((superGenre) => (
                     <SelectItem key={superGenre} value={superGenre}>
                       {superGenre}

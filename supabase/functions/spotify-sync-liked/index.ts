@@ -88,8 +88,28 @@ serve(async (req) => {
     // Fetch artist genres with caching
     const artistGenreMap = await getArtistGenresWithCache(accessToken, artistIds, supabaseClient)
 
+    // Fetch effective genre mapping for this user
+    const { data: genreMappingData, error: genreMappingError } = await supabaseClient
+      .from('v_effective_spotify_genre_map')
+      .select('spotify_genre, super_genre')
+
+    if (genreMappingError) {
+      console.error('Error fetching genre mapping:', genreMappingError)
+      throw new Error('Failed to fetch genre mapping')
+    }
+
+    // Convert to Map for efficient lookups
+    const genreMapping = new Map<string, string>()
+    if (genreMappingData) {
+      genreMappingData.forEach(item => {
+        if (item.spotify_genre && item.super_genre) {
+          genreMapping.set(item.spotify_genre, item.super_genre)
+        }
+      })
+    }
+
     // Process and prepare songs for database insertion
-    const songsToInsert = processSongsData(allTracks, user.id, artistGenreMap)
+    const songsToInsert = processSongsData(allTracks, user.id, artistGenreMap, genreMapping)
 
     // Clear existing songs and insert new ones
     const insertedCount = await clearAndInsertSongs(songsToInsert, user.id, supabaseClient)

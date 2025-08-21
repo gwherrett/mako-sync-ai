@@ -379,7 +379,8 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
             selectedGenre,
             selectedSuperGenre: '', // Not used for local MP3s
             selectedArtist,
-            dateFilter: ''
+            dateFilter: '',
+            noSuperGenre: false
           }}
           options={{
             genres,
@@ -392,6 +393,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
             onSuperGenreChange: () => {}, // Not used for local MP3s
             onArtistChange: setSelectedArtist,
             onDateFilterChange: () => {}, // Not used for MP3s
+            onNoSuperGenreChange: () => {},
             onClearFilters: () => {
               setSearchQuery('');
               setSelectedGenre('');

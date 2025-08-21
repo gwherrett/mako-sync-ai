@@ -60,6 +60,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const [selectedGenre, setSelectedGenre] = useState<string>('');
   const [selectedSuperGenre, setSelectedSuperGenre] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('');
+  const [noSuperGenre, setNoSuperGenre] = useState<boolean>(false);
   
   // Filter options
   const [artists, setArtists] = useState<string[]>([]);
@@ -71,7 +72,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
   useEffect(() => {
     fetchTracks();
-  }, [currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter]);
+  }, [currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter, noSuperGenre]);
 
   // Separate useEffect for filter options that updates when genre changes
   useEffect(() => {
@@ -103,6 +104,11 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       // Apply genre filter
       if (selectedGenre) {
         query = query.eq('genre', selectedGenre);
+      }
+      
+      // Apply "No Super Genre" filter
+      if (noSuperGenre) {
+        query = query.is('super_genre', null);
       }
       
       // Apply super genre filter
@@ -210,6 +216,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     setSelectedGenre('');
     setSelectedSuperGenre('');
     setDateFilter('');
+    setNoSuperGenre(false);
     setCurrentPage(1);
   };
 
@@ -294,7 +301,8 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
             selectedGenre,
             selectedSuperGenre,
             selectedArtist,
-            dateFilter
+            dateFilter,
+            noSuperGenre
           }}
           options={{
             genres,
@@ -308,12 +316,19 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
               setSelectedArtist(''); // Clear artist filter when genre changes
             },
             onSuperGenreChange: (value) => {
-              setSelectedSuperGenre(value);
+              if (value === 'no-super-genre') {
+                setNoSuperGenre(true);
+                setSelectedSuperGenre('');
+              } else {
+                setNoSuperGenre(false);
+                setSelectedSuperGenre(value);
+              }
               setSelectedGenre(''); // Clear genre filter when super genre changes
               setSelectedArtist(''); // Clear artist filter when super genre changes
             },
             onArtistChange: setSelectedArtist,
             onDateFilterChange: setDateFilter,
+            onNoSuperGenreChange: setNoSuperGenre,
             onClearFilters: clearFilters,
             onPageChange: setCurrentPage
           }}
