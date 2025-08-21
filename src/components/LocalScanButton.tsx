@@ -1,10 +1,10 @@
 import React from 'react';
 import { Loader2, FolderSearch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useLocalMp3Scanner } from '@/hooks/useLocalMp3Scanner';
+import { useLocalScanner } from '@/hooks/useLocalScanner';
 
 const LocalScanButton = () => {
-  const { isScanning, scanLocalFiles, scanProgress } = useLocalMp3Scanner();
+  const { isScanning, scanLocalFiles, scanProgress } = useLocalScanner();
 
   return (
     <Button 

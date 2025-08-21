@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { scanDirectoryForMP3s } from '@/services/fileScanner';
+import { scanDirectoryForLocalFiles } from '@/services/fileScanner';
 import { extractMetadataBatch, ScannedTrack } from '@/services/metadataExtractor';
 
-export const useLocalMp3Scanner = () => {
+export const useLocalScanner = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
   const { toast } = useToast();
@@ -33,19 +33,19 @@ export const useLocalMp3Scanner = () => {
     setScanProgress({ current: 0, total: 0 });
     
     try {
-      // Scan directory for MP3 files
-      const mp3Files = await scanDirectoryForMP3s();
+      // Scan directory for local files
+      const localFiles = await scanDirectoryForLocalFiles();
       
       toast({
         title: "Scan Started",
-        description: `Found ${mp3Files.length} MP3 files. Extracting metadata...`,
+        description: `Found ${localFiles.length} local files. Extracting metadata...`,
       });
 
-      setScanProgress({ current: 0, total: mp3Files.length });
+      setScanProgress({ current: 0, total: localFiles.length });
 
       // Extract metadata from all files
       const scannedTracks = await extractMetadataBatch(
-        mp3Files,
+        localFiles,
         (current, total) => setScanProgress({ current, total })
       );
 
@@ -67,7 +67,7 @@ export const useLocalMp3Scanner = () => {
       console.log('✅ Database insertion successful');
       toast({
         title: "Scan Complete",
-        description: `Successfully scanned ${scannedTracks.length} MP3 files.`,
+        description: `Successfully scanned ${scannedTracks.length} local files.`,
       });
 
     } catch (error: any) {

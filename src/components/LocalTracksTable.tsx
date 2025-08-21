@@ -33,7 +33,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-interface LocalMP3 {
+interface LocalTrack {
   id: string;
   title: string | null;
   artist: string | null;
@@ -53,12 +53,12 @@ interface LocalMP3 {
 }
 
 interface LocalTracksTableProps {
-  onTrackSelect: (track: LocalMP3) => void;
-  selectedTrack: LocalMP3 | null;
+  onTrackSelect: (track: LocalTrack) => void;
+  selectedTrack: LocalTrack | null;
 }
 
 const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProps) => {
-  const [tracks, setTracks] = useState<LocalMP3[]>([]);
+  const [tracks, setTracks] = useState<LocalTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalTracks, setTotalTracks] = useState(0);
@@ -263,7 +263,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
     return filePath.split('.').pop()?.toUpperCase() || 'Unknown';
   };
 
-  const getMissingMetadataCount = (track: LocalMP3) => {
+  const getMissingMetadataCount = (track: LocalTrack) => {
     const fields = [track.title, track.artist, track.album, track.year, track.genre];
     return fields.filter(field => !field).length;
   };
@@ -377,22 +377,22 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
           state={{
             searchQuery,
             selectedGenre,
-            selectedSuperGenre: '', // Not used for local MP3s
+            selectedSuperGenre: '', // Not used for local tracks
             selectedArtist,
             dateFilter: '',
             noSuperGenre: false
           }}
           options={{
             genres,
-            superGenres: [], // Not used for local MP3s
+            superGenres: [], // Not used for local tracks
             artists
           }}
           callbacks={{
             onSearchChange: setSearchQuery,
             onGenreChange: setSelectedGenre,
-            onSuperGenreChange: () => {}, // Not used for local MP3s
+            onSuperGenreChange: () => {}, // Not used for local tracks
             onArtistChange: setSelectedArtist,
-            onDateFilterChange: () => {}, // Not used for MP3s
+            onDateFilterChange: () => {}, // Not used for local tracks
             onNoSuperGenreChange: () => {},
             onClearFilters: () => {
               setSearchQuery('');
@@ -404,7 +404,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
           className="mb-4"
         />
 
-        {/* MP3-Specific Filters */}
+        {/* Local Track Filters */}
         <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen} className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <CollapsibleTrigger asChild>

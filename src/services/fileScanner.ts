@@ -1,5 +1,5 @@
 /**
- * Service for scanning directories and collecting MP3 files
+ * Service for scanning directories and collecting local music files
  */
 
 export interface ScanOptions {
@@ -7,9 +7,9 @@ export interface ScanOptions {
 }
 
 /**
- * Shows directory picker and collects all MP3 files recursively
+ * Shows directory picker and collects all local music files recursively
  */
-export const scanDirectoryForMP3s = async (options?: ScanOptions): Promise<File[]> => {
+export const scanDirectoryForLocalFiles = async (options?: ScanOptions): Promise<File[]> => {
   // Check if File System Access API is supported
   if (!('showDirectoryPicker' in window)) {
     throw new Error("Your browser doesn't support the File System Access API. Please use Chrome, Edge, or another Chromium-based browser.");
@@ -29,34 +29,34 @@ export const scanDirectoryForMP3s = async (options?: ScanOptions): Promise<File[
 
   console.log(`📁 Directory selected: ${dirHandle.name}`);
 
-  const mp3Files: File[] = [];
+  const localFiles: File[] = [];
   
-  // Recursively collect MP3 files
-  const collectMP3Files = async (dirHandle: any, path = '') => {
+  // Recursively collect local music files
+  const collectLocalFiles = async (dirHandle: any, path = '') => {
     console.log(`🔍 Collecting files from: ${path || 'root'}`);
     for await (const entry of dirHandle.values()) {
       if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.mp3')) {
         const file = await entry.getFile();
-        console.log(`🎵 Found MP3: ${entry.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
-        mp3Files.push(file);
+        console.log(`🎵 Found local file: ${entry.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
+        localFiles.push(file);
         
         // Report progress if callback provided
         if (options?.onProgress) {
-          options.onProgress(mp3Files.length, mp3Files.length);
+          options.onProgress(localFiles.length, localFiles.length);
         }
       } else if (entry.kind === 'directory') {
-        await collectMP3Files(entry, `${path}/${entry.name}`);
+        await collectLocalFiles(entry, `${path}/${entry.name}`);
       }
     }
   };
 
-  await collectMP3Files(dirHandle);
+  await collectLocalFiles(dirHandle);
   
-  console.log(`📊 Total MP3 files found: ${mp3Files.length}`);
+  console.log(`📊 Total local files found: ${localFiles.length}`);
   
-  if (mp3Files.length === 0) {
-    throw new Error("No MP3 files were found in the selected directory.");
+  if (localFiles.length === 0) {
+    throw new Error("No music files were found in the selected directory.");
   }
 
-  return mp3Files;
+  return localFiles;
 };

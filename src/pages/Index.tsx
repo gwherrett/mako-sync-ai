@@ -27,7 +27,7 @@ interface SpotifyTrack {
   spotify_id: string;
 }
 
-interface LocalMP3 {
+interface LocalTrack {
   id: string;
   title: string | null;
   artist: string | null;
@@ -48,7 +48,7 @@ interface LocalMP3 {
 
 const Index = () => {
   const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
-  const [selectedLocalTrack, setSelectedLocalTrack] = useState<LocalMP3 | null>(null);
+  const [selectedLocalTrack, setSelectedLocalTrack] = useState<LocalTrack | null>(null);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black">
