@@ -45,7 +45,7 @@ import { SUPER_GENRES } from '@/types/genreMapping';
  * - is_overridden: true when user has custom mapping
  * - Should support user-specific mappings
  * 
-/**
+/*
  * UI sorting:
  * - All dropdowns must use [...SUPER_GENRES].sort() for alphabetical display
  */

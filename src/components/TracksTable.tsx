@@ -203,7 +203,9 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         artistQuery = artistQuery.eq('genre', selectedGenre);
       }
       
-      if (selectedSuperGenre) {
+      if (noSuperGenre) {
+        artistQuery = artistQuery.is('super_genre', null);
+      } else if (selectedSuperGenre) {
         artistQuery = artistQuery.eq('super_genre', selectedSuperGenre as any);
       }
       
@@ -220,7 +222,9 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         .select('genre')
         .not('genre', 'is', null);
 
-      if (selectedSuperGenre) {
+      if (noSuperGenre) {
+        genreQuery = genreQuery.is('super_genre', null);
+      } else if (selectedSuperGenre) {
         genreQuery = genreQuery.eq('super_genre', selectedSuperGenre as any);
       }
       
