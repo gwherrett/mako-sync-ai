@@ -14,7 +14,35 @@ export class GenreMappingService {
       throw new Error(`Failed to fetch genre mapping: ${error.message}`);
     }
 
-    return data || [];
+    // Get the mapped genres
+    const mappedGenres: GenreMapping[] = data || [];
+
+    // Also fetch genres from user's liked songs that aren't in the mapping
+    const { data: userGenres, error: userGenresError } = await supabase
+      .from('spotify_liked')
+      .select('genre')
+      .not('genre', 'is', null);
+
+    if (userGenresError) {
+      console.error('Error fetching user genres:', userGenresError);
+      return mappedGenres; // Return just the mapped genres if we can't fetch user genres
+    }
+
+    // Get unique genres from user's library
+    const uniqueUserGenres = [...new Set(userGenres.map(item => item.genre))];
+    const mappedGenreNames = new Set(mappedGenres.map(m => m.spotify_genre));
+
+    // Find genres that exist in user's library but not in the mapping
+    const unmappedGenres: GenreMapping[] = uniqueUserGenres
+      .filter(genre => !mappedGenreNames.has(genre))
+      .map(genre => ({
+        spotify_genre: genre,
+        super_genre: null,
+        is_overridden: false
+      }));
+
+    // Combine mapped and unmapped genres
+    return [...mappedGenres, ...unmappedGenres];
   }
 
   /**

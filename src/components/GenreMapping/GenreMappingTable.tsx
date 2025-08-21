@@ -43,6 +43,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
   });
 
   const overriddenCount = mappings.filter(m => m.is_overridden).length;
+  const unmappedCount = mappings.filter(m => !m.super_genre).length;
 
   const handleRowSelect = (spotifyGenre: string, checked: boolean) => {
     const newSelected = new Set(selectedRows);
@@ -84,7 +85,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
           <div>
             <CardTitle>Genre Mapping</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              {mappings.length} total genres • {overriddenCount} overridden
+              {mappings.length} total genres • {overriddenCount} overridden • {unmappedCount} unmapped
             </p>
           </div>
           <Button onClick={onExport} variant="outline" size="sm">
@@ -174,11 +175,17 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
                        </span>
                      )}
                  </TableCell>
-                <TableCell>
-                  <Badge variant={mapping.is_overridden ? 'secondary' : 'outline'}>
-                    {mapping.is_overridden ? 'Override' : 'Base'}
-                  </Badge>
-                </TableCell>
+                 <TableCell>
+                   <Badge 
+                     variant={
+                       !mapping.super_genre ? 'destructive' : 
+                       mapping.is_overridden ? 'secondary' : 'outline'
+                     }
+                   >
+                     {!mapping.super_genre ? 'Unmapped' : 
+                      mapping.is_overridden ? 'Override' : 'Base'}
+                   </Badge>
+                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
                     <Button
