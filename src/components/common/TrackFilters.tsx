@@ -170,9 +170,9 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
                 <SelectTrigger>
                   <SelectValue placeholder="All genres" />
                 </SelectTrigger>
-                <SelectContent>
+                  <SelectContent>
                   <SelectItem value="all">All genres</SelectItem>
-                  {options.genres.map((genre) => (
+                  {options.genres.filter(genre => genre && genre.trim() !== '').map((genre) => (
                     <SelectItem key={genre} value={genre}>
                       {genre}
                     </SelectItem>
@@ -195,9 +195,9 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
                 <SelectTrigger>
                   <SelectValue placeholder="All artists" />
                 </SelectTrigger>
-                <SelectContent>
+                  <SelectContent>
                   <SelectItem value="all">All artists</SelectItem>
-                  {options.artists.slice(0, 50).map((artist) => (
+                  {options.artists.filter(artist => artist && artist.trim() !== '').slice(0, 50).map((artist) => (
                     <SelectItem key={artist} value={artist}>
                       {artist}
                     </SelectItem>
