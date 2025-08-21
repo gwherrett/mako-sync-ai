@@ -223,11 +223,15 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
   const handleSpotifyClick = (e: React.MouseEvent<HTMLAnchorElement>, spotifyId: string) => {
     e.stopPropagation();
+    // Don't prevent default - let the link open naturally
     
     // Dev-only logging
     if (process.env.NODE_ENV === 'development') {
       console.log('Spotify link clicked for track:', spotifyId);
     }
+    
+    // Ensure the link opens in a new tab
+    window.open(`https://open.spotify.com/track/${spotifyId}`, '_blank', 'noopener,noreferrer');
   };
 
 
