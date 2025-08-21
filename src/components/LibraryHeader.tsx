@@ -16,7 +16,7 @@ const LibraryHeader = () => {
             <Music2 className="w-6 h-6 text-black" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">Music Library Sync</h1>
+            <h1 className="text-xl font-bold text-white">Mako Sync</h1>
             <p className="text-sm text-gray-400">
               Manage your Spotify and local music collections
             </p>

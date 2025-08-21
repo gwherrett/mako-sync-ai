@@ -58,9 +58,9 @@ const Index = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-3xl font-bold text-white mb-2">Spotify - MP3 Sync Dashboard</h2>
+              <h2 className="text-3xl font-bold text-white mb-2">Spotify Local Library Sync</h2>
               <p className="text-gray-400">
-                Use Spotify metadata to find matches with local MP3 library
+                Use Spotify metadata to find matches with local library
               </p>
             </div>
             <Button asChild variant="outline" size="sm">
@@ -165,7 +165,7 @@ const Index = () => {
 
           <TabsContent value="local" className="space-y-8">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-white">Local MP3 Library</h3>
+              <h3 className="text-xl font-semibold text-white">Local Library</h3>
               <LocalScanButton />
             </div>
             <LocalTracksTable onTrackSelect={setSelectedLocalTrack} selectedTrack={selectedLocalTrack} />

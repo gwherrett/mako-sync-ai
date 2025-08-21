@@ -353,7 +353,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Local MP3 Library ({totalTracks} tracks)</span>
+          <span>Local Library ({totalTracks} tracks)</span>
           {selectedTracks.size > 0 && (
             <div className="flex gap-2">
               <Badge variant="secondary">{selectedTracks.size} selected</Badge>
@@ -690,7 +690,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
         
         {tracks.length === 0 && !loading && (
           <div className="text-center py-8 text-muted-foreground">
-            No local tracks found. Scan your music library to see tracks here.
+            No local tracks found. Scan your local library to see tracks here.
           </div>
         )}
 
