@@ -14,6 +14,8 @@ export type SuperGenre =
   | 'Latin'
   | 'Reggae/Dancehall'
   | 'World'
+  | 'Disco'
+  | 'Metal'
   | 'Other';
 
 export const SUPER_GENRES: SuperGenre[] = [
@@ -32,6 +34,8 @@ export const SUPER_GENRES: SuperGenre[] = [
   'Latin',
   'Reggae/Dancehall',
   'World',
+  'Disco',
+  'Metal',
   'Other'
 ];
 
