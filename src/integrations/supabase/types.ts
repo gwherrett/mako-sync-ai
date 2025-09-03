@@ -51,6 +51,7 @@ export type Database = {
           play_count: number | null
           rating: number | null
           title: string | null
+          user_id: string | null
           year: number | null
         }
         Insert: {
@@ -71,6 +72,7 @@ export type Database = {
           play_count?: number | null
           rating?: number | null
           title?: string | null
+          user_id?: string | null
           year?: number | null
         }
         Update: {
@@ -91,6 +93,7 @@ export type Database = {
           play_count?: number | null
           rating?: number | null
           title?: string | null
+          user_id?: string | null
           year?: number | null
         }
         Relationships: []

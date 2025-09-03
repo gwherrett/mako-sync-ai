@@ -60,6 +60,7 @@ export interface ScannedTrack {
   hash: string | null;
   file_size: number;
   last_modified: string;
+  user_id?: string; // Optional for backward compatibility
 }
 
 /**

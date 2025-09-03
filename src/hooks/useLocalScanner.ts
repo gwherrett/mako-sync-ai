@@ -51,10 +51,16 @@ export const useLocalScanner = () => {
 
       console.log(`💾 Inserting ${scannedTracks.length} tracks into database...`);
       
+      // Add user_id to each track before inserting
+      const tracksWithUserId = scannedTracks.map(track => ({
+        ...track,
+        user_id: user.id
+      }));
+      
       // Insert tracks into database using upsert to handle duplicates
       const { error } = await supabase
         .from('local_mp3s')
-        .upsert(scannedTracks, { 
+        .upsert(tracksWithUserId, { 
           onConflict: 'hash',
           ignoreDuplicates: false 
         });
