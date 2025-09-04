@@ -68,22 +68,56 @@ serve(async (req) => {
         throw new Error('spotify_genre and super_genre are required');
       }
 
-      // No need to check or insert into base table - user overrides work independently
-      // The view will handle showing unmapped genres (those not in base table)
+      // Normalize and clean the spotify_genre to handle UTF characters and whitespace
+      const cleanedGenre = String(spotify_genre)
+        .trim()
+        .normalize('NFC')
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width and BOM characters
+        .replace(/\s+/g, ' '); // Normalize multiple spaces to single space
 
-      // Now create/update the user override
+      console.log(`Genre normalization: "${spotify_genre}" (${spotify_genre.length}) -> "${cleanedGenre}" (${cleanedGenre.length})`);
+
+      // Ensure the cleaned spotify_genre exists in the base table first
+      const { data: existingGenre, error: checkError } = await supabase
+        .from('spotify_genre_map_base')
+        .select('spotify_genre')
+        .eq('spotify_genre', cleanedGenre)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking existing genre:', checkError);
+        throw checkError;
+      }
+
+      // If genre doesn't exist in base table, insert it with "Other" as default
+      if (!existingGenre) {
+        console.log(`Inserting base row for cleaned genre: "${cleanedGenre}"`);
+        const { error: baseInsertError } = await supabase
+          .from('spotify_genre_map_base')
+          .insert({
+            spotify_genre: cleanedGenre,
+            super_genre: 'Other' // Default value since base table requires non-null
+          });
+
+        if (baseInsertError && baseInsertError.code !== '23505') { // Ignore duplicate key errors
+          console.error('Error inserting base genre:', baseInsertError);
+          throw baseInsertError;
+        }
+      }
+
+      // Now create/update the user override using the cleaned genre
       const { data, error } = await supabase
         .from('spotify_genre_map_overrides')
         .upsert({
           user_id: user.id,
-          spotify_genre,
+          spotify_genre: cleanedGenre,
           super_genre,
         })
         .select()
         .single();
 
       if (error) {
-        console.error('Error upserting override:', error);
+        console.error(`Error upserting override for "${cleanedGenre}":`, error);
         throw error;
       }
 
@@ -100,14 +134,23 @@ serve(async (req) => {
         throw new Error('spotify_genre is required in request body');
       }
 
+      // Normalize the genre for deletion to match how it was stored
+      const cleanedGenre = String(spotify_genre)
+        .trim()
+        .normalize('NFC')
+        .replace(/[\u200B-\u200D\uFEFF]/g, '')
+        .replace(/\s+/g, ' ');
+
+      console.log(`Deleting override for cleaned genre: "${cleanedGenre}"`);
+
       const { error } = await supabase
         .from('spotify_genre_map_overrides')
         .delete()
         .eq('user_id', user.id)
-        .eq('spotify_genre', spotify_genre);
+        .eq('spotify_genre', cleanedGenre);
 
       if (error) {
-        console.error('Error deleting override:', error);
+        console.error(`Error deleting override for "${cleanedGenre}":`, error);
         throw error;
       }
 
