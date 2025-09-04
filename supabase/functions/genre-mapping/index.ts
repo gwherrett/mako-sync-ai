@@ -22,7 +22,8 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    // Create user-scoped client for user operations
+    const userSupabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -34,8 +35,16 @@ serve(async (req) => {
       },
     });
 
+    // Create admin client for base table operations (bypasses RLS)
+    const adminSupabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
     // Get the user from the auth header
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await userSupabase.auth.getUser();
     if (userError || !user) {
       throw new Error('Invalid user token');
     }
@@ -45,7 +54,7 @@ serve(async (req) => {
 
     // GET /mapping - returns effective mapping for current user
     if (req.method === 'GET' && path === 'genre-mapping') {
-      const { data, error } = await supabase
+      const { data, error } = await userSupabase
         .from('v_effective_spotify_genre_map')
         .select('*')
         .order('spotify_genre');
@@ -78,7 +87,7 @@ serve(async (req) => {
       console.log(`Genre normalization: "${spotify_genre}" (${spotify_genre.length}) -> "${cleanedGenre}" (${cleanedGenre.length})`);
 
       // Ensure the cleaned spotify_genre exists in the base table first
-      const { data: existingGenre, error: checkError } = await supabase
+      const { data: existingGenre, error: checkError } = await adminSupabase
         .from('spotify_genre_map_base')
         .select('spotify_genre')
         .eq('spotify_genre', cleanedGenre)
@@ -92,7 +101,7 @@ serve(async (req) => {
       // If genre doesn't exist in base table, insert it with "Other" as default
       if (!existingGenre) {
         console.log(`Inserting base row for cleaned genre: "${cleanedGenre}"`);
-        const { error: baseInsertError } = await supabase
+        const { error: baseInsertError } = await adminSupabase
           .from('spotify_genre_map_base')
           .insert({
             spotify_genre: cleanedGenre,
@@ -106,7 +115,7 @@ serve(async (req) => {
       }
 
       // Now create/update the user override using the cleaned genre
-      const { data, error } = await supabase
+      const { data, error } = await userSupabase
         .from('spotify_genre_map_overrides')
         .upsert({
           user_id: user.id,
@@ -143,7 +152,7 @@ serve(async (req) => {
 
       console.log(`Deleting override for cleaned genre: "${cleanedGenre}"`);
 
-      const { error } = await supabase
+      const { error } = await userSupabase
         .from('spotify_genre_map_overrides')
         .delete()
         .eq('user_id', user.id)
@@ -161,7 +170,7 @@ serve(async (req) => {
 
     // GET /export - export effective mapping as CSV
     if (req.method === 'GET' && url.searchParams.get('export') === 'csv') {
-      const { data, error } = await supabase
+      const { data, error } = await userSupabase
         .from('v_effective_spotify_genre_map')
         .select('*')
         .order('spotify_genre');
