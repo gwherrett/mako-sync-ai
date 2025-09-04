@@ -68,33 +68,8 @@ serve(async (req) => {
         throw new Error('spotify_genre and super_genre are required');
       }
 
-      // Ensure the spotify_genre exists in the base table first
-      // Check if genre already exists in base table
-      const { data: existingGenre, error: checkError } = await supabase
-        .from('spotify_genre_map_base')
-        .select('spotify_genre')
-        .eq('spotify_genre', spotify_genre)
-        .maybeSingle();
-
-      if (checkError) {
-        console.error('Error checking existing genre:', checkError);
-        throw checkError;
-      }
-
-      // If genre doesn't exist in base table, insert it with "Other" as default
-      if (!existingGenre) {
-        const { error: baseInsertError } = await supabase
-          .from('spotify_genre_map_base')
-          .insert({
-            spotify_genre,
-            super_genre: 'Other' // Default value since base table requires non-null
-          });
-
-        if (baseInsertError && baseInsertError.code !== '23505') { // Ignore duplicate key errors
-          console.error('Error inserting base genre:', baseInsertError);
-          throw baseInsertError;
-        }
-      }
+      // No need to check or insert into base table - user overrides work independently
+      // The view will handle showing unmapped genres (those not in base table)
 
       // Now create/update the user override
       const { data, error } = await supabase
