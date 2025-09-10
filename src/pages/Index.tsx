@@ -73,6 +73,12 @@ const Index = () => {
           </div>
         </div>
         
+        <StatsOverview />
+        
+        <div className="mb-6">
+          <SetupChecklist />
+        </div>
+        
         <Tabs defaultValue="spotify" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-8">
             <TabsTrigger value="spotify" className="flex items-center gap-2">
@@ -88,12 +94,6 @@ const Index = () => {
               Local Library
             </TabsTrigger>
           </TabsList>
-          
-          <div className="mb-8">
-            <SetupChecklist />
-          </div>
-          
-          <StatsOverview />
           
           <TabsContent value="spotify" className="space-y-8">
             <div className="flex justify-between items-center mb-6">

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, XCircle, AlertCircle, ExternalLink, Settings } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { CheckCircle, XCircle, AlertCircle, ExternalLink, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { GenreMappingService } from '@/services/genreMapping.service';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,6 +27,7 @@ export const SetupChecklist: React.FC = () => {
   const [likedSongsCount, setLikedSongsCount] = useState<number>(0);
   const [unmappedCount, setUnmappedCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -131,58 +133,71 @@ export const SetupChecklist: React.FC = () => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Settings className="h-5 w-5" />
-          Setup Checklist
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {checklist.map((item) => (
-            <div 
-              key={item.id} 
-              className="flex items-center justify-between p-4 border border-border/50 rounded-lg"
-            >
-              <div className="flex items-start gap-3 flex-1">
-                {getStatusIcon(item.status)}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-medium text-foreground">{item.title}</h4>
-                    {getStatusBadge(item)}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{item.description}</p>
-                  {item.count !== undefined && item.count > 0 && item.status === 'complete' && (
-                    <p className="text-xs text-green-400 mt-1">{item.count.toLocaleString()} songs synced</p>
-                  )}
-                </div>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Setup Checklist
               </div>
-              {item.action && (
-                <div className="ml-4">
-                  {item.action.href ? (
-                    <Button asChild variant="outline" size="sm">
-                      <Link to={item.action.href} className="flex items-center gap-2">
-                        {item.action.label}
-                        <ExternalLink className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  ) : (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={item.action.onClick}
-                      disabled={isSyncing && item.id === 'sync-liked-songs'}
-                    >
-                      {item.action.label}
-                    </Button>
+              {isOpen ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </CardTitle>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent>
+            <div className="space-y-4">
+              {checklist.map((item) => (
+                <div 
+                  key={item.id} 
+                  className="flex items-center justify-between p-4 border border-border/50 rounded-lg"
+                >
+                  <div className="flex items-start gap-3 flex-1">
+                    {getStatusIcon(item.status)}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-medium text-foreground">{item.title}</h4>
+                        {getStatusBadge(item)}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{item.description}</p>
+                      {item.count !== undefined && item.count > 0 && item.status === 'complete' && (
+                        <p className="text-xs text-green-400 mt-1">{item.count.toLocaleString()} songs synced</p>
+                      )}
+                    </div>
+                  </div>
+                  {item.action && (
+                    <div className="ml-4">
+                      {item.action.href ? (
+                        <Button asChild variant="outline" size="sm">
+                          <Link to={item.action.href} className="flex items-center gap-2">
+                            {item.action.label}
+                            <ExternalLink className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={item.action.onClick}
+                          disabled={isSyncing && item.id === 'sync-liked-songs'}
+                        >
+                          {item.action.label}
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 };
