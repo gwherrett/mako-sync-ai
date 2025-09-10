@@ -82,25 +82,20 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ size = 40, className = '' }) => {
       className={`relative flex items-center justify-center ${className}`}
       style={{ width: size, height: size }}
     >
-      {/* Gradient ring background */}
+      {/* Simple white circle background */}
       <div 
-        className="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 p-0.5"
+        className="w-full h-full rounded-full overflow-hidden bg-white border border-gray-200 shadow-sm"
         style={{ width: size, height: size }}
       >
-        {/* Inner circle for image */}
-        <div 
-          className="w-full h-full rounded-full overflow-hidden bg-white/30 backdrop-blur-sm"
-        >
-          <img
-            src={makoSharkImage}
-            alt="Mako Shark Logo"
-            className="w-full h-full object-cover brightness-110 contrast-110"
-            onError={handleImageError}
-            style={{
-              imageRendering: 'crisp-edges'
-            }}
-          />
-        </div>
+        <img
+          src={makoSharkImage}
+          alt="Mako Shark Logo"
+          className="w-full h-full object-cover"
+          onError={handleImageError}
+          style={{
+            imageRendering: 'crisp-edges'
+          }}
+        />
       </div>
     </div>
   );
