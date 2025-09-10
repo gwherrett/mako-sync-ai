@@ -81,18 +81,6 @@ export const SetupChecklist: React.FC = () => {
         label: isSyncing ? 'Syncing...' : (likedSongsCount > 0 ? 'Sync Again' : 'Start Sync'),
         onClick: syncLikedSongs
       }
-    },
-    {
-      id: 'map-genres',
-      title: 'Map Genres',
-      description: 'Organize your music by mapping Spotify genres to super-genres',
-      status: !isConnected || likedSongsCount === 0 ? 'incomplete' : 
-             (unmappedCount === 0 ? 'complete' : 'warning'),
-      count: unmappedCount,
-      action: !isConnected || likedSongsCount === 0 ? undefined : {
-        label: 'Manage Genres',
-        href: '/genre-mapping'
-      }
     }
   ];
 

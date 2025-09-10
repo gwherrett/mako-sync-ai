@@ -56,28 +56,20 @@ const Index = () => {
       <LibraryHeader />
       
       <main className="max-w-7xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <SetupChecklist />
+        </div>
+        
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-3xl font-bold text-white mb-2">Spotify - Local Collection Dashboard</h2>
-              <p className="text-gray-400">
-                Use Spotify metadata to find matches with local library
-              </p>
-            </div>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/genre-mapping" className="flex items-center gap-2">
-                <Settings className="w-4 h-4" />
-                Genre Mapping
-              </Link>
-            </Button>
+          <div className="mb-4">
+            <h2 className="text-3xl font-bold text-white mb-2">Spotify - Local Collection Dashboard</h2>
+            <p className="text-gray-400">
+              Use Spotify metadata to find matches with local library
+            </p>
           </div>
         </div>
         
         <StatsOverview />
-        
-        <div className="mb-6">
-          <SetupChecklist />
-        </div>
         
         <Tabs defaultValue="spotify" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-8">
