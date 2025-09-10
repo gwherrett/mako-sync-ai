@@ -10,7 +10,6 @@ import TracksTable from '@/components/TracksTable';
 import LocalTracksTable from '@/components/LocalTracksTable';
 import SpotifySyncButton from '@/components/SpotifySyncButton';
 import LocalScanButton from '@/components/LocalScanButton';
-import LogoPreview from '@/components/LogoPreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 
@@ -54,9 +53,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black">
-      <div data-logo-preview>
-        <LogoPreview />
-      </div>
       <LibraryHeader />
       
       <main className="max-w-7xl mx-auto px-4 py-8">
