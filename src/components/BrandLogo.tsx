@@ -35,19 +35,34 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ size = 40, className = '' }) => {
           strokeWidth="1"
         />
         
-        {/* Shark fin */}
+        {/* Water splash base */}
         <path
-          d="M12 25 L20 12 L28 25 L24 23 L20 26 L16 23 Z"
+          d="M8 28 Q12 26 16 28 Q20 30 24 28 Q28 26 32 28 L32 32 Q20 34 8 32 Z"
+          fill="rgba(255,255,255,0.3)"
+        />
+        
+        {/* Jumping Mako Shark */}
+        <path
+          d="M20 8 C22 8 24 10 26 12 L28 16 C28 18 26 20 24 20 L22 22 C20 24 18 22 16 20 L14 16 C14 14 16 12 18 10 C18.5 9 19.2 8 20 8 Z"
+          fill="rgba(0,0,0,0.9)"
+        />
+        
+        {/* Shark tail */}
+        <path
+          d="M15 18 L12 22 L14 24 L17 20 Z"
           fill="rgba(0,0,0,0.8)"
         />
         
-        {/* Accent dot */}
-        <circle
-          cx="20"
-          cy="28"
-          r="1.5"
-          fill="rgba(0,0,0,0.6)"
+        {/* Shark dorsal fin */}
+        <path
+          d="M20 10 L18 14 L22 12 Z"
+          fill="rgba(0,0,0,0.7)"
         />
+        
+        {/* Water droplets */}
+        <circle cx="12" cy="24" r="1" fill="rgba(255,255,255,0.6)" />
+        <circle cx="28" cy="25" r="0.8" fill="rgba(255,255,255,0.5)" />
+        <circle cx="15" cy="26" r="0.6" fill="rgba(255,255,255,0.4)" />
       </svg>
     </div>
   );
