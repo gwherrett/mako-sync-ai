@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { IframeBanner } from '@/components/common/IframeBanner';
 import { openInNewTab, copyToClipboard } from '@/utils/linkUtils';
+import { useGenreMappingOverrides } from '@/hooks/useGenreMappingOverrides';
 
 interface SpotifyTrack {
   id: string;
@@ -70,6 +71,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
   const tracksPerPage = 50;
   const { toast } = useToast();
+  const { hasOverride } = useGenreMappingOverrides();
 
   useEffect(() => {
     fetchTracks();
@@ -431,11 +433,18 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                       )}
                     </TableCell>
                     <TableCell>
-                      {track.genre ? (
-                        <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/30">{track.genre}</Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Genre</Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {track.genre ? (
+                          <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/30">{track.genre}</Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/30">No Genre</Badge>
+                        )}
+                        {track.genre && hasOverride(track.genre) && (
+                          <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-xs">
+                            Overridden
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {track.year || <span className="text-muted-foreground">—</span>}

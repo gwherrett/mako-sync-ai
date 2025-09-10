@@ -112,7 +112,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
                   callbacks.onPageChange(1);
                 }}
               >
-                No Spotify Genre Only
+                Unmapped Only
               </Button>
             )}
           </div>

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Settings } from 'lucide-react';
 import LibraryHeader from '@/components/LibraryHeader';
 import StatsOverview from '@/components/StatsOverview';
+import { SetupChecklist } from '@/components/SetupChecklist';
 import MetadataExtractor from '@/components/MetadataExtractor';
 import TracksTable from '@/components/TracksTable';
 import LocalTracksTable from '@/components/LocalTracksTable';
@@ -87,6 +88,10 @@ const Index = () => {
               Local Library
             </TabsTrigger>
           </TabsList>
+          
+          <div className="mb-8">
+            <SetupChecklist />
+          </div>
           
           <StatsOverview />
           
