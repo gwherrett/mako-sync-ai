@@ -89,12 +89,12 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ size = 40, className = '' }) => {
       >
         {/* Inner circle for image */}
         <div 
-          className="w-full h-full rounded-full overflow-hidden bg-white/10 backdrop-blur-sm"
+          className="w-full h-full rounded-full overflow-hidden bg-white/30 backdrop-blur-sm"
         >
           <img
             src={makoSharkImage}
             alt="Mako Shark Logo"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover brightness-110 contrast-110"
             onError={handleImageError}
             style={{
               imageRendering: 'crisp-edges'
