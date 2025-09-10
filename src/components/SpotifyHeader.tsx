@@ -1,7 +1,8 @@
 
 import React from 'react';
-import { Music2, Settings, Loader2, LogOut } from 'lucide-react';
+import { Settings, Loader2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import BrandLogo from '@/components/BrandLogo';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { useAuth } from '@/contexts/NewAuthContext';
 
@@ -13,9 +14,7 @@ const SpotifyHeader = () => {
     <header className="bg-spotify-dark border-b border-white/10 p-4">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-            <Music2 className="w-6 h-6 text-black" />
-          </div>
+          <BrandLogo size={40} />
           <div>
             <h1 className="text-xl font-bold text-white">Spotify Metadata Sync</h1>
             <p className="text-sm text-gray-400">
