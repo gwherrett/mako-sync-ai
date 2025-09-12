@@ -197,12 +197,18 @@ export class TrackMatchingService {
     return data || [];
   }
 
-  // Fetch Spotify tracks for user
-  static async fetchSpotifyTracks(userId: string): Promise<SpotifyTrack[]> {
-    const { data, error } = await supabase
+  // Fetch Spotify tracks for user with optional genre filter
+  static async fetchSpotifyTracks(userId: string, superGenreFilter?: string): Promise<SpotifyTrack[]> {
+    let query = supabase
       .from('spotify_liked')
       .select('id, title, artist, album, genre, super_genre')
       .eq('user_id', userId);
+
+    if (superGenreFilter && superGenreFilter !== 'all') {
+      query = query.eq('super_genre', superGenreFilter as any);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw new Error(`Failed to fetch Spotify tracks: ${error.message}`);
@@ -212,10 +218,10 @@ export class TrackMatchingService {
   }
 
   // Find missing tracks (Spotify tracks not in local collection)
-  static async findMissingTracks(userId: string): Promise<MissingTrack[]> {
+  static async findMissingTracks(userId: string, superGenreFilter?: string): Promise<MissingTrack[]> {
     const [localTracks, spotifyTracks] = await Promise.all([
       this.fetchLocalTracks(userId),
-      this.fetchSpotifyTracks(userId)
+      this.fetchSpotifyTracks(userId, superGenreFilter)
     ]);
 
     const missingTracks: MissingTrack[] = [];
@@ -248,14 +254,14 @@ export class TrackMatchingService {
   }
 
   // Perform batch matching and save to database
-  static async performBatchMatching(userId: string): Promise<{
+  static async performBatchMatching(userId: string, superGenreFilter?: string): Promise<{
     matches: TrackMatch[];
     processed: number;
     saved: number;
   }> {
     const [localTracks, spotifyTracks] = await Promise.all([
       this.fetchLocalTracks(userId),
-      this.fetchSpotifyTracks(userId)
+      this.fetchSpotifyTracks(userId, superGenreFilter)
     ]);
 
     const matches: TrackMatch[] = [];
@@ -291,5 +297,21 @@ export class TrackMatchingService {
       processed: localTracks.length,
       saved
     };
+  }
+
+  // Fetch available super genres for filtering
+  static async fetchSuperGenres(userId: string): Promise<string[]> {
+    const { data, error } = await supabase
+      .from('spotify_liked')
+      .select('super_genre')
+      .eq('user_id', userId)
+      .not('super_genre', 'is', null);
+
+    if (error) {
+      throw new Error(`Failed to fetch super genres: ${error.message}`);
+    }
+
+    const uniqueGenres = [...new Set(data?.map(item => item.super_genre).filter(Boolean) || [])];
+    return uniqueGenres.sort();
   }
 }

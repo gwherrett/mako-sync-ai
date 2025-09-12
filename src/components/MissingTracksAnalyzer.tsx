@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Download, Music, Users } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Download, Music, Users, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TrackMatchingService } from '@/services/trackMatching.service';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,11 +31,27 @@ const MissingTracksAnalyzer = () => {
   const [artistGroups, setArtistGroups] = useState<ArtistGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [superGenres, setSuperGenres] = useState<string[]>([]);
+  const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const { toast } = useToast();
 
-  // Get user on mount
+  // Get user and load super genres on mount
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    const loadData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      
+      if (user) {
+        try {
+          const genres = await TrackMatchingService.fetchSuperGenres(user.id);
+          setSuperGenres(genres);
+        } catch (error) {
+          console.error('Failed to fetch super genres:', error);
+        }
+      }
+    };
+    
+    loadData();
   }, []);
 
   // Group tracks by artist
@@ -79,14 +96,15 @@ const MissingTracksAnalyzer = () => {
     setIsLoading(true);
     try {
       console.log('🔍 Starting missing tracks analysis...');
-      const missing = await TrackMatchingService.findMissingTracks(user.id);
+      const missing = await TrackMatchingService.findMissingTracks(user.id, selectedGenre);
       
       setMissingTracks(missing);
       setArtistGroups(groupByArtist(missing));
 
+      const genreText = selectedGenre === 'all' ? 'collection' : `${selectedGenre} collection`;
       toast({
         title: "Analysis Complete",
-        description: `Found ${missing.length} tracks missing from your local collection.`,
+        description: `Found ${missing.length} tracks missing from your local ${genreText}.`,
       });
 
       console.log(`✅ Analysis complete: ${missing.length} missing tracks found`);
@@ -140,7 +158,29 @@ const MissingTracksAnalyzer = () => {
             Find tracks in your Spotify collection that are missing from your local files.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Genre Filter */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Filter by genre:</span>
+            </div>
+            <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Select genre" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Genres</SelectItem>
+                {superGenres.map((genre) => (
+                  <SelectItem key={genre} value={genre}>
+                    {genre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Action Buttons */}
           <div className="flex gap-4">
             <Button 
               onClick={analyzeMissingTracks}

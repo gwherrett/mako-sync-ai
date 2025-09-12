@@ -3,8 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Zap, Target, Search, Users2 } from 'lucide-react';
+import { Loader2, Zap, Target, Search, Users2, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TrackMatchingService } from '@/services/trackMatching.service';
 import MissingTracksAnalyzer from '@/components/MissingTracksAnalyzer';
@@ -24,11 +25,27 @@ const SyncAnalysis = () => {
   const [matchingProgress, setMatchingProgress] = useState(0);
   const [matchingStats, setMatchingStats] = useState<MatchingStats | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [superGenres, setSuperGenres] = useState<string[]>([]);
+  const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const { toast } = useToast();
 
-  // Get user on mount
+  // Get user and load super genres on mount
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    const loadData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      
+      if (user) {
+        try {
+          const genres = await TrackMatchingService.fetchSuperGenres(user.id);
+          setSuperGenres(genres);
+        } catch (error) {
+          console.error('Failed to fetch super genres:', error);
+        }
+      }
+    };
+    
+    loadData();
   }, []);
 
   const performMatching = async () => {
@@ -52,7 +69,7 @@ const SyncAnalysis = () => {
         setMatchingProgress(prev => Math.min(prev + 10, 90));
       }, 500);
 
-      const result = await TrackMatchingService.performBatchMatching(user.id);
+      const result = await TrackMatchingService.performBatchMatching(user.id, selectedGenre);
       
       clearInterval(progressInterval);
       setMatchingProgress(100);
@@ -69,9 +86,10 @@ const SyncAnalysis = () => {
 
       setMatchingStats(stats);
 
+      const genreText = selectedGenre === 'all' ? '' : ` (${selectedGenre})`;
       toast({
         title: "Matching Complete",
-        description: `Processed ${result.processed} tracks, saved ${result.saved} matches.`,
+        description: `Processed ${result.processed} tracks, saved ${result.saved} matches${genreText}.`,
       });
 
       console.log(`✅ Matching complete: ${result.saved} matches saved`);
@@ -121,7 +139,29 @@ const SyncAnalysis = () => {
             Analyze and match your local music collection with your Spotify library.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Genre Filter */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Filter by genre:</span>
+            </div>
+            <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Select genre" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Genres</SelectItem>
+                {superGenres.map((genre) => (
+                  <SelectItem key={genre} value={genre}>
+                    {genre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Action Buttons */}
           <div className="flex gap-4">
             <Button 
               onClick={performMatching}
