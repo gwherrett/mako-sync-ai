@@ -8,6 +8,12 @@ import { useToast } from '@/hooks/use-toast';
 import { TrackMatchingService } from '@/services/trackMatching.service';
 import { supabase } from '@/integrations/supabase/client';
 
+interface MissingTracksAnalyzerProps {
+  selectedGenre: string;
+  setSelectedGenre: (genre: string) => void;
+  superGenres: string[];
+}
+
 interface MissingTrack {
   spotifyTrack: {
     id: string;
@@ -26,32 +32,25 @@ interface ArtistGroup {
   genres: string[];
 }
 
-const MissingTracksAnalyzer = () => {
+const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({ 
+  selectedGenre, 
+  setSelectedGenre, 
+  superGenres 
+}) => {
   const [missingTracks, setMissingTracks] = useState<MissingTrack[]>([]);
   const [artistGroups, setArtistGroups] = useState<ArtistGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [superGenres, setSuperGenres] = useState<string[]>([]);
-  const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const { toast } = useToast();
 
-  // Get user and load super genres on mount
+  // Get user on mount
   useEffect(() => {
-    const loadData = async () => {
+    const loadUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-      
-      if (user) {
-        try {
-          const genres = await TrackMatchingService.fetchSuperGenres(user.id);
-          setSuperGenres(genres);
-        } catch (error) {
-          console.error('Failed to fetch super genres:', error);
-        }
-      }
     };
     
-    loadData();
+    loadUser();
   }, []);
 
   // Group tracks by artist

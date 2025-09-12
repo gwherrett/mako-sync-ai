@@ -309,7 +309,11 @@ const SyncAnalysis = () => {
         </TabsContent>
 
         <TabsContent value="missing">
-          <MissingTracksAnalyzer />
+          <MissingTracksAnalyzer 
+            selectedGenre={selectedGenre}
+            setSelectedGenre={setSelectedGenre}
+            superGenres={superGenres}
+          />
         </TabsContent>
       </Tabs>
     </div>
