@@ -9,6 +9,7 @@ import TracksTable from '@/components/TracksTable';
 import LocalTracksTable from '@/components/LocalTracksTable';
 import SpotifySyncButton from '@/components/SpotifySyncButton';
 import LocalScanButton from '@/components/LocalScanButton';
+import FileUploadScanner from '@/components/FileUploadScanner';
 import SyncAnalysis from '@/components/SyncAnalysis';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -173,6 +174,7 @@ const Index = () => {
               <h3 className="text-xl font-semibold text-white">Local Library</h3>
               <LocalScanButton />
             </div>
+            <FileUploadScanner />
             <LocalTracksTable onTrackSelect={setSelectedLocalTrack} selectedTrack={selectedLocalTrack} />
             {selectedLocalTrack && (
               <div className="bg-serato-dark/20 rounded-lg border border-serato-cyan/20 p-6">
