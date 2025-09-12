@@ -227,22 +227,13 @@ export class TrackMatchingService {
     const missingTracks: MissingTrack[] = [];
 
     for (const spotifyTrack of spotifyTracks) {
-      const match = this.findBestMatch({ 
-        id: '', 
-        title: spotifyTrack.title, 
-        artist: spotifyTrack.artist, 
-        album: spotifyTrack.album, 
-        genre: null, 
-        file_path: '' 
-      } as LocalTrack, [spotifyTrack]);
-
-      // If no high-confidence match found in local tracks
-      const actualMatch = localTracks.find(local => {
-        const matchResult = this.findBestMatch(local, [spotifyTrack]);
+      // Check if this Spotify track has a high-confidence match in local tracks
+      const hasMatch = localTracks.some(localTrack => {
+        const matchResult = this.findBestMatch(localTrack, [spotifyTrack]);
         return matchResult && matchResult.confidence >= 80; // Only high confidence matches
       });
 
-      if (!actualMatch) {
+      if (!hasMatch) {
         missingTracks.push({
           spotifyTrack,
           reason: 'No matching local track found'
