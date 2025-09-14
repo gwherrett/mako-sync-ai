@@ -62,12 +62,13 @@ const SyncAnalysis = () => {
     setMatchingProgress(0);
 
     try {
-      console.log('🎯 Starting batch track matching...');
+      const genreText = selectedGenre === 'all' ? '' : ` (${selectedGenre} filter)`;
+      console.log(`🎯 Starting batch track matching${genreText}...`);
       
-      // Simulate progress updates
+      // More accurate progress simulation
       const progressInterval = setInterval(() => {
-        setMatchingProgress(prev => Math.min(prev + 10, 90));
-      }, 500);
+        setMatchingProgress(prev => Math.min(prev + 5, 85));
+      }, 800);
 
       const result = await TrackMatchingService.performBatchMatching(user.id, selectedGenre);
       
@@ -86,10 +87,10 @@ const SyncAnalysis = () => {
 
       setMatchingStats(stats);
 
-      const genreText = selectedGenre === 'all' ? '' : ` (${selectedGenre})`;
+      const resultGenreText = selectedGenre === 'all' ? '' : ` (${selectedGenre})`;
       toast({
         title: "Matching Complete",
-        description: `Processed ${result.processed} tracks, saved ${result.saved} matches${genreText}.`,
+        description: `Processed ${result.processed} tracks, saved ${result.saved} matches${resultGenreText}.`,
       });
 
       console.log(`✅ Matching complete: ${result.saved} matches saved`);

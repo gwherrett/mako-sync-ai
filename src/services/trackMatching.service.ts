@@ -188,12 +188,14 @@ export class TrackMatchingService {
     const { data, error } = await supabase
       .from('local_mp3s')
       .select('id, title, artist, album, genre, file_path')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .limit(50000); // Override default 1000 limit to handle large collections
 
     if (error) {
       throw new Error(`Failed to fetch local tracks: ${error.message}`);
     }
 
+    console.log(`📀 Fetched ${data?.length || 0} local tracks for matching`);
     return data || [];
   }
 
@@ -202,7 +204,8 @@ export class TrackMatchingService {
     let query = supabase
       .from('spotify_liked')
       .select('id, title, artist, album, genre, super_genre')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .limit(50000); // Override default 1000 limit to handle large collections
 
     if (superGenreFilter && superGenreFilter !== 'all') {
       query = query.eq('super_genre', superGenreFilter as any);
@@ -214,6 +217,8 @@ export class TrackMatchingService {
       throw new Error(`Failed to fetch Spotify tracks: ${error.message}`);
     }
 
+    const genreText = superGenreFilter && superGenreFilter !== 'all' ? ` (${superGenreFilter} genre)` : '';
+    console.log(`🎵 Fetched ${data?.length || 0} Spotify tracks for matching${genreText}`);
     return data || [];
   }
 
@@ -296,7 +301,8 @@ export class TrackMatchingService {
       .from('spotify_liked')
       .select('super_genre')
       .eq('user_id', userId)
-      .not('super_genre', 'is', null);
+      .not('super_genre', 'is', null)
+      .limit(50000); // Override default 1000 limit
 
     if (error) {
       throw new Error(`Failed to fetch super genres: ${error.message}`);
