@@ -135,9 +135,14 @@ export class TrackMatchingService {
 
     const artistComparison = this.compareArtists(local.artist, spotify.artist);
 
-    if (localTitle === spotifyTitle && artistComparison.exactMatch && localAlbum === spotifyAlbum) {
-      console.log(`🎯 Exact match found: "${local.title}" by "${artistComparison.normalizedLocal}"`);
-      return 100;
+    if (localTitle === spotifyTitle && artistComparison.exactMatch) {
+      // Give a small bonus if albums also match, but don't require it
+      const albumMatch = localAlbum === spotifyAlbum;
+      const baseScore = 95; // High confidence for exact title + artist
+      const albumBonus = albumMatch ? 5 : 0; // Small bonus for matching album
+      
+      console.log(`🎯 Exact match found: "${local.title}" by "${artistComparison.normalizedLocal}"${albumMatch ? ' (album match bonus)' : ''}`);
+      return baseScore + albumBonus;
     }
     return 0;
   }
