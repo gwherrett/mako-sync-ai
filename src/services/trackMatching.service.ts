@@ -31,13 +31,60 @@ interface MissingTrack {
 }
 
 export class TrackMatchingService {
-  // Normalize strings for comparison
+  // Normalize strings for comparison with enhanced artist handling
   private static normalize(str: string | null): string {
     if (!str) return '';
     return str.toLowerCase()
       .replace(/[^\w\s]/g, '') // Remove special characters
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
+  }
+
+  // Enhanced artist normalization for better matching
+  private static normalizeArtist(artist: string | null): string {
+    if (!artist) return '';
+    
+    return artist.toLowerCase()
+      // Handle featuring variations
+      .replace(/\s+(feat|ft|featuring|with)\s+.*/g, '') // Remove featuring artists
+      .replace(/\s*\(.*?\)\s*/g, '') // Remove parenthetical content
+      .replace(/\s*\[.*?\]\s*/g, '') // Remove bracketed content
+      .replace(/[^\w\s]/g, '') // Remove special characters
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+  }
+
+  // Enhanced artist similarity matching
+  private static compareArtists(localArtist: string | null, spotifyArtist: string | null): {
+    exactMatch: boolean;
+    similarity: number;
+    normalizedLocal: string;
+    normalizedSpotify: string;
+  } {
+    const normalizedLocal = this.normalizeArtist(localArtist);
+    const normalizedSpotify = this.normalizeArtist(spotifyArtist);
+    
+    // Check for exact match first
+    if (normalizedLocal === normalizedSpotify) {
+      return {
+        exactMatch: true,
+        similarity: 100,
+        normalizedLocal,
+        normalizedSpotify
+      };
+    }
+
+    // Calculate similarity for partial matches
+    const similarity = normalizedLocal && normalizedSpotify 
+      ? this.calculateSimilarity(normalizedLocal, normalizedSpotify)
+      : 0;
+
+    return {
+      exactMatch: false,
+      similarity,
+      normalizedLocal,
+      normalizedSpotify
+    };
   }
 
   // Calculate Levenshtein distance
@@ -78,67 +125,76 @@ export class TrackMatchingService {
     return maxLength === 0 ? 100 : ((maxLength - distance) / maxLength) * 100;
   }
 
-  // Exact match algorithm
+  // Exact match algorithm with enhanced artist matching
   private static exactMatch(local: LocalTrack, spotify: SpotifyTrack): number {
     const localTitle = this.normalize(local.title);
-    const localArtist = this.normalize(local.artist);
     const localAlbum = this.normalize(local.album);
     
     const spotifyTitle = this.normalize(spotify.title);
-    const spotifyArtist = this.normalize(spotify.artist);
     const spotifyAlbum = this.normalize(spotify.album);
 
-    if (localTitle === spotifyTitle && localArtist === spotifyArtist && localAlbum === spotifyAlbum) {
+    const artistComparison = this.compareArtists(local.artist, spotify.artist);
+
+    if (localTitle === spotifyTitle && artistComparison.exactMatch && localAlbum === spotifyAlbum) {
+      console.log(`🎯 Exact match found: "${local.title}" by "${artistComparison.normalizedLocal}"`);
       return 100;
     }
     return 0;
   }
 
-  // Close match algorithm (title + artist)
+  // Close match algorithm (title + artist) with enhanced artist matching
   private static closeMatch(local: LocalTrack, spotify: SpotifyTrack): number {
     const localTitle = this.normalize(local.title);
-    const localArtist = this.normalize(local.artist);
-    
     const spotifyTitle = this.normalize(spotify.title);
-    const spotifyArtist = this.normalize(spotify.artist);
 
-    if (localTitle === spotifyTitle && localArtist === spotifyArtist) {
+    const artistComparison = this.compareArtists(local.artist, spotify.artist);
+
+    if (localTitle === spotifyTitle && artistComparison.exactMatch) {
+      console.log(`🎯 Close match found: "${local.title}" by "${artistComparison.normalizedLocal}"`);
       return 95;
     }
     return 0;
   }
 
-  // Fuzzy match algorithm
+  // Fuzzy match algorithm with enhanced artist matching
   private static fuzzyMatch(local: LocalTrack, spotify: SpotifyTrack): number {
     const localTitle = this.normalize(local.title);
-    const localArtist = this.normalize(local.artist);
-    
     const spotifyTitle = this.normalize(spotify.title);
-    const spotifyArtist = this.normalize(spotify.artist);
 
-    if (!localTitle || !localArtist || !spotifyTitle || !spotifyArtist) {
+    const artistComparison = this.compareArtists(local.artist, spotify.artist);
+
+    if (!localTitle || !spotifyTitle || !artistComparison.normalizedLocal || !artistComparison.normalizedSpotify) {
       return 0;
     }
 
     const titleSimilarity = this.calculateSimilarity(localTitle, spotifyTitle);
-    const artistSimilarity = this.calculateSimilarity(localArtist, spotifyArtist);
     
-    // Require both title and artist to have reasonable similarity
-    if (titleSimilarity >= 80 && artistSimilarity >= 80) {
-      return Math.min(titleSimilarity, artistSimilarity);
+    // Use enhanced artist similarity - be more lenient with artist matching
+    if (titleSimilarity >= 80 && artistComparison.similarity >= 75) {
+      const confidence = Math.min(titleSimilarity, artistComparison.similarity);
+      console.log(`🎯 Fuzzy match found: "${local.title}" by "${artistComparison.normalizedLocal}" (${confidence}% confidence)`);
+      return confidence;
     }
     
     return 0;
   }
 
-  // Artist-only match (for identification purposes)
+  // Enhanced artist-only match with similarity scoring
   private static artistOnlyMatch(local: LocalTrack, spotify: SpotifyTrack): number {
-    const localArtist = this.normalize(local.artist);
-    const spotifyArtist = this.normalize(spotify.artist);
+    const artistComparison = this.compareArtists(local.artist, spotify.artist);
 
-    if (localArtist === spotifyArtist) {
-      return 50; // Low confidence, just for artist identification
+    // Exact artist match
+    if (artistComparison.exactMatch) {
+      console.log(`🎤 Artist-only exact match: "${artistComparison.normalizedLocal}"`);
+      return 50;
     }
+
+    // High similarity artist match
+    if (artistComparison.similarity >= 85) {
+      console.log(`🎤 Artist-only similar match: "${artistComparison.normalizedLocal}" ~ "${artistComparison.normalizedSpotify}" (${artistComparison.similarity}%)`);
+      return Math.max(30, artistComparison.similarity * 0.4); // Scale down but keep reasonable confidence
+    }
+
     return 0;
   }
 
