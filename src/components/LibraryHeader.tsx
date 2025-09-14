@@ -7,7 +7,7 @@ import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 
 const LibraryHeader = () => {
   const { user, signOut } = useAuth();
-  const { isConnected, isLoading, connection, connectSpotify, disconnectSpotify } = useSpotifyAuth();
+  const { isConnected, isLoading, connection, connectSpotify } = useSpotifyAuth();
 
   return (
     <header className="bg-spotify-dark border-b border-white/10 p-4">
@@ -30,21 +30,11 @@ const LibraryHeader = () => {
               <span>Checking Spotify...</span>
             </div>
           ) : isConnected ? (
-            <div className="flex items-center space-x-3">
-              <div className="text-sm text-green-400">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>Spotify: {connection?.display_name || 'Connected'}</span>
-                </div>
+            <div className="text-sm text-green-400">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>Spotify: {connection?.display_name || 'Connected'}</span>
               </div>
-              <Button 
-                onClick={disconnectSpotify}
-                variant="outline" 
-                size="sm" 
-                className="text-white border-white/20 hover:bg-white/10"
-              >
-                Disconnect Spotify
-              </Button>
             </div>
           ) : (
             <Button 
