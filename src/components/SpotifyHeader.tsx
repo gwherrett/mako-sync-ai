@@ -42,29 +42,20 @@ const SpotifyHeader = () => {
               Checking...
             </Button>
           ) : isConnected ? (
-            <div className="flex items-center space-x-2">
-              <Button 
-                onClick={syncLikedSongs}
-                disabled={isSyncing}
-                className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 transition-colors shadow-lg"
-              >
-                {isSyncing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Syncing...
-                  </>
-                ) : (
-                  'Sync Liked Songs'
-                )}
-              </Button>
-              <Button 
-                onClick={disconnectSpotify}
-                variant="outline" 
-                className="text-white border-white/20 hover:bg-red-500/20 hover:border-red-500/50"
-              >
-                Disconnect
-              </Button>
-            </div>
+            <Button 
+              onClick={syncLikedSongs}
+              disabled={isSyncing}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 transition-colors shadow-lg"
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                'Sync Liked Songs'
+              )}
+            </Button>
           ) : (
             <Button 
               onClick={connectSpotify}

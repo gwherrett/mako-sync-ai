@@ -23,7 +23,7 @@ interface ChecklistItem {
 }
 
 export const SetupChecklist: React.FC = () => {
-  const { isConnected, isLoading: spotifyLoading, connectSpotify, syncLikedSongs, isSyncing } = useSpotifyAuth();
+  const { isConnected, isLoading: spotifyLoading, connectSpotify, disconnectSpotify, syncLikedSongs, isSyncing } = useSpotifyAuth();
   const [likedSongsCount, setLikedSongsCount] = useState<number>(0);
   const [unmappedCount, setUnmappedCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -66,7 +66,10 @@ export const SetupChecklist: React.FC = () => {
       title: 'Connect to Spotify',
       description: 'Link your Spotify account to access your liked songs',
       status: spotifyLoading ? 'incomplete' : (isConnected ? 'complete' : 'incomplete'),
-      action: isConnected ? undefined : {
+      action: isConnected ? {
+        label: 'Disconnect',
+        onClick: disconnectSpotify
+      } : {
         label: 'Connect Spotify',
         onClick: connectSpotify
       }
