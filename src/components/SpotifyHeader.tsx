@@ -7,7 +7,7 @@ import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { useAuth } from '@/contexts/NewAuthContext';
 
 const SpotifyHeader = () => {
-  const { isConnected, isLoading, isSyncing, connectSpotify, disconnectSpotify, syncLikedSongs } = useSpotifyAuth();
+  const { isConnected, isLoading, isSyncing, connectSpotify, syncLikedSongs } = useSpotifyAuth();
   const { user, signOut } = useAuth();
 
   return (
