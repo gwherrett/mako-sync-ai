@@ -169,8 +169,8 @@ export class TrackMatchingService {
 
     const titleSimilarity = this.calculateSimilarity(localTitle, spotifyTitle);
     
-    // Use enhanced artist similarity - be more lenient with artist matching
-    if (titleSimilarity >= 80 && artistComparison.similarity >= 75) {
+    // Use enhanced artist similarity - be much more lenient with artist matching
+    if (titleSimilarity >= 80 && artistComparison.similarity >= 50) {
       const confidence = Math.min(titleSimilarity, artistComparison.similarity);
       console.log(`🎯 Fuzzy match found: "${local.title}" by "${artistComparison.normalizedLocal}" (${confidence}% confidence)`);
       return confidence;
@@ -189,8 +189,8 @@ export class TrackMatchingService {
       return 50;
     }
 
-    // High similarity artist match
-    if (artistComparison.similarity >= 85) {
+    // High similarity artist match - be more accepting
+    if (artistComparison.similarity >= 60) {
       console.log(`🎤 Artist-only similar match: "${artistComparison.normalizedLocal}" ~ "${artistComparison.normalizedSpotify}" (${artistComparison.similarity}%)`);
       return Math.max(30, artistComparison.similarity * 0.4); // Scale down but keep reasonable confidence
     }
@@ -322,7 +322,7 @@ export class TrackMatchingService {
     for (const localTrack of localTracks) {
       const bestMatch = this.findBestMatch(localTrack, spotifyTracks);
       
-      if (bestMatch && bestMatch.confidence >= 60) { // Only save matches with reasonable confidence
+      if (bestMatch && bestMatch.confidence >= 30) { // More accepting save threshold
         matches.push(bestMatch);
 
         // Save to database
@@ -348,6 +348,70 @@ export class TrackMatchingService {
       matches,
       processed: localTracks.length,
       saved
+    };
+  }
+
+  // Find tracks by matching artist (for discovery)
+  static async findTracksByMatchingArtist(userId: string, superGenreFilter?: string): Promise<{
+    artistMatches: Array<{
+      artistName: string;
+      localTracks: LocalTrack[];
+      spotifyTracks: SpotifyTrack[];
+      similarity: number;
+    }>;
+  }> {
+    const [localTracks, spotifyTracks] = await Promise.all([
+      this.fetchLocalTracks(userId),
+      this.fetchSpotifyTracks(userId, superGenreFilter)
+    ]);
+
+    const artistMatches = new Map<string, {
+      artistName: string;
+      localTracks: LocalTrack[];
+      spotifyTracks: SpotifyTrack[];
+      similarity: number;
+    }>();
+
+    // Group local tracks by normalized artist
+    const localArtists = new Map<string, LocalTrack[]>();
+    localTracks.forEach(track => {
+      const normalizedArtist = this.normalizeArtist(track.artist);
+      if (normalizedArtist) {
+        if (!localArtists.has(normalizedArtist)) {
+          localArtists.set(normalizedArtist, []);
+        }
+        localArtists.get(normalizedArtist)!.push(track);
+      }
+    });
+
+    // Find matching artists in Spotify tracks
+    spotifyTracks.forEach(spotifyTrack => {
+      const spotifyArtistNormalized = this.normalizeArtist(spotifyTrack.artist);
+      
+      for (const [localArtist, localTracksForArtist] of localArtists.entries()) {
+        const comparison = this.compareArtists(localArtist, spotifyArtistNormalized);
+        
+        // More lenient artist matching for discovery
+        if (comparison.similarity >= 60 || comparison.exactMatch) {
+          const key = comparison.exactMatch ? localArtist : `${localArtist}_${spotifyArtistNormalized}`;
+          
+          if (!artistMatches.has(key)) {
+            artistMatches.set(key, {
+              artistName: comparison.exactMatch ? localArtist : `${localArtist} ~ ${spotifyArtistNormalized}`,
+              localTracks: localTracksForArtist,
+              spotifyTracks: [],
+              similarity: comparison.similarity
+            });
+          }
+          
+          artistMatches.get(key)!.spotifyTracks.push(spotifyTrack);
+        }
+      }
+    });
+
+    return {
+      artistMatches: Array.from(artistMatches.values())
+        .sort((a, b) => b.similarity - a.similarity)
     };
   }
 

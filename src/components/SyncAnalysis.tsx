@@ -9,6 +9,7 @@ import { Loader2, Zap, Target, Search, Users2, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TrackMatchingService } from '@/services/trackMatching.service';
 import MissingTracksAnalyzer from '@/components/MissingTracksAnalyzer';
+import { ArtistMatchSummary } from '@/components/ArtistMatchSummary';
 import { supabase } from '@/integrations/supabase/client';
 
 interface MatchingStats {
@@ -198,8 +199,9 @@ const SyncAnalysis = () => {
 
       {/* Results */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Match Overview</TabsTrigger>
+          <TabsTrigger value="artists">Artist Discovery</TabsTrigger>
           <TabsTrigger value="missing">Missing Tracks</TabsTrigger>
         </TabsList>
 
@@ -309,13 +311,20 @@ const SyncAnalysis = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="missing">
-          <MissingTracksAnalyzer 
+        <TabsContent value="artists">
+          <ArtistMatchSummary 
             selectedGenre={selectedGenre}
-            setSelectedGenre={setSelectedGenre}
             superGenres={superGenres}
           />
         </TabsContent>
+
+          <TabsContent value="missing">
+            <MissingTracksAnalyzer 
+              selectedGenre={selectedGenre}
+              setSelectedGenre={setSelectedGenre}
+              superGenres={superGenres}
+            />
+          </TabsContent>
       </Tabs>
     </div>
   );
