@@ -5,26 +5,31 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Zap, Target, Search, Users2, Filter } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Loader2, Zap, Target, Search, Users2, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { enhancedTrackMatchingService, TrackMatch } from '@/services/enhancedTrackMatching.service';
 import { TrackMatchingService } from '@/services/trackMatching.service';
 import MissingTracksAnalyzer from '@/components/MissingTracksAnalyzer';
 import { ArtistMatchSummary } from '@/components/ArtistMatchSummary';
 import { supabase } from '@/integrations/supabase/client';
 
 interface MatchingStats {
-  total: number;
-  exact: number;
-  close: number;
-  fuzzy: number;
-  artistOnly: number;
+  totalTracks: number;
+  highConfidence: number; // 90-100
+  mediumConfidence: number; // 75-89
+  lowConfidence: number; // 60-74
   unmatched: number;
 }
 
 const SyncAnalysis = () => {
   const [isMatching, setIsMatching] = useState(false);
+  const [isNormalizing, setIsNormalizing] = useState(false);
   const [matchingProgress, setMatchingProgress] = useState(0);
   const [matchingStats, setMatchingStats] = useState<MatchingStats | null>(null);
+  const [matches, setMatches] = useState<TrackMatch[]>([]);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [user, setUser] = useState<any>(null);
   const [superGenres, setSuperGenres] = useState<string[]>([]);
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
@@ -49,6 +54,28 @@ const SyncAnalysis = () => {
     loadData();
   }, []);
 
+  const normalizeAllTracks = async () => {
+    if (!user) return;
+
+    setIsNormalizing(true);
+    try {
+      const result = await enhancedTrackMatchingService.normalizeAllUserTracks(user.id);
+      toast({
+        title: "Normalization Complete",
+        description: `Normalized ${result.local} local tracks and ${result.spotify} Spotify tracks`,
+      });
+    } catch (error: any) {
+      console.error("Error normalizing tracks:", error);
+      toast({
+        title: "Normalization Failed",
+        description: error.message || "Failed to normalize tracks",
+        variant: "destructive",
+      });
+    } finally {
+      setIsNormalizing(false);
+    }
+  };
+
   const performMatching = async () => {
     if (!user) {
       toast({
@@ -64,37 +91,42 @@ const SyncAnalysis = () => {
 
     try {
       const genreText = selectedGenre === 'all' ? '' : ` (${selectedGenre} filter)`;
-      console.log(`🎯 Starting batch track matching${genreText}...`);
+      console.log(`🎯 Starting enhanced batch track matching${genreText}...`);
       
-      // More accurate progress simulation
-      const progressInterval = setInterval(() => {
-        setMatchingProgress(prev => Math.min(prev + 5, 85));
-      }, 800);
-
-      const result = await TrackMatchingService.performBatchMatching(user.id, selectedGenre);
+      // Normalize first
+      setMatchingProgress(10);
+      await normalizeAllTracks();
       
-      clearInterval(progressInterval);
-      setMatchingProgress(100);
+      setMatchingProgress(30);
+      
+      // Perform matching
+      const matchResults = await enhancedTrackMatchingService.performBatchMatching(
+        user.id,
+        selectedGenre === "all" ? undefined : selectedGenre
+      );
 
-      // Calculate stats
+      setMatches(matchResults);
+      setMatchingProgress(70);
+      
+      // Calculate statistics
       const stats: MatchingStats = {
-        total: result.processed,
-        exact: result.matches.filter(m => m.algorithm === 'exact').length,
-        close: result.matches.filter(m => m.algorithm === 'close').length,
-        fuzzy: result.matches.filter(m => m.algorithm === 'fuzzy').length,
-        artistOnly: result.matches.filter(m => m.algorithm === 'artist-only').length,
-        unmatched: result.processed - result.matches.length
+        totalTracks: matchResults.length,
+        highConfidence: matchResults.filter(m => m.score.total >= 90).length,
+        mediumConfidence: matchResults.filter(m => m.score.total >= 75 && m.score.total < 90).length,
+        lowConfidence: matchResults.filter(m => m.score.total >= 60 && m.score.total < 75).length,
+        unmatched: 0,
       };
 
+      setMatchingProgress(100);
       setMatchingStats(stats);
 
       const resultGenreText = selectedGenre === 'all' ? '' : ` (${selectedGenre})`;
       toast({
         title: "Matching Complete",
-        description: `Processed ${result.processed} tracks, saved ${result.saved} matches${resultGenreText}.`,
+        description: `Found ${matchResults.length} matches${resultGenreText}.`,
       });
 
-      console.log(`✅ Matching complete: ${result.saved} matches saved`);
+      console.log(`✅ Enhanced matching complete: ${matchResults.length} matches found`);
     } catch (error: any) {
       console.error('❌ Matching error:', error);
       toast({
@@ -106,6 +138,30 @@ const SyncAnalysis = () => {
       setIsMatching(false);
       setMatchingProgress(0);
     }
+  };
+
+  const toggleRow = (matchId: string) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(matchId)) {
+        newSet.delete(matchId);
+      } else {
+        newSet.add(matchId);
+      }
+      return newSet;
+    });
+  };
+
+  const getConfidenceColor = (score: number): string => {
+    if (score >= 90) return 'bg-green-500';
+    if (score >= 75) return 'bg-yellow-500';
+    return 'bg-orange-500';
+  };
+
+  const getConfidenceBadgeVariant = (score: number): "default" | "secondary" | "outline" => {
+    if (score >= 90) return 'default';
+    if (score >= 75) return 'secondary';
+    return 'outline';
   };
 
   const getMatchQualityColor = (algorithm: string): string => {
@@ -209,96 +265,158 @@ const SyncAnalysis = () => {
           {matchingStats ? (
             <>
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total Tracks</p>
-                        <p className="text-2xl font-bold text-primary">{matchingStats.total}</p>
-                      </div>
-                      <Search className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                  </CardContent>
+                  <CardHeader className="pb-3">
+                    <CardDescription>Total Matches</CardDescription>
+                    <CardTitle className="text-3xl">{matchingStats.totalTracks}</CardTitle>
+                  </CardHeader>
                 </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Perfect Matches</p>
-                        <p className="text-2xl font-bold text-green-600">{matchingStats.exact}</p>
-                      </div>
-                      <Target className="h-8 w-8 text-green-600" />
-                    </div>
-                  </CardContent>
+                <Card className="border-green-200 dark:border-green-900">
+                  <CardHeader className="pb-3">
+                    <CardDescription className="text-green-600 dark:text-green-400">High Confidence</CardDescription>
+                    <CardTitle className="text-3xl text-green-600 dark:text-green-400">{matchingStats.highConfidence}</CardTitle>
+                    <CardDescription className="text-xs">90-100%</CardDescription>
+                  </CardHeader>
                 </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Good Matches</p>
-                        <p className="text-2xl font-bold text-blue-600">
-                          {matchingStats.close + matchingStats.fuzzy}
-                        </p>
-                      </div>
-                      <Zap className="h-8 w-8 text-blue-600" />
-                    </div>
-                  </CardContent>
+                <Card className="border-yellow-200 dark:border-yellow-900">
+                  <CardHeader className="pb-3">
+                    <CardDescription className="text-yellow-600 dark:text-yellow-400">Medium Confidence</CardDescription>
+                    <CardTitle className="text-3xl text-yellow-600 dark:text-yellow-400">{matchingStats.mediumConfidence}</CardTitle>
+                    <CardDescription className="text-xs">75-89%</CardDescription>
+                  </CardHeader>
                 </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Unmatched</p>
-                        <p className="text-2xl font-bold text-orange-600">{matchingStats.unmatched}</p>
-                      </div>
-                      <Users2 className="h-8 w-8 text-orange-600" />
-                    </div>
-                  </CardContent>
+                <Card className="border-orange-200 dark:border-orange-900">
+                  <CardHeader className="pb-3">
+                    <CardDescription className="text-orange-600 dark:text-orange-400">Low Confidence</CardDescription>
+                    <CardTitle className="text-3xl text-orange-600 dark:text-orange-400">{matchingStats.lowConfidence}</CardTitle>
+                    <CardDescription className="text-xs">60-74%</CardDescription>
+                  </CardHeader>
                 </Card>
               </div>
-
-              {/* Detailed Breakdown */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Match Quality Breakdown</CardTitle>
-                  <CardDescription>
-                    Distribution of match confidence levels across your collection
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      { key: 'exact', label: 'Perfect Match', count: matchingStats.exact, desc: 'Title + Artist + Album exact match' },
-                      { key: 'close', label: 'High Confidence', count: matchingStats.close, desc: 'Title + Artist exact match' },
-                      { key: 'fuzzy', label: 'Good Match', count: matchingStats.fuzzy, desc: 'Similar title and artist (80%+ similarity)' },
-                      { key: 'artist-only', label: 'Artist Only', count: matchingStats.artistOnly, desc: 'Same artist, different track' },
-                      { key: 'unmatched', label: 'No Match', count: matchingStats.unmatched, desc: 'No suitable match found' }
-                    ].map((item) => (
-                      <div key={item.key} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full ${getMatchQualityColor(item.key)}`} />
-                          <div>
-                            <p className="font-medium">{item.label}</p>
-                            <p className="text-sm text-muted-foreground">{item.desc}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <Badge variant="secondary">{item.count} tracks</Badge>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {matchingStats.total > 0 ? ((item.count / matchingStats.total) * 100).toFixed(1) : 0}%
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
             </>
-          ) : (
+          ) : null}
+
+          {matches.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Detailed Match Results</CardTitle>
+                <CardDescription>
+                  Click on a match to see detailed scoring breakdown
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]"></TableHead>
+                      <TableHead>Local Track</TableHead>
+                      <TableHead>Spotify Match</TableHead>
+                      <TableHead className="text-center">Score</TableHead>
+                      <TableHead>Algorithm</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {matches.slice(0, 50).map((match) => {
+                      const matchId = `${match.localTrack.id}-${match.spotifyTrack.id}`;
+                      const isExpanded = expandedRows.has(matchId);
+                      
+                      return (
+                        <React.Fragment key={matchId}>
+                          <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(matchId)}>
+                            <TableCell>
+                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{match.localTrack.title || 'Unknown'}</div>
+                              <div className="text-sm text-muted-foreground">{match.localTrack.artist || 'Unknown'}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{match.spotifyTrack.title}</div>
+                              <div className="text-sm text-muted-foreground">{match.spotifyTrack.artist}</div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant={getConfidenceBadgeVariant(match.score.total)}>
+                                {match.score.total}%
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm">{match.score.algorithm}</span>
+                            </TableCell>
+                          </TableRow>
+                          {isExpanded && (
+                            <TableRow>
+                              <TableCell colSpan={5} className="bg-muted/30">
+                                <div className="p-4 space-y-3">
+                                  <div className="text-sm font-medium">Score Breakdown:</div>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                                    <div>
+                                      <span className="text-muted-foreground">Core Title Match:</span>
+                                      <span className="ml-2 font-medium">{match.score.breakdown.coreTitleMatch} pts</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Artist Match:</span>
+                                      <span className="ml-2 font-medium">{match.score.breakdown.artistMatch} pts</span>
+                                    </div>
+                                    {match.score.breakdown.versionBonus > 0 && (
+                                      <div>
+                                        <span className="text-muted-foreground">Version Bonus:</span>
+                                        <span className="ml-2 font-medium text-green-600">+{match.score.breakdown.versionBonus} pts</span>
+                                      </div>
+                                    )}
+                                    {match.score.breakdown.albumBonus > 0 && (
+                                      <div>
+                                        <span className="text-muted-foreground">Album Bonus:</span>
+                                        <span className="ml-2 font-medium text-green-600">+{match.score.breakdown.albumBonus} pts</span>
+                                      </div>
+                                    )}
+                                    {match.score.breakdown.remixerBonus > 0 && (
+                                      <div>
+                                        <span className="text-muted-foreground">Remixer Bonus:</span>
+                                        <span className="ml-2 font-medium text-green-600">+{match.score.breakdown.remixerBonus} pts</span>
+                                      </div>
+                                    )}
+                                    {match.score.breakdown.penalties !== 0 && (
+                                      <div>
+                                        <span className="text-muted-foreground">Penalties:</span>
+                                        <span className="ml-2 font-medium text-red-600">{match.score.breakdown.penalties} pts</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground pt-2 border-t">
+                                    {match.score.details}
+                                  </div>
+                                  {match.localTrack.version_info && (
+                                    <div className="text-sm">
+                                      <span className="text-muted-foreground">Local Version:</span>
+                                      <span className="ml-2">{match.localTrack.version_info}</span>
+                                    </div>
+                                  )}
+                                  {match.spotifyTrack.version_info && (
+                                    <div className="text-sm">
+                                      <span className="text-muted-foreground">Spotify Version:</span>
+                                      <span className="ml-2">{match.spotifyTrack.version_info}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                {matches.length > 50 && (
+                  <div className="text-center text-sm text-muted-foreground mt-4">
+                    Showing first 50 of {matches.length} matches
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {!matchingStats && matches.length === 0 && (
             <Card>
               <CardContent className="text-center py-8">
                 <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

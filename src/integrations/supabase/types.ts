@@ -39,8 +39,10 @@ export type Database = {
           bitrate: number | null
           bpm: number | null
           comment: string | null
+          core_title: string | null
           created_at: string | null
           date_added: string | null
+          featured_artists: string[] | null
           file_path: string
           file_size: number | null
           genre: string | null
@@ -48,10 +50,15 @@ export type Database = {
           id: string
           key: string | null
           last_modified: string | null
+          normalized_artist: string | null
+          normalized_title: string | null
           play_count: number | null
+          primary_artist: string | null
           rating: number | null
+          remixer: string | null
           title: string | null
           user_id: string | null
+          version_info: string | null
           year: number | null
         }
         Insert: {
@@ -60,8 +67,10 @@ export type Database = {
           bitrate?: number | null
           bpm?: number | null
           comment?: string | null
+          core_title?: string | null
           created_at?: string | null
           date_added?: string | null
+          featured_artists?: string[] | null
           file_path: string
           file_size?: number | null
           genre?: string | null
@@ -69,10 +78,15 @@ export type Database = {
           id?: string
           key?: string | null
           last_modified?: string | null
+          normalized_artist?: string | null
+          normalized_title?: string | null
           play_count?: number | null
+          primary_artist?: string | null
           rating?: number | null
+          remixer?: string | null
           title?: string | null
           user_id?: string | null
+          version_info?: string | null
           year?: number | null
         }
         Update: {
@@ -81,8 +95,10 @@ export type Database = {
           bitrate?: number | null
           bpm?: number | null
           comment?: string | null
+          core_title?: string | null
           created_at?: string | null
           date_added?: string | null
+          featured_artists?: string[] | null
           file_path?: string
           file_size?: number | null
           genre?: string | null
@@ -90,10 +106,15 @@ export type Database = {
           id?: string
           key?: string | null
           last_modified?: string | null
+          normalized_artist?: string | null
+          normalized_title?: string | null
           play_count?: number | null
+          primary_artist?: string | null
           rating?: number | null
+          remixer?: string | null
           title?: string | null
           user_id?: string | null
+          version_info?: string | null
           year?: number | null
         }
         Relationships: []
@@ -267,15 +288,22 @@ export type Database = {
           album: string | null
           artist: string
           bpm: number | null
+          core_title: string | null
           created_at: string | null
           danceability: number | null
+          featured_artists: string[] | null
           genre: string | null
           id: string
           key: string | null
+          normalized_artist: string | null
+          normalized_title: string | null
+          primary_artist: string | null
+          remixer: string | null
           spotify_id: string
           super_genre: Database["public"]["Enums"]["super_genre"] | null
           title: string
           user_id: string | null
+          version_info: string | null
           year: number | null
         }
         Insert: {
@@ -283,15 +311,22 @@ export type Database = {
           album?: string | null
           artist: string
           bpm?: number | null
+          core_title?: string | null
           created_at?: string | null
           danceability?: number | null
+          featured_artists?: string[] | null
           genre?: string | null
           id?: string
           key?: string | null
+          normalized_artist?: string | null
+          normalized_title?: string | null
+          primary_artist?: string | null
+          remixer?: string | null
           spotify_id: string
           super_genre?: Database["public"]["Enums"]["super_genre"] | null
           title: string
           user_id?: string | null
+          version_info?: string | null
           year?: number | null
         }
         Update: {
@@ -299,15 +334,22 @@ export type Database = {
           album?: string | null
           artist?: string
           bpm?: number | null
+          core_title?: string | null
           created_at?: string | null
           danceability?: number | null
+          featured_artists?: string[] | null
           genre?: string | null
           id?: string
           key?: string | null
+          normalized_artist?: string | null
+          normalized_title?: string | null
+          primary_artist?: string | null
+          remixer?: string | null
           spotify_id?: string
           super_genre?: Database["public"]["Enums"]["super_genre"] | null
           title?: string
           user_id?: string | null
+          version_info?: string | null
           year?: number | null
         }
         Relationships: []
