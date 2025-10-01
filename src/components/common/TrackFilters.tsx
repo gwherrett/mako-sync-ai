@@ -195,9 +195,9 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
                 <SelectTrigger>
                   <SelectValue placeholder="All artists" />
                 </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[300px]">
                   <SelectItem value="all">All artists</SelectItem>
-                  {options.artists.filter(artist => artist && artist.trim() !== '').slice(0, 50).map((artist) => (
+                  {options.artists.filter(artist => artist && artist.trim() !== '').map((artist) => (
                     <SelectItem key={artist} value={artist}>
                       {artist}
                     </SelectItem>
