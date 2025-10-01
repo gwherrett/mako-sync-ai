@@ -88,12 +88,28 @@ const FileUploadScanner = () => {
 
       console.log(`💾 Inserting ${scannedTracks.length} test tracks into database...`);
       
-      // Add user_id to each track before inserting
-      const tracksWithUserId = scannedTracks.map(track => ({
-        ...track,
-        user_id: user.id,
-        file_path: `[TEST] ${track.file_path}` // Mark as test data
-      }));
+      // Import normalization on the fly
+      const { NormalizationService } = await import('@/services/normalization.service');
+      const normalizer = new NormalizationService();
+      
+      // Add user_id and normalize each track before inserting
+      const tracksWithUserId = scannedTracks.map(track => {
+        const normalized = normalizer.processMetadata(track.title, track.artist);
+        return {
+          ...track,
+          user_id: user.id,
+          file_path: `[TEST] ${track.file_path}`, // Mark as test data
+          normalized_title: normalized.normalizedTitle,
+          normalized_artist: normalized.normalizedArtist,
+          core_title: normalized.coreTitle,
+          version_info: normalized.versionInfo,
+          primary_artist: normalized.primaryArtist,
+          featured_artists: normalized.featuredArtists,
+          remixer: normalized.remixer,
+        };
+      });
+      
+      console.log('🔄 Tracks normalized during upload');
       
       // Insert tracks into database using upsert to handle duplicates
       const { error } = await supabase

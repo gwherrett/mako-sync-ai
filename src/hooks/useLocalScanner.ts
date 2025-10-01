@@ -51,11 +51,27 @@ export const useLocalScanner = () => {
 
       console.log(`💾 Inserting ${scannedTracks.length} tracks into database...`);
       
-      // Add user_id to each track before inserting
-      const tracksWithUserId = scannedTracks.map(track => ({
-        ...track,
-        user_id: user.id
-      }));
+      // Import normalization
+      const { NormalizationService } = await import('@/services/normalization.service');
+      const normalizer = new NormalizationService();
+      
+      // Add user_id and normalize each track before inserting
+      const tracksWithUserId = scannedTracks.map(track => {
+        const normalized = normalizer.processMetadata(track.title, track.artist);
+        return {
+          ...track,
+          user_id: user.id,
+          normalized_title: normalized.normalizedTitle,
+          normalized_artist: normalized.normalizedArtist,
+          core_title: normalized.coreTitle,
+          version_info: normalized.versionInfo,
+          primary_artist: normalized.primaryArtist,
+          featured_artists: normalized.featuredArtists,
+          remixer: normalized.remixer,
+        };
+      });
+      
+      console.log('🔄 Tracks normalized during scan');
       
       // Deduplicate by hash to avoid "ON CONFLICT DO UPDATE command cannot affect row a second time" error
       const uniqueTracks = tracksWithUserId.reduce((acc, track) => {
