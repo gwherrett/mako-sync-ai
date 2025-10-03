@@ -42,6 +42,7 @@ const SyncAnalysis = () => {
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const [normalizedArtists, setNormalizedArtists] = useState<NormalizedArtist[]>([]);
   const [loadingArtists, setLoadingArtists] = useState(false);
+  const [artistSourceFilter, setArtistSourceFilter] = useState<'all' | 'Spotify' | 'Local'>('all');
   const { toast } = useToast();
 
   // Get user and load super genres on mount
@@ -526,19 +527,37 @@ const SyncAnalysis = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button 
-                onClick={loadNormalizedArtists}
-                disabled={loadingArtists}
-              >
-                {loadingArtists ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  'Load Artist Data'
+              <div className="flex items-center gap-4">
+                <Button 
+                  onClick={loadNormalizedArtists}
+                  disabled={loadingArtists}
+                >
+                  {loadingArtists ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Load Artist Data'
+                  )}
+                </Button>
+
+                {normalizedArtists.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <Select value={artistSourceFilter} onValueChange={(value: any) => setArtistSourceFilter(value)}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Sources</SelectItem>
+                        <SelectItem value="Spotify">Spotify Only</SelectItem>
+                        <SelectItem value="Local">Local Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 )}
-              </Button>
+              </div>
 
               {normalizedArtists.length > 0 && (
                 <div className="border rounded-lg">
@@ -552,7 +571,9 @@ const SyncAnalysis = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {normalizedArtists.map((artist, idx) => (
+                      {normalizedArtists
+                        .filter(artist => artistSourceFilter === 'all' || artist.source === artistSourceFilter)
+                        .map((artist, idx) => (
                         <TableRow key={`${artist.source}-${artist.original}-${idx}`}>
                           <TableCell>
                             <Badge variant={artist.source === 'Spotify' ? 'default' : 'secondary'}>
