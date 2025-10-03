@@ -144,7 +144,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
                   <SelectValue placeholder="All common genres" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All super genres</SelectItem>
+                  <SelectItem value="all">All common genres</SelectItem>
                   <SelectItem value="no-super-genre">Unmapped</SelectItem>
                   {options.superGenres.map((superGenre) => (
                     <SelectItem key={superGenre} value={superGenre}>
@@ -171,7 +171,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
                   <SelectValue placeholder="All Spotify genres" />
                 </SelectTrigger>
                   <SelectContent>
-                  <SelectItem value="all">All genres</SelectItem>
+                  <SelectItem value="all">All Spotify genres</SelectItem>
                   {options.genres.filter(genre => genre && genre.trim() !== '').map((genre) => (
                     <SelectItem key={genre} value={genre}>
                       {genre}
