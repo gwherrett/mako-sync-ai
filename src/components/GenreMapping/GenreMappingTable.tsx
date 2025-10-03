@@ -137,7 +137,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Genre Map</CardTitle>
+            <CardTitle>Summary</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
               {mappings.length} total genres • {overriddenCount} overridden • {unmappedCount} unmapped • {reviewedCount} reviewed
             </p>
@@ -187,7 +187,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
                 </Button>
               </TableHead>
               <TableHead>Source</TableHead>
-              <TableHead className="w-12">Review</TableHead>
+              <TableHead className="w-12">Reviewed</TableHead>
               <TableHead className="w-24">Actions</TableHead>
             </TableRow>
           </TableHeader>
