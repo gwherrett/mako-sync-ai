@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, Download, Edit3, ArrowUpDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Download, Edit3, ArrowUpDown, CheckCircle2, Circle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,6 +12,7 @@ interface GenreMappingTableProps {
   mappings: GenreMapping[];
   onSetOverride: (spotifyGenre: string, superGenre: SuperGenre) => void;
   onRemoveOverride: (spotifyGenre: string) => void;
+  onBulkOverrides: (overrides: Array<{ spotifyGenre: string; superGenre: SuperGenre }>) => Promise<void>;
   onExport: () => void;
   isLoading?: boolean;
 }
@@ -19,6 +20,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
   mappings,
   onSetOverride,
   onRemoveOverride,
+  onBulkOverrides,
   onExport,
   isLoading = false
 }) => {
@@ -28,6 +30,25 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<'spotify_genre' | 'super_genre'>('spotify_genre');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [reviewedGenres, setReviewedGenres] = useState<Set<string>>(new Set());
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
+  // Load reviewed genres from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('reviewedGenres');
+    if (stored) {
+      try {
+        setReviewedGenres(new Set(JSON.parse(stored)));
+      } catch (e) {
+        console.error('Failed to load reviewed genres', e);
+      }
+    }
+  }, []);
+
+  // Save reviewed genres to localStorage
+  useEffect(() => {
+    localStorage.setItem('reviewedGenres', JSON.stringify(Array.from(reviewedGenres)));
+  }, [reviewedGenres]);
   const filteredMappings = mappings.filter(mapping => {
     const matchesSearch = 
       mapping.spotify_genre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -81,6 +102,34 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
       setSortDirection('asc');
     }
   };
+
+  const toggleReviewed = (spotifyGenre: string) => {
+    const newReviewed = new Set(reviewedGenres);
+    if (newReviewed.has(spotifyGenre)) {
+      newReviewed.delete(spotifyGenre);
+    } else {
+      newReviewed.add(spotifyGenre);
+    }
+    setReviewedGenres(newReviewed);
+  };
+
+  const handleBulkSetGenre = async (superGenre: SuperGenre) => {
+    setIsBulkUpdating(true);
+    try {
+      const overrides = Array.from(selectedRows).map(spotifyGenre => ({
+        spotifyGenre,
+        superGenre
+      }));
+      await onBulkOverrides(overrides);
+      setSelectedRows(new Set());
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const reviewedCount = Array.from(reviewedGenres).filter(genre => 
+    mappings.some(m => m.spotify_genre === genre)
+  ).length;
   if (isLoading) {
     return <div className="flex items-center justify-center h-64">Loading genre mappings...</div>;
   }
@@ -90,7 +139,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
           <div>
             <CardTitle>Genre Map</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              {mappings.length} total genres • {overriddenCount} overridden • {unmappedCount} unmapped
+              {mappings.length} total genres • {overriddenCount} overridden • {unmappedCount} unmapped • {reviewedCount} reviewed
             </p>
           </div>
           <Button onClick={onExport} variant="outline" size="sm">
@@ -125,6 +174,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
               <TableHead className="w-12">
                 <input type="checkbox" checked={selectedRows.size === filteredMappings.length && filteredMappings.length > 0} onChange={e => handleSelectAll(e.target.checked)} className="rounded" />
               </TableHead>
+              <TableHead className="w-12">Review</TableHead>
               <TableHead>
                 <Button variant="ghost" size="sm" onClick={() => toggleSort('spotify_genre')} className="font-semibold -ml-3">
                   Spotify Sub-genre
@@ -145,6 +195,20 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
             {filteredMappings.map(mapping => <TableRow key={mapping.spotify_genre} className={mapping.is_overridden ? 'bg-accent/50' : ''}>
                 <TableCell>
                   <input type="checkbox" checked={selectedRows.has(mapping.spotify_genre)} onChange={e => handleRowSelect(mapping.spotify_genre, e.target.checked)} className="rounded" />
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleReviewed(mapping.spotify_genre)}
+                    className="p-0 h-auto"
+                  >
+                    {reviewedGenres.has(mapping.spotify_genre) ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </Button>
                 </TableCell>
                 <TableCell className="font-medium">{mapping.spotify_genre}</TableCell>
                  <TableCell>
@@ -183,14 +247,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
               {selectedRows.size} genre{selectedRows.size !== 1 ? 's' : ''} selected
             </p>
             <div className="flex gap-2">
-              <Select onValueChange={value => {
-            const overrides = Array.from(selectedRows).map(spotifyGenre => ({
-              spotifyGenre,
-              superGenre: value as SuperGenre
-            }));
-            // This would need to be connected to bulk operation
-            console.log('Bulk update:', overrides);
-          }}>
+              <Select onValueChange={handleBulkSetGenre} disabled={isBulkUpdating}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Set genre for selected" />
                 </SelectTrigger>
@@ -198,9 +255,19 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
                   {[...SUPER_GENRES].sort().map(genre => <SelectItem key={genre} value={genre}>{genre}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" onClick={() => setSelectedRows(new Set())}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setSelectedRows(new Set())}
+                disabled={isBulkUpdating}
+              >
                 Clear Selection
               </Button>
+              {isBulkUpdating && (
+                <span className="text-sm text-muted-foreground flex items-center">
+                  Updating...
+                </span>
+              )}
             </div>
           </div>}
         

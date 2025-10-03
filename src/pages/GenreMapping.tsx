@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Eye, Table, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { GenreMappingTable } from '@/components/GenreMapping/GenreMappingTable';
-import { AuditMode } from '@/components/GenreMapping/AuditMode';
 import { useGenreMapping } from '@/hooks/useGenreMapping';
 import { GenreMappingService } from '@/services/genreMapping.service';
 import { Link } from 'react-router-dom';
 export const GenreMapping = () => {
-  const [activeTab, setActiveTab] = useState<'table' | 'audit'>('table');
   const [noGenreCount, setNoGenreCount] = useState<number>(0);
   const {
     mappings,
@@ -73,25 +70,13 @@ export const GenreMapping = () => {
         </Alert>
       )}
 
-      <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'table' | 'audit')}>
-        <TabsList>
-          <TabsTrigger value="table" className="flex items-center gap-2">
-            <Table className="w-4 h-4" />
-            Mapping Table
-          </TabsTrigger>
-          <TabsTrigger value="audit" className="flex items-center gap-2">
-            <Eye className="w-4 h-4" />
-            Audit Mode
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="table" className="space-y-6">
-          <GenreMappingTable mappings={mappings} onSetOverride={setOverride} onRemoveOverride={removeOverride} onExport={exportToCSV} isLoading={isLoading} />
-        </TabsContent>
-
-        <TabsContent value="audit" className="space-y-6">
-          <AuditMode mappings={mappings} onSetOverride={setOverride} onRemoveOverride={removeOverride} onExit={() => setActiveTab('table')} />
-        </TabsContent>
-      </Tabs>
+      <GenreMappingTable 
+        mappings={mappings} 
+        onSetOverride={setOverride} 
+        onRemoveOverride={removeOverride} 
+        onBulkOverrides={setBulkOverrides}
+        onExport={exportToCSV} 
+        isLoading={isLoading} 
+      />
     </div>;
 };
