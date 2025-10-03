@@ -7,13 +7,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Loader2, Zap, Target, Search, Users2, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Zap, Target, Search, Users2, Filter, ChevronDown, ChevronUp, Music2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { enhancedTrackMatchingService, TrackMatch } from '@/services/enhancedTrackMatching.service';
 import { TrackMatchingService } from '@/services/trackMatching.service';
 import MissingTracksAnalyzer from '@/components/MissingTracksAnalyzer';
 import { ArtistMatchSummary } from '@/components/ArtistMatchSummary';
 import { supabase } from '@/integrations/supabase/client';
+
+interface NormalizedArtist {
+  original: string;
+  normalized: string;
+  primary: string | null;
+  source: 'Spotify' | 'Local';
+}
 
 interface MatchingStats {
   totalTracks: number;
@@ -33,6 +40,8 @@ const SyncAnalysis = () => {
   const [user, setUser] = useState<any>(null);
   const [superGenres, setSuperGenres] = useState<string[]>([]);
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
+  const [normalizedArtists, setNormalizedArtists] = useState<NormalizedArtist[]>([]);
+  const [loadingArtists, setLoadingArtists] = useState(false);
   const { toast } = useToast();
 
   // Get user and load super genres on mount
@@ -184,6 +193,66 @@ const SyncAnalysis = () => {
     }
   };
 
+  const loadNormalizedArtists = async () => {
+    if (!user) return;
+
+    setLoadingArtists(true);
+    try {
+      // Fetch Spotify artists
+      const { data: spotifyData, error: spotifyError } = await supabase
+        .from('spotify_liked')
+        .select('artist, normalized_artist, primary_artist')
+        .eq('user_id', user.id)
+        .not('artist', 'is', null);
+
+      if (spotifyError) throw spotifyError;
+
+      // Fetch Local artists
+      const { data: localData, error: localError } = await supabase
+        .from('local_mp3s')
+        .select('artist, normalized_artist, primary_artist')
+        .eq('user_id', user.id)
+        .not('artist', 'is', null);
+
+      if (localError) throw localError;
+
+      // Combine and format data
+      const spotify: NormalizedArtist[] = (spotifyData || []).map(item => ({
+        original: item.artist || '',
+        normalized: item.normalized_artist || '',
+        primary: item.primary_artist || null,
+        source: 'Spotify' as const
+      }));
+
+      const local: NormalizedArtist[] = (localData || []).map(item => ({
+        original: item.artist || '',
+        normalized: item.normalized_artist || '',
+        primary: item.primary_artist || null,
+        source: 'Local' as const
+      }));
+
+      // Remove duplicates based on original + source
+      const uniqueArtists = [...spotify, ...local].reduce((acc, curr) => {
+        const key = `${curr.original}-${curr.source}`;
+        if (!acc.has(key)) {
+          acc.set(key, curr);
+        }
+        return acc;
+      }, new Map<string, NormalizedArtist>());
+
+      setNormalizedArtists(Array.from(uniqueArtists.values()));
+    } catch (error: any) {
+      console.error('Error loading normalized artists:', error);
+      toast({
+        title: "Failed to Load Artists",
+        description: error.message || "Could not load normalized artist data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingArtists(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -255,10 +324,11 @@ const SyncAnalysis = () => {
 
       {/* Results */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Match Overview</TabsTrigger>
           <TabsTrigger value="artists">Artist Discovery</TabsTrigger>
           <TabsTrigger value="missing">Missing Tracks</TabsTrigger>
+          <TabsTrigger value="normalized">Normalized Artists</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -443,6 +513,71 @@ const SyncAnalysis = () => {
               superGenres={superGenres}
             />
           </TabsContent>
+
+        <TabsContent value="normalized" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Music2 className="h-5 w-5" />
+                Normalized Artist Names
+              </CardTitle>
+              <CardDescription>
+                View how artist names are normalized for matching between Spotify and Local libraries
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button 
+                onClick={loadNormalizedArtists}
+                disabled={loadingArtists}
+              >
+                {loadingArtists ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  'Load Artist Data'
+                )}
+              </Button>
+
+              {normalizedArtists.length > 0 && (
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Source</TableHead>
+                        <TableHead>Original Artist</TableHead>
+                        <TableHead>Normalized</TableHead>
+                        <TableHead>Primary Artist</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {normalizedArtists.map((artist, idx) => (
+                        <TableRow key={`${artist.source}-${artist.original}-${idx}`}>
+                          <TableCell>
+                            <Badge variant={artist.source === 'Spotify' ? 'default' : 'secondary'}>
+                              {artist.source}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">{artist.original}</TableCell>
+                          <TableCell className="text-muted-foreground">{artist.normalized || '-'}</TableCell>
+                          <TableCell className="text-muted-foreground">{artist.primary || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {normalizedArtists.length === 0 && !loadingArtists && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Music2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Click "Load Artist Data" to view normalized artist names</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
