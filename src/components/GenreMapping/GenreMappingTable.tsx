@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Download, Edit3 } from 'lucide-react';
+import { Search, Download, Edit3, ArrowUpDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -26,8 +26,12 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
   const [filterSuperGenre, setFilterSuperGenre] = useState<string>('all');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [editingRow, setEditingRow] = useState<string | null>(null);
+  const [sortColumn, setSortColumn] = useState<'spotify_genre' | 'super_genre'>('spotify_genre');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const filteredMappings = mappings.filter(mapping => {
-    const matchesSearch = mapping.spotify_genre.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = 
+      mapping.spotify_genre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (mapping.super_genre && mapping.super_genre.toLowerCase().includes(searchTerm.toLowerCase()));
     let matchesFilter = true;
     if (filterSuperGenre === 'no-super-genre') {
       matchesFilter = !mapping.super_genre;
@@ -35,6 +39,11 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
       matchesFilter = mapping.super_genre === filterSuperGenre;
     }
     return matchesSearch && matchesFilter;
+  }).sort((a, b) => {
+    const aValue = sortColumn === 'spotify_genre' ? a.spotify_genre : (a.super_genre || '');
+    const bValue = sortColumn === 'spotify_genre' ? b.spotify_genre : (b.super_genre || '');
+    const comparison = aValue.localeCompare(bValue);
+    return sortDirection === 'asc' ? comparison : -comparison;
   });
   const overriddenCount = mappings.filter(m => m.is_overridden).length;
   const unmappedCount = mappings.filter(m => !m.super_genre).length;
@@ -63,6 +72,15 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
       onRemoveOverride(mapping.spotify_genre);
     }
   };
+
+  const toggleSort = (column: 'spotify_genre' | 'super_genre') => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
   if (isLoading) {
     return <div className="flex items-center justify-center h-64">Loading genre mappings...</div>;
   }
@@ -84,15 +102,15 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
         <div className="flex gap-4 items-center">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search genres..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
+            <Input placeholder="Search sub-genres and genres..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
           </div>
           
           <Select value={filterSuperGenre} onValueChange={setFilterSuperGenre}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by super-genre" />
+              <SelectValue placeholder="Filter by genre" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Super-Genres</SelectItem>
+              <SelectItem value="all">All Genres</SelectItem>
               <SelectItem value="no-super-genre">Unmapped</SelectItem>
               {[...SUPER_GENRES].sort().map(genre => <SelectItem key={genre} value={genre}>{genre}</SelectItem>)}
             </SelectContent>
@@ -107,8 +125,18 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
               <TableHead className="w-12">
                 <input type="checkbox" checked={selectedRows.size === filteredMappings.length && filteredMappings.length > 0} onChange={e => handleSelectAll(e.target.checked)} className="rounded" />
               </TableHead>
-              <TableHead>Spotify Genre</TableHead>
-              <TableHead>Super-Genre</TableHead>
+              <TableHead>
+                <Button variant="ghost" size="sm" onClick={() => toggleSort('spotify_genre')} className="font-semibold -ml-3">
+                  Spotify Sub-genre
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button variant="ghost" size="sm" onClick={() => toggleSort('super_genre')} className="font-semibold -ml-3">
+                  Common Genre
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
               <TableHead>Source</TableHead>
               <TableHead className="w-24">Actions</TableHead>
             </TableRow>
@@ -164,7 +192,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
             console.log('Bulk update:', overrides);
           }}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Set super-genre for selected" />
+                  <SelectValue placeholder="Set genre for selected" />
                 </SelectTrigger>
                 <SelectContent>
                   {[...SUPER_GENRES].sort().map(genre => <SelectItem key={genre} value={genre}>{genre}</SelectItem>)}
