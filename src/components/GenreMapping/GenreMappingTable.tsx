@@ -156,7 +156,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
           
           <Select value={filterSuperGenre} onValueChange={setFilterSuperGenre}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by genre" />
+              <SelectValue placeholder="Filter by Common Genre" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Genres</SelectItem>
@@ -249,7 +249,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
             <div className="flex gap-2">
               <Select onValueChange={handleBulkSetGenre} disabled={isBulkUpdating}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Set genre for selected" />
+                  <SelectValue placeholder="Set Common Genre for selected" />
                 </SelectTrigger>
                 <SelectContent>
                   {[...SUPER_GENRES].sort().map(genre => <SelectItem key={genre} value={genre}>{genre}</SelectItem>)}

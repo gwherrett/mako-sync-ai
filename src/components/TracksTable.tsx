@@ -392,8 +392,8 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                       )}
                     </div>
                   </TableHead>
-                  <TableHead>Super Genre</TableHead>
-                  <TableHead>Genre</TableHead>
+                  <TableHead>Common Genre</TableHead>
+                  <TableHead>Spotify Genre</TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50 select-none"
                     onClick={() => handleSort('year')}

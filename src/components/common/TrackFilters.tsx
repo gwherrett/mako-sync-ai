@@ -141,7 +141,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
           }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="All super genres" />
+                  <SelectValue placeholder="All common genres" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All super genres</SelectItem>
@@ -168,7 +168,7 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="All genres" />
+                  <SelectValue placeholder="All Spotify genres" />
                 </SelectTrigger>
                   <SelectContent>
                   <SelectItem value="all">All genres</SelectItem>

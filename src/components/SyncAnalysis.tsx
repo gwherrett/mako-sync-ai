@@ -202,14 +202,14 @@ const SyncAnalysis = () => {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Filter by genre:</span>
+              <span className="text-sm font-medium">Filter by Common Genre:</span>
             </div>
             <Select value={selectedGenre} onValueChange={setSelectedGenre}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Select genre" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Genres</SelectItem>
+                <SelectItem value="all">All Common Genres</SelectItem>
                 {superGenres.map((genre) => (
                   <SelectItem key={genre} value={genre}>
                     {genre}
