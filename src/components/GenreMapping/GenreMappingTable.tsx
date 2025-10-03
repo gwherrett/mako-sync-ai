@@ -151,7 +151,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
         <div className="flex gap-4 items-center">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search sub-genres and genres..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
+            <Input placeholder="Search genres..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
           </div>
           
           <Select value={filterSuperGenre} onValueChange={setFilterSuperGenre}>
@@ -176,7 +176,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
               </TableHead>
               <TableHead>
                 <Button variant="ghost" size="sm" onClick={() => toggleSort('spotify_genre')} className="font-semibold -ml-3">
-                  Spotify Sub-genre
+                  Spotify Genre
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
