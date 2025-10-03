@@ -12,6 +12,8 @@ export interface FilterConfig {
   genre?: boolean;
   superGenre?: boolean;
   artist?: boolean;
+  genreLabel?: string;
+  superGenreLabel?: string;
 }
 
 // Filter state interface
@@ -141,10 +143,10 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
           }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="All common genres" />
+                  <SelectValue placeholder={config.superGenreLabel || "All common genres"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All common genres</SelectItem>
+                  <SelectItem value="all">{config.superGenreLabel || "All common genres"}</SelectItem>
                   <SelectItem value="no-super-genre">Unmapped</SelectItem>
                   {options.superGenres.map((superGenre) => (
                     <SelectItem key={superGenre} value={superGenre}>
@@ -168,10 +170,10 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="All Spotify genres" />
+                  <SelectValue placeholder={config.genreLabel || "All Spotify genres"} />
                 </SelectTrigger>
                   <SelectContent>
-                  <SelectItem value="all">All Spotify genres</SelectItem>
+                  <SelectItem value="all">{config.genreLabel || "All Spotify genres"}</SelectItem>
                   {options.genres.filter(genre => genre && genre.trim() !== '').map((genre) => (
                     <SelectItem key={genre} value={genre}>
                       {genre}

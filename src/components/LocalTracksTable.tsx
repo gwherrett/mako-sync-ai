@@ -372,7 +372,8 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
             search: true,
             dateFilters: false,
             genre: true,
-            artist: true
+            artist: true,
+            genreLabel: "All Common genres"
           }}
           state={{
             searchQuery,
