@@ -174,7 +174,6 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
               <TableHead className="w-12">
                 <input type="checkbox" checked={selectedRows.size === filteredMappings.length && filteredMappings.length > 0} onChange={e => handleSelectAll(e.target.checked)} className="rounded" />
               </TableHead>
-              <TableHead className="w-12">Review</TableHead>
               <TableHead>
                 <Button variant="ghost" size="sm" onClick={() => toggleSort('spotify_genre')} className="font-semibold -ml-3">
                   Spotify Sub-genre
@@ -188,6 +187,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
                 </Button>
               </TableHead>
               <TableHead>Source</TableHead>
+              <TableHead className="w-12">Review</TableHead>
               <TableHead className="w-24">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -195,20 +195,6 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
             {filteredMappings.map(mapping => <TableRow key={mapping.spotify_genre} className={mapping.is_overridden ? 'bg-accent/50' : ''}>
                 <TableCell>
                   <input type="checkbox" checked={selectedRows.has(mapping.spotify_genre)} onChange={e => handleRowSelect(mapping.spotify_genre, e.target.checked)} className="rounded" />
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleReviewed(mapping.spotify_genre)}
-                    className="p-0 h-auto"
-                  >
-                    {reviewedGenres.has(mapping.spotify_genre) ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    ) : (
-                      <Circle className="w-5 h-5 text-muted-foreground" />
-                    )}
-                  </Button>
                 </TableCell>
                 <TableCell className="font-medium">{mapping.spotify_genre}</TableCell>
                  <TableCell>
@@ -228,6 +214,20 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
                      {!mapping.super_genre ? 'Unmapped' : mapping.is_overridden ? 'Override' : 'Base'}
                    </Badge>
                  </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleReviewed(mapping.spotify_genre)}
+                    className="p-0 h-auto"
+                  >
+                    {reviewedGenres.has(mapping.spotify_genre) ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </Button>
+                </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
                     <Button size="sm" variant="ghost" onClick={() => setEditingRow(editingRow === mapping.spotify_genre ? null : mapping.spotify_genre)}>
