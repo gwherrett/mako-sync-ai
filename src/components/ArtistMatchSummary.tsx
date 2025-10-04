@@ -166,12 +166,13 @@ export function ArtistMatchSummary({ selectedGenre, superGenres }: ArtistMatchSu
                               Local Tracks ({match.localTracks.length})
                             </h5>
                             <div className="space-y-1 max-h-32 overflow-y-auto">
-                              {match.localTracks.map((track) => (
-                                <div key={track.id} className="text-xs p-2 bg-green-50 rounded border-l-2 border-green-200">
-                                  <div className="font-medium">{track.title || 'Unknown Title'}</div>
-                                  <div className="text-muted-foreground">{track.album || 'Unknown Album'}</div>
-                                </div>
-                              ))}
+                              {match.localTracks
+                                .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+                                .map((track) => (
+                                  <div key={track.id} className="text-xs p-2 bg-green-50 rounded border-l-2 border-green-200">
+                                    <div className="font-medium">{track.title || 'Unknown Title'}</div>
+                                  </div>
+                                ))}
                             </div>
                           </div>
 
