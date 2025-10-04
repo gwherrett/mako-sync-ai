@@ -43,6 +43,7 @@ const SyncAnalysis = () => {
   const [normalizedArtists, setNormalizedArtists] = useState<NormalizedArtist[]>([]);
   const [loadingArtists, setLoadingArtists] = useState(false);
   const [artistSourceFilter, setArtistSourceFilter] = useState<'all' | 'Spotify' | 'Local'>('all');
+  const [artistSortOrder, setArtistSortOrder] = useState<'asc' | 'desc'>('asc');
   const { toast } = useToast();
 
   // Get user and load super genres on mount
@@ -573,6 +574,13 @@ const SyncAnalysis = () => {
                     <TableBody>
                       {normalizedArtists
                         .filter(artist => artistSourceFilter === 'all' || artist.source === artistSourceFilter)
+                        .sort((a, b) => {
+                          const aVal = a.primary || '';
+                          const bVal = b.primary || '';
+                          return artistSortOrder === 'asc' 
+                            ? aVal.localeCompare(bVal)
+                            : bVal.localeCompare(aVal);
+                        })
                         .map((artist, idx) => (
                         <TableRow key={`${artist.source}-${artist.original}-${idx}`}>
                           <TableCell>
