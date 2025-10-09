@@ -1,6 +1,7 @@
 import { parseBlob } from 'music-metadata-browser';
 import { Buffer } from 'buffer';
 import { generateFileHash } from '@/utils/fileHash';
+import { NormalizationService } from './normalization.service';
 
 /**
  * Extracts year from various value formats
@@ -61,6 +62,14 @@ export interface ScannedTrack {
   file_size: number;
   last_modified: string;
   user_id?: string; // Optional for backward compatibility
+  // Normalized fields
+  normalized_title: string;
+  normalized_artist: string;
+  core_title: string;
+  version_info: string | null;
+  primary_artist: string;
+  featured_artists: string[];
+  remixer: string | null;
 }
 
 /**
@@ -235,6 +244,10 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       }
     }
     
+    // Apply normalization
+    const normalizationService = new NormalizationService();
+    const normalized = normalizationService.processMetadata(title, artist);
+    
     const trackData = {
       file_path: file.name,
       title,
@@ -248,6 +261,14 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       hash,
       file_size: file.size,
       last_modified: new Date(file.lastModified).toISOString(),
+      // Normalized fields (map camelCase to snake_case for DB)
+      normalized_title: normalized.normalizedTitle,
+      normalized_artist: normalized.normalizedArtist,
+      core_title: normalized.coreTitle,
+      version_info: normalized.versionInfo,
+      primary_artist: normalized.primaryArtist,
+      featured_artists: normalized.featuredArtists,
+      remixer: normalized.remixer,
     };
 
     // Final extraction results
@@ -261,12 +282,24 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       key: trackData.key || '❌ MISSING',
       bitrate: trackData.bitrate ? `${trackData.bitrate} kbps` : '❌ MISSING',
       fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-      hash: trackData.hash?.substring(0, 8) + '...'
+      hash: trackData.hash?.substring(0, 8) + '...',
+      normalized: {
+        title: trackData.normalized_title,
+        artist: trackData.normalized_artist,
+        core_title: trackData.core_title,
+        primary_artist: trackData.primary_artist,
+        version_info: trackData.version_info || 'none',
+        remixer: trackData.remixer || 'none'
+      }
     });
 
     return trackData;
   } catch (error) {
     console.error(`❌ Failed to extract metadata from ${file.name}:`, error);
+    
+    // Apply normalization even for failed extractions (with null values)
+    const normalizationService = new NormalizationService();
+    const normalized = normalizationService.processMetadata(null, null);
     
     // Return track with all metadata fields as null (no filename fallback)
     return {
@@ -282,6 +315,14 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       hash: await generateFileHash(file),
       file_size: file.size,
       last_modified: new Date(file.lastModified).toISOString(),
+      // Normalized fields (empty when extraction fails, map camelCase to snake_case)
+      normalized_title: normalized.normalizedTitle,
+      normalized_artist: normalized.normalizedArtist,
+      core_title: normalized.coreTitle,
+      version_info: normalized.versionInfo,
+      primary_artist: normalized.primaryArtist,
+      featured_artists: normalized.featuredArtists,
+      remixer: normalized.remixer,
     };
   }
 };
