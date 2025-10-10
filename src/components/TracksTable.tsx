@@ -394,6 +394,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                     </div>
                   </TableHead>
                   <TableHead>Remixer</TableHead>
+                  <TableHead>Album</TableHead>
                   <TableHead>Common Genre</TableHead>
                   <TableHead>Spotify Genre</TableHead>
                   <TableHead 
@@ -429,6 +430,11 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                     </TableCell>
                     <TableCell>
                       {track.remixer || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      <div className="max-w-[150px] truncate" title={track.album || 'Unknown'}>
+                        {track.album || <span className="text-muted-foreground">Unknown</span>}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {track.super_genre ? (
