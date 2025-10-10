@@ -597,7 +597,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                     <div className="max-w-[230px] truncate" title={track.title || track.file_path}>
                       {track.title || <span className="text-muted-foreground">No title</span>}
                     </div>
-                    <div className="text-xs text-muted-foreground max-w-[230px] truncate" title={track.file_path}>
+                    <div className="text-[10px] text-muted-foreground/40 max-w-[230px] truncate mt-0.5" title={track.file_path}>
                       {track.file_path.split('/').pop()}
                     </div>
                   </TableCell>
