@@ -40,6 +40,7 @@ interface SpotifyTrack {
   year: number | null;
   added_at: string | null;
   spotify_id: string;
+  remixer: string | null;
 }
 
 interface TracksTableProps {
@@ -405,6 +406,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                       )}
                     </div>
                   </TableHead>
+                  <TableHead>Remixer</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -448,6 +450,9 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                     </TableCell>
                     <TableCell>
                       {track.year || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      {track.remixer || <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell>
                       {track.spotify_id ? (

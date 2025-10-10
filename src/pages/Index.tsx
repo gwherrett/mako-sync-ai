@@ -27,6 +27,7 @@ interface SpotifyTrack {
   year: number | null;
   added_at: string | null;
   spotify_id: string;
+  remixer: string | null;
 }
 
 interface LocalTrack {
@@ -46,6 +47,7 @@ interface LocalTrack {
   hash: string | null;
   rating: number | null;
   play_count: number | null;
+  remixer: string | null;
 }
 
 const Index = () => {

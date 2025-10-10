@@ -50,6 +50,7 @@ interface LocalTrack {
   hash: string | null;
   rating: number | null;
   play_count: number | null;
+  remixer: string | null;
 }
 
 interface LocalTracksTableProps {
@@ -573,6 +574,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                   </div>
                 </TableHead>
                  <TableHead>BPM</TableHead>
+                <TableHead>Remixer</TableHead>
                 <TableHead>Format</TableHead>
                 <TableHead>Bitrate</TableHead>
                 <TableHead>Size</TableHead>
@@ -625,6 +627,9 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                      ) : (
                        <span className="text-muted-foreground">—</span>
                      )}
+                   </TableCell>
+                   <TableCell>
+                     {track.remixer || <span className="text-muted-foreground">—</span>}
                    </TableCell>
                    <TableCell>
                      <Badge variant="outline">
