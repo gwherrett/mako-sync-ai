@@ -573,7 +573,6 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                   </div>
                 </TableHead>
                  <TableHead>BPM</TableHead>
-                <TableHead>Key</TableHead>
                 <TableHead>Format</TableHead>
                 <TableHead>Bitrate</TableHead>
                 <TableHead>Size</TableHead>
@@ -622,15 +621,6 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                      {track.bpm ? (
                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-400 border-blue-500/30">
                          {track.bpm} BPM
-                       </Badge>
-                     ) : (
-                       <span className="text-muted-foreground">—</span>
-                     )}
-                   </TableCell>
-                   <TableCell>
-                     {track.key ? (
-                       <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-purple-500/30">
-                         {track.key}
                        </Badge>
                      ) : (
                        <span className="text-muted-foreground">—</span>
