@@ -84,7 +84,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
   const [genres, setGenres] = useState<string[]>([]);
   const [fileFormats, setFileFormats] = useState<string[]>([]);
   
-  const tracksPerPage = 50;
+  const tracksPerPage = 100;
   const { toast } = useToast();
 
   useEffect(() => {
