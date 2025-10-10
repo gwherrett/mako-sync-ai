@@ -56,9 +56,10 @@ interface LocalTrack {
 interface LocalTracksTableProps {
   onTrackSelect: (track: LocalTrack) => void;
   selectedTrack: LocalTrack | null;
+  refreshTrigger?: number;
 }
 
-const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProps) => {
+const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: LocalTracksTableProps) => {
   const [tracks, setTracks] = useState<LocalTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -91,7 +92,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
   useEffect(() => {
     fetchTracks();
     fetchFilterOptions();
-  }, [currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata]);
+  }, [currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger]);
 
   // Debounced search
   useEffect(() => {

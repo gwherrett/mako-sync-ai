@@ -53,6 +53,7 @@ interface LocalTrack {
 const Index = () => {
   const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
   const [selectedLocalTrack, setSelectedLocalTrack] = useState<LocalTrack | null>(null);
+  const [localLibraryRefresh, setLocalLibraryRefresh] = useState(0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black">
@@ -174,10 +175,14 @@ const Index = () => {
           <TabsContent value="local" className="space-y-8">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold text-white">Local Library</h3>
-              <LocalScanButton />
+              <LocalScanButton onScanComplete={() => setLocalLibraryRefresh(prev => prev + 1)} />
             </div>
             <FileUploadScanner />
-            <LocalTracksTable onTrackSelect={setSelectedLocalTrack} selectedTrack={selectedLocalTrack} />
+            <LocalTracksTable 
+              onTrackSelect={setSelectedLocalTrack} 
+              selectedTrack={selectedLocalTrack}
+              refreshTrigger={localLibraryRefresh}
+            />
             {selectedLocalTrack && (
               <div className="bg-serato-dark/20 rounded-lg border border-serato-cyan/20 p-6">
                 <h3 className="text-xl font-semibold text-white mb-4">Local Track Details</h3>

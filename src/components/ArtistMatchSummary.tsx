@@ -171,6 +171,7 @@ export function ArtistMatchSummary({ selectedGenre, superGenres }: ArtistMatchSu
                                 .map((track) => (
                                   <div key={track.id} className="text-xs p-2 bg-green-50 rounded border-l-2 border-green-200">
                                     <div className="font-medium">{track.title || 'Unknown Title'}</div>
+                                    <div className="text-muted-foreground">{track.album || 'Unknown Album'}</div>
                                   </div>
                                 ))}
                             </div>

@@ -3,8 +3,12 @@ import { Loader2, FolderSearch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLocalScanner } from '@/hooks/useLocalScanner';
 
-const LocalScanButton = () => {
-  const { isScanning, scanLocalFiles, scanProgress } = useLocalScanner();
+interface LocalScanButtonProps {
+  onScanComplete?: () => void;
+}
+
+const LocalScanButton = ({ onScanComplete }: LocalScanButtonProps) => {
+  const { isScanning, scanLocalFiles, scanProgress } = useLocalScanner(onScanComplete);
 
   return (
     <Button 

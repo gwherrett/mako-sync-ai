@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { scanDirectoryForLocalFiles } from '@/services/fileScanner';
 import { extractMetadataBatch, ScannedTrack } from '@/services/metadataExtractor';
 
-export const useLocalScanner = () => {
+export const useLocalScanner = (onScanComplete?: () => void) => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
   const { toast } = useToast();
@@ -104,6 +104,11 @@ export const useLocalScanner = () => {
         title: "Scan Complete",
         description: `Successfully scanned ${scannedTracks.length} local files.`,
       });
+
+      // Trigger refresh callback
+      if (onScanComplete) {
+        onScanComplete();
+      }
 
     } catch (error: any) {
       console.error('❌ Scan error:', error);
