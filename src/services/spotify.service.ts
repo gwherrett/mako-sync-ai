@@ -23,6 +23,28 @@ export class SpotifyService {
       }
 
       if (data) {
+        // Check if connection needs migration to vault
+        if (data.access_token && !data.access_token.includes('VAULT') && !data.access_token.includes('ENCRYPTED') 
+            && !data.access_token_secret_id) {
+          console.log('⚠️ Connection has plain text tokens - triggering automatic migration...');
+          
+          // Trigger migration in background
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            supabase.functions.invoke('migrate-spotify-tokens', {
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            }).then(response => {
+              if (response.error) {
+                console.error('Background migration failed:', response.error);
+              } else {
+                console.log('✅ Background migration successful');
+              }
+            });
+          }
+        }
+        
         return { connection: data as SpotifyConnection, isConnected: true };
       }
 

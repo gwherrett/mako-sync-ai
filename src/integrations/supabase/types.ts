@@ -190,12 +190,14 @@ export type Database = {
       spotify_connections: {
         Row: {
           access_token: string
+          access_token_secret_id: string | null
           created_at: string | null
           display_name: string | null
           email: string | null
           expires_at: string
           id: string
           refresh_token: string | null
+          refresh_token_secret_id: string | null
           scope: string | null
           spotify_user_id: string
           token_type: string | null
@@ -204,12 +206,14 @@ export type Database = {
         }
         Insert: {
           access_token: string
+          access_token_secret_id?: string | null
           created_at?: string | null
           display_name?: string | null
           email?: string | null
           expires_at: string
           id?: string
           refresh_token?: string | null
+          refresh_token_secret_id?: string | null
           scope?: string | null
           spotify_user_id: string
           token_type?: string | null
@@ -218,12 +222,14 @@ export type Database = {
         }
         Update: {
           access_token?: string
+          access_token_secret_id?: string | null
           created_at?: string | null
           display_name?: string | null
           email?: string | null
           expires_at?: string
           id?: string
           refresh_token?: string | null
+          refresh_token_secret_id?: string | null
           scope?: string | null
           spotify_user_id?: string
           token_type?: string | null
@@ -435,6 +441,10 @@ export type Database = {
       }
     }
     Functions: {
+      get_spotify_token_from_vault: {
+        Args: { p_secret_id: string }
+        Returns: string
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -445,6 +455,18 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      migrate_connection_to_vault: {
+        Args: { p_connection_id: string }
+        Returns: undefined
+      }
+      store_spotify_token_in_vault: {
+        Args: { p_token_name: string; p_token_value: string; p_user_id: string }
+        Returns: string
+      }
+      update_spotify_token_in_vault: {
+        Args: { p_new_token_value: string; p_secret_id: string }
+        Returns: undefined
       }
     }
     Enums: {

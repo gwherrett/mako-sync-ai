@@ -2,13 +2,25 @@ import type { SpotifyConnection } from './types.ts'
 
 export async function refreshSpotifyToken(connection: SpotifyConnection, supabaseClient: any, userId: string): Promise<string> {
   console.log('Token expired, attempting to refresh...', {
-    refresh_token_available: !!connection.refresh_token,
+    refresh_token_secret_id_available: !!connection.refresh_token_secret_id,
     expires_at: connection.expires_at,
     current_time: new Date().toISOString()
   })
   
-  if (!connection.refresh_token) {
-    throw new Error('Spotify token expired and no refresh token available')
+  if (!connection.refresh_token_secret_id) {
+    throw new Error('Spotify token expired and no refresh token secret ID available')
+  }
+
+  // Retrieve the refresh token from vault
+  console.log('Retrieving refresh token from vault...')
+  const { data: refreshToken, error: vaultError } = await supabaseClient
+    .rpc('get_spotify_token_from_vault', {
+      p_secret_id: connection.refresh_token_secret_id
+    })
+
+  if (vaultError || !refreshToken) {
+    console.error('Failed to retrieve refresh token from vault:', vaultError)
+    throw new Error('Failed to retrieve refresh token from vault')
   }
 
   // Validate client credentials exist
@@ -22,7 +34,7 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
 
   console.log('Making refresh token request...', {
     client_id: clientId.substring(0, 8) + '...',
-    refresh_token: connection.refresh_token.substring(0, 20) + '...'
+    refresh_token: refreshToken.substring(0, 20) + '...'
   })
 
   const refreshResponse = await fetch('https://accounts.spotify.com/api/token', {
@@ -33,7 +45,7 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
     },
     body: new URLSearchParams({
       grant_type: 'refresh_token',
-      refresh_token: connection.refresh_token,
+      refresh_token: refreshToken,
     }),
   })
 
@@ -77,30 +89,52 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
   })
   
   const newAccessToken = refreshData.access_token
-  const newRefreshToken = refreshData.refresh_token || connection.refresh_token
   const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000).toISOString()
 
-  console.log('Updating tokens in database...', {
-    new_expires_at: newExpiresAt,
-    using_new_refresh_token: !!refreshData.refresh_token
-  })
+  console.log('Updating tokens in vault and database...')
 
+  // Update access token in vault
+  const { error: accessTokenUpdateError } = await supabaseClient
+    .rpc('update_spotify_token_in_vault', {
+      p_secret_id: connection.access_token_secret_id,
+      p_new_token_value: newAccessToken
+    })
+
+  if (accessTokenUpdateError) {
+    console.error('Error updating access token in vault:', accessTokenUpdateError)
+    throw new Error('Failed to update access token in vault')
+  }
+
+  // If Spotify provided a new refresh token, update it too
+  if (refreshData.refresh_token) {
+    console.log('Updating refresh token in vault (Spotify provided a new one)...')
+    const { error: refreshTokenUpdateError } = await supabaseClient
+      .rpc('update_spotify_token_in_vault', {
+        p_secret_id: connection.refresh_token_secret_id,
+        p_new_token_value: refreshData.refresh_token
+      })
+
+    if (refreshTokenUpdateError) {
+      console.error('Error updating refresh token in vault:', refreshTokenUpdateError)
+      throw new Error('Failed to update refresh token in vault')
+    }
+  }
+
+  // Update connection metadata (expires_at, updated_at)
   const { error: updateError } = await supabaseClient
     .from('spotify_connections')
     .update({
-      access_token: newAccessToken,
-      refresh_token: newRefreshToken,
       expires_at: newExpiresAt,
       updated_at: new Date().toISOString()
     })
     .eq('user_id', userId)
 
   if (updateError) {
-    console.error('Error updating tokens:', updateError)
-    throw new Error('Failed to update Spotify tokens')
+    console.error('Error updating connection metadata:', updateError)
+    throw new Error('Failed to update connection metadata')
   }
 
-  console.log('Token refreshed successfully')
+  console.log('Token refreshed successfully and stored securely in vault')
   return newAccessToken
 }
 
@@ -122,6 +156,16 @@ export async function getValidAccessToken(connection: SpotifyConnection, supabas
     return await refreshSpotifyToken(connection, supabaseClient, userId)
   }
   
-  console.log('Using existing access token')
-  return connection.access_token
+  console.log('Retrieving existing access token from vault...')
+  const { data: accessToken, error: vaultError } = await supabaseClient
+    .rpc('get_spotify_token_from_vault', {
+      p_secret_id: connection.access_token_secret_id
+    })
+
+  if (vaultError || !accessToken) {
+    console.error('Failed to retrieve access token from vault:', vaultError)
+    throw new Error('Failed to retrieve access token from vault')
+  }
+
+  return accessToken
 }

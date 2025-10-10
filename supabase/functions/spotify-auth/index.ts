@@ -133,13 +133,55 @@ serve(async (req) => {
 
     console.log('✅ Step 17 Complete: Spotify profile retrieved successfully')
 
-    // Store tokens and profile in database
-    console.log('🟢 Step 18: Storing connection in database...')
+    // Store tokens securely in Vault and connection in database
+    console.log('🟢 Step 18: Storing tokens in Vault and connection in database...')
+    
+    // Step 18a: Store access token in vault
+    console.log('🟢 Step 18a: Storing access token in vault...')
+    const { data: accessTokenSecretId, error: accessTokenError } = await supabaseClient
+      .rpc('store_spotify_token_in_vault', {
+        p_user_id: user.id,
+        p_token_name: 'access_token',
+        p_token_value: tokenData.access_token
+      })
+
+    if (accessTokenError) {
+      console.error('❌ Step 18a Failed: Error storing access token in vault:', accessTokenError)
+      return new Response(
+        JSON.stringify({ error: `Failed to store access token securely: ${accessTokenError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('✅ Step 18a Complete: Access token stored in vault')
+
+    // Step 18b: Store refresh token in vault
+    console.log('🟢 Step 18b: Storing refresh token in vault...')
+    const { data: refreshTokenSecretId, error: refreshTokenError } = await supabaseClient
+      .rpc('store_spotify_token_in_vault', {
+        p_user_id: user.id,
+        p_token_name: 'refresh_token',
+        p_token_value: tokenData.refresh_token
+      })
+
+    if (refreshTokenError) {
+      console.error('❌ Step 18b Failed: Error storing refresh token in vault:', refreshTokenError)
+      return new Response(
+        JSON.stringify({ error: `Failed to store refresh token securely: ${refreshTokenError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('✅ Step 18b Complete: Refresh token stored in vault')
+
+    // Step 18c: Store connection with vault references (no plain text tokens!)
     const connectionData = {
       user_id: user.id,
       spotify_user_id: profileData.id,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
+      access_token_secret_id: accessTokenSecretId,
+      refresh_token_secret_id: refreshTokenSecretId,
+      access_token: '***ENCRYPTED_IN_VAULT***', // Placeholder only
+      refresh_token: '***ENCRYPTED_IN_VAULT***', // Placeholder only
       expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
       scope: tokenData.scope,
       token_type: tokenData.token_type || 'Bearer',
@@ -147,11 +189,12 @@ serve(async (req) => {
       email: profileData.email,
     }
 
-    console.log('🟢 Step 18a: Connection data prepared:', {
+    console.log('🟢 Step 18c: Connection data prepared with vault references:', {
       user_id: connectionData.user_id,
       spotify_user_id: connectionData.spotify_user_id,
       display_name: connectionData.display_name,
-      expires_at: connectionData.expires_at
+      expires_at: connectionData.expires_at,
+      has_vault_references: true
     })
 
     const { error: dbError } = await supabaseClient
@@ -159,15 +202,15 @@ serve(async (req) => {
       .upsert(connectionData)
 
     if (dbError) {
-      console.log('❌ Step 18 Failed: Database error:', dbError)
+      console.log('❌ Step 18c Failed: Database error:', dbError)
       return new Response(
         JSON.stringify({ error: `Database error: ${dbError.message}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log('✅ Step 18 Complete: Connection stored in database successfully')
-    console.log('🎉 SPOTIFY AUTH FLOW COMPLETE! User connected successfully.')
+    console.log('✅ Step 18c Complete: Connection stored in database successfully')
+    console.log('🎉 SPOTIFY AUTH FLOW COMPLETE! User connected successfully with encrypted tokens!')
     
     return new Response(
       JSON.stringify({ success: true, message: 'Spotify connected successfully' }),
