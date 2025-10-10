@@ -1,8 +1,19 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, Music, Loader2 } from 'lucide-react';
+import { Upload, X, Music, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { extractMetadataBatch, ScannedTrack } from '@/services/metadataExtractor';
 
@@ -146,6 +157,57 @@ const FileUploadScanner = () => {
     }
   };
 
+  const deleteAllTestData = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to delete test data.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // First, count how many test tracks exist
+      const { count } = await supabase
+        .from('local_mp3s')
+        .select('*', { count: 'exact', head: true })
+        .like('file_path', '[TEST]%');
+
+      if (count === 0) {
+        toast({
+          title: "No Test Data",
+          description: "There are no test tracks to delete.",
+        });
+        return;
+      }
+
+      // Delete all tracks with [TEST] prefix
+      const { error } = await supabase
+        .from('local_mp3s')
+        .delete()
+        .like('file_path', '[TEST]%');
+
+      if (error) {
+        console.error('❌ Delete error:', error);
+        throw error;
+      }
+
+      toast({
+        title: "Success",
+        description: `Deleted ${count} test track${count > 1 ? 's' : ''}.`,
+      });
+
+    } catch (error: any) {
+      console.error('❌ Delete all test data error:', error);
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete test data.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const formatFileSize = (bytes: number) => {
     return (bytes / (1024 * 1024)).toFixed(1);
   };
@@ -153,13 +215,40 @@ const FileUploadScanner = () => {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Upload className="w-5 h-5" />
-          Test Data Upload
-        </CardTitle>
-        <CardDescription>
-          Upload MP3 files for testing metadata extraction and sync functionality
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="w-5 h-5" />
+              Test Data Upload
+            </CardTitle>
+            <CardDescription>
+              Upload MP3 files for testing metadata extraction and sync functionality
+            </CardDescription>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete All Test Data
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete All Test Data?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete all tracks with [TEST] prefix from your library. 
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={deleteAllTestData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete All
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-4">
