@@ -122,10 +122,23 @@ const FileUploadScanner = () => {
       
       console.log('🔄 Tracks normalized during upload');
       
+      // Deduplicate by hash to avoid "ON CONFLICT DO UPDATE command cannot affect row a second time" error
+      const uniqueTracks = tracksWithUserId.reduce((acc, track) => {
+        if (track.hash && !acc.some(existing => existing.hash === track.hash)) {
+          acc.push(track);
+        } else if (!track.hash) {
+          // Keep tracks without hash (they'll be handled by database constraints)
+          acc.push(track);
+        }
+        return acc;
+      }, [] as typeof tracksWithUserId);
+      
+      console.log(`💾 Inserting ${uniqueTracks.length} unique tracks (${tracksWithUserId.length - uniqueTracks.length} duplicates removed)...`);
+      
       // Insert tracks into database using upsert to handle duplicates
       const { error } = await supabase
         .from('local_mp3s')
-        .upsert(tracksWithUserId, { 
+        .upsert(uniqueTracks, { 
           onConflict: 'hash',
           ignoreDuplicates: false 
         });
