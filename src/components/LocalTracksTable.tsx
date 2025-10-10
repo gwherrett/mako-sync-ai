@@ -560,6 +560,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                     )}
                   </div>
                 </TableHead>
+                <TableHead>Remixer</TableHead>
                 <TableHead>Album</TableHead>
                 <TableHead>Genre</TableHead>
                 <TableHead 
@@ -574,7 +575,6 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                   </div>
                 </TableHead>
                  <TableHead>BPM</TableHead>
-                <TableHead>Remixer</TableHead>
                 <TableHead>Format</TableHead>
                 <TableHead>Bitrate</TableHead>
                 <TableHead>Size</TableHead>
@@ -609,6 +609,9 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                     </div>
                   </TableCell>
                   <TableCell>
+                    {track.remixer || <span className="text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell>
                     <div className="max-w-[150px] truncate" title={track.album || 'Unknown'}>
                       {track.album || <span className="text-muted-foreground">Unknown</span>}
                     </div>
@@ -627,9 +630,6 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack }: LocalTracksTableProp
                      ) : (
                        <span className="text-muted-foreground">—</span>
                      )}
-                   </TableCell>
-                   <TableCell>
-                     {track.remixer || <span className="text-muted-foreground">—</span>}
                    </TableCell>
                    <TableCell>
                      <Badge variant="outline">
