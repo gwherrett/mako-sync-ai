@@ -78,17 +78,15 @@ serve(async (req) => {
     let accessTokenSecretId = null
     let refreshTokenSecretId = null
 
-    // Store access token in vault
+    // Store access token in vault using database function
     if (connection.access_token) {
-      console.log('📝 Storing access token in vault...')
-      const { data: accessSecret, error: accessError } = await supabaseClient
-        .from('vault.secrets')
-        .insert({
-          secret: connection.access_token,
-          description: `Spotify access_token for user ${user.id}`
+      console.log('📝 Storing access token in vault via RPC...')
+      const { data: accessSecretId, error: accessError } = await supabaseClient
+        .rpc('store_spotify_token_in_vault', {
+          p_user_id: user.id,
+          p_token_name: 'access_token',
+          p_token_value: connection.access_token
         })
-        .select('id')
-        .single()
 
       if (accessError) {
         console.error('❌ Failed to store access token in vault:', accessError)
@@ -98,21 +96,19 @@ serve(async (req) => {
         )
       }
 
-      accessTokenSecretId = accessSecret.id
+      accessTokenSecretId = accessSecretId
       console.log('✅ Access token stored with ID:', accessTokenSecretId)
     }
 
-    // Store refresh token in vault
+    // Store refresh token in vault using database function
     if (connection.refresh_token) {
-      console.log('📝 Storing refresh token in vault...')
-      const { data: refreshSecret, error: refreshError } = await supabaseClient
-        .from('vault.secrets')
-        .insert({
-          secret: connection.refresh_token,
-          description: `Spotify refresh_token for user ${user.id}`
+      console.log('📝 Storing refresh token in vault via RPC...')
+      const { data: refreshSecretId, error: refreshError } = await supabaseClient
+        .rpc('store_spotify_token_in_vault', {
+          p_user_id: user.id,
+          p_token_name: 'refresh_token',
+          p_token_value: connection.refresh_token
         })
-        .select('id')
-        .single()
 
       if (refreshError) {
         console.error('❌ Failed to store refresh token in vault:', refreshError)
@@ -122,7 +118,7 @@ serve(async (req) => {
         )
       }
 
-      refreshTokenSecretId = refreshSecret.id
+      refreshTokenSecretId = refreshSecretId
       console.log('✅ Refresh token stored with ID:', refreshTokenSecretId)
     }
 
