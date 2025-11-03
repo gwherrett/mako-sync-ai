@@ -73,18 +73,76 @@ serve(async (req) => {
       )
     }
 
-    console.log('🔄 Migrating connection to vault...')
+    console.log('🔄 Migrating tokens to vault using service role...')
 
-    // Call the migration function
-    const { error: migrationError } = await supabaseClient
-      .rpc('migrate_connection_to_vault', {
-        p_connection_id: connection.id
+    let accessTokenSecretId = null
+    let refreshTokenSecretId = null
+
+    // Store access token in vault
+    if (connection.access_token) {
+      console.log('📝 Storing access token in vault...')
+      const { data: accessSecret, error: accessError } = await supabaseClient
+        .from('vault.secrets')
+        .insert({
+          secret: connection.access_token,
+          description: `Spotify access_token for user ${user.id}`
+        })
+        .select('id')
+        .single()
+
+      if (accessError) {
+        console.error('❌ Failed to store access token in vault:', accessError)
+        return new Response(
+          JSON.stringify({ error: `Failed to store access token: ${accessError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      accessTokenSecretId = accessSecret.id
+      console.log('✅ Access token stored with ID:', accessTokenSecretId)
+    }
+
+    // Store refresh token in vault
+    if (connection.refresh_token) {
+      console.log('📝 Storing refresh token in vault...')
+      const { data: refreshSecret, error: refreshError } = await supabaseClient
+        .from('vault.secrets')
+        .insert({
+          secret: connection.refresh_token,
+          description: `Spotify refresh_token for user ${user.id}`
+        })
+        .select('id')
+        .single()
+
+      if (refreshError) {
+        console.error('❌ Failed to store refresh token in vault:', refreshError)
+        return new Response(
+          JSON.stringify({ error: `Failed to store refresh token: ${refreshError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      refreshTokenSecretId = refreshSecret.id
+      console.log('✅ Refresh token stored with ID:', refreshTokenSecretId)
+    }
+
+    // Update connection with vault references
+    console.log('📝 Updating connection with vault secret IDs...')
+    const { error: updateError } = await supabaseClient
+      .from('spotify_connections')
+      .update({
+        access_token_secret_id: accessTokenSecretId,
+        refresh_token_secret_id: refreshTokenSecretId,
+        access_token: '***MIGRATED_TO_VAULT***',
+        refresh_token: '***MIGRATED_TO_VAULT***',
+        updated_at: new Date().toISOString()
       })
+      .eq('id', connection.id)
 
-    if (migrationError) {
-      console.error('❌ Migration failed:', migrationError)
+    if (updateError) {
+      console.error('❌ Failed to update connection:', updateError)
       return new Response(
-        JSON.stringify({ error: `Migration failed: ${migrationError.message}` }),
+        JSON.stringify({ error: `Failed to update connection: ${updateError.message}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

@@ -138,40 +138,46 @@ serve(async (req) => {
     
     // Step 18a: Store access token in vault
     console.log('🟢 Step 18a: Storing access token in vault...')
-    const { data: accessTokenSecretId, error: accessTokenError } = await supabaseClient
-      .rpc('store_spotify_token_in_vault', {
-        p_user_id: user.id,
-        p_token_name: 'access_token',
-        p_token_value: tokenData.access_token
+    const { data: accessTokenSecret, error: accessTokenError } = await supabaseClient
+      .from('vault.secrets')
+      .insert({
+        secret: tokenData.access_token,
+        description: `Spotify access_token for user ${user.id}`
       })
+      .select('id')
+      .single()
 
-    if (accessTokenError) {
+    if (accessTokenError || !accessTokenSecret) {
       console.error('❌ Step 18a Failed: Error storing access token in vault:', accessTokenError)
       return new Response(
-        JSON.stringify({ error: `Failed to store access token securely: ${accessTokenError.message}` }),
+        JSON.stringify({ error: `Failed to store access token securely: ${accessTokenError?.message || 'Unknown error'}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    const accessTokenSecretId = accessTokenSecret.id
     console.log('✅ Step 18a Complete: Access token stored in vault')
 
     // Step 18b: Store refresh token in vault
     console.log('🟢 Step 18b: Storing refresh token in vault...')
-    const { data: refreshTokenSecretId, error: refreshTokenError } = await supabaseClient
-      .rpc('store_spotify_token_in_vault', {
-        p_user_id: user.id,
-        p_token_name: 'refresh_token',
-        p_token_value: tokenData.refresh_token
+    const { data: refreshTokenSecret, error: refreshTokenError } = await supabaseClient
+      .from('vault.secrets')
+      .insert({
+        secret: tokenData.refresh_token,
+        description: `Spotify refresh_token for user ${user.id}`
       })
+      .select('id')
+      .single()
 
-    if (refreshTokenError) {
+    if (refreshTokenError || !refreshTokenSecret) {
       console.error('❌ Step 18b Failed: Error storing refresh token in vault:', refreshTokenError)
       return new Response(
-        JSON.stringify({ error: `Failed to store refresh token securely: ${refreshTokenError.message}` }),
+        JSON.stringify({ error: `Failed to store refresh token securely: ${refreshTokenError?.message || 'Unknown error'}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    const refreshTokenSecretId = refreshTokenSecret.id
     console.log('✅ Step 18b Complete: Refresh token stored in vault')
 
     // Step 18c: Store connection with vault references (no plain text tokens!)

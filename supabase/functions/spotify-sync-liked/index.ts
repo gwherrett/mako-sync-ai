@@ -23,10 +23,17 @@ serve(async (req) => {
     console.log('Request method:', req.method)
     console.log('Request headers:', Object.fromEntries(req.headers.entries()))
     
+    // Create client for user auth and RLS-protected operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    )
+
+    // Create admin client for vault operations (needs service_role)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
     const { data: { user } } = await supabaseClient.auth.getUser()
@@ -38,8 +45,8 @@ serve(async (req) => {
       )
     }
 
-    // Get user's Spotify connection
-    const { data: connection, error: connectionError } = await supabaseClient
+    // Get user's Spotify connection using admin client for vault access
+    const { data: connection, error: connectionError } = await supabaseAdmin
       .from('spotify_connections')
       .select('*')
       .eq('user_id', user.id)
@@ -59,16 +66,16 @@ serve(async (req) => {
       created_at: connection.created_at
     })
 
-    // Get valid access token (refresh if needed)
+    // Get valid access token (refresh if needed) - use admin client for vault access
     let accessToken
     try {
-      accessToken = await getValidAccessToken(connection as SpotifyConnection, supabaseClient, user.id)
+      accessToken = await getValidAccessToken(connection as SpotifyConnection, supabaseAdmin, user.id)
       console.log('Access token obtained successfully')
     } catch (error: any) {
       console.error('Failed to get valid access token:', error)
       if (error.message.includes('refresh token is invalid')) {
         // Clear the invalid connection
-        await supabaseClient
+        await supabaseAdmin
           .from('spotify_connections')
           .delete()
           .eq('user_id', user.id)
