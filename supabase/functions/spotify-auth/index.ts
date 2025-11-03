@@ -149,45 +149,37 @@ serve(async (req) => {
     // Store tokens securely in Vault and connection in database
     console.log('🟢 Step 18: Storing tokens in Vault and connection in database...')
     
-    // Step 18a: Store access token in vault (using PostgREST with service role)
-    console.log('🟢 Step 18a: Storing access token in vault via PostgREST...')
+    // Step 18a: Store access token in vault (using database function)
+    console.log('🟢 Step 18a: Storing access token in vault via database function...')
     
-    const { data: accessTokenSecret, error: accessTokenError } = await supabaseAdmin
-      .from('secrets')
-      .insert({
-        secret: tokenData.access_token,
-        description: `Spotify access_token for user ${user.id}`
+    const { data: accessTokenSecretId, error: accessTokenError } = await supabaseAdmin
+      .rpc('store_spotify_token_in_vault', {
+        p_user_id: user.id,
+        p_token_name: 'access_token',
+        p_token_value: tokenData.access_token
       })
-      .select('id')
-      .single()
 
-    if (accessTokenError || !accessTokenSecret) {
+    if (accessTokenError) {
       console.error('❌ Step 18a Failed: Error storing access token:', accessTokenError)
       // Fall back to storing in spotify_connections without vault
       console.log('⚠️ Falling back to non-vault storage...')
     }
-
-    const accessTokenSecretId = accessTokenSecret?.id || null
     console.log('✅ Step 18a Complete:', accessTokenSecretId ? `Access token stored in vault, ID: ${accessTokenSecretId}` : 'Storing without vault')
 
     // Step 18b: Store refresh token in vault
-    console.log('🟢 Step 18b: Storing refresh token in vault via PostgREST...')
+    console.log('🟢 Step 18b: Storing refresh token in vault via database function...')
     
-    const { data: refreshTokenSecret, error: refreshTokenError } = await supabaseAdmin
-      .from('secrets')
-      .insert({
-        secret: tokenData.refresh_token,
-        description: `Spotify refresh_token for user ${user.id}`
+    const { data: refreshTokenSecretId, error: refreshTokenError } = await supabaseAdmin
+      .rpc('store_spotify_token_in_vault', {
+        p_user_id: user.id,
+        p_token_name: 'refresh_token',
+        p_token_value: tokenData.refresh_token
       })
-      .select('id')
-      .single()
 
-    if (refreshTokenError || !refreshTokenSecret) {
+    if (refreshTokenError) {
       console.error('❌ Step 18b Failed: Error storing refresh token:', refreshTokenError)
       console.log('⚠️ Falling back to non-vault storage...')
     }
-
-    const refreshTokenSecretId = refreshTokenSecret?.id || null
     console.log('✅ Step 18b Complete:', refreshTokenSecretId ? `Refresh token stored in vault, ID: ${refreshTokenSecretId}` : 'Storing without vault')
 
     // Step 18c: Store connection with vault references or plain tokens as fallback
