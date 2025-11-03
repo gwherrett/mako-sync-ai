@@ -162,14 +162,14 @@ export function ArtistMatchSummary({ selectedGenre, superGenres }: ArtistMatchSu
                         <div className="grid md:grid-cols-2 gap-4">
                           {/* Local Tracks */}
                           <div>
-                            <h5 className="font-medium text-sm mb-2 text-green-600">
+                            <h5 className="font-medium text-sm mb-2 text-primary">
                               Local Tracks ({match.localTracks.length})
                             </h5>
                             <div className="space-y-1 max-h-32 overflow-y-auto">
                               {match.localTracks
                                 .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
                                 .map((track) => (
-                                <div key={track.id} className="text-xs p-2 bg-green-50 rounded border-l-2 border-green-200">
+                                <div key={track.id} className="text-xs p-2 bg-muted/50 text-foreground rounded border-l-2 border-primary/50">
                                   {track.title || 'Unknown Title'}
                                 </div>
                                 ))}
@@ -178,12 +178,12 @@ export function ArtistMatchSummary({ selectedGenre, superGenres }: ArtistMatchSu
 
                           {/* Spotify Tracks */}
                           <div>
-                            <h5 className="font-medium text-sm mb-2 text-blue-600">
+                            <h5 className="font-medium text-sm mb-2 text-[#1DB954]">
                               Spotify Tracks ({match.spotifyTracks.length})
                             </h5>
                             <div className="space-y-1 max-h-32 overflow-y-auto">
                               {match.spotifyTracks.map((track) => (
-                                <div key={track.id} className="text-xs p-2 bg-blue-50 rounded border-l-2 border-blue-200">
+                                <div key={track.id} className="text-xs p-2 bg-muted/50 text-foreground rounded border-l-2 border-[#1DB954]/50">
                                   {track.title}
                                 </div>
                               ))}
