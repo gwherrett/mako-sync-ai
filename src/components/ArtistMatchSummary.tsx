@@ -169,10 +169,9 @@ export function ArtistMatchSummary({ selectedGenre, superGenres }: ArtistMatchSu
                               {match.localTracks
                                 .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
                                 .map((track) => (
-                                  <div key={track.id} className="text-xs p-2 bg-green-50 rounded border-l-2 border-green-200">
-                                    <div className="font-medium">{track.title || 'Unknown Title'}</div>
-                                    <div className="text-muted-foreground">{track.album || 'Unknown Album'}</div>
-                                  </div>
+                                <div key={track.id} className="text-xs p-2 bg-green-50 rounded border-l-2 border-green-200">
+                                  {track.title || 'Unknown Title'}
+                                </div>
                                 ))}
                             </div>
                           </div>
@@ -185,8 +184,7 @@ export function ArtistMatchSummary({ selectedGenre, superGenres }: ArtistMatchSu
                             <div className="space-y-1 max-h-32 overflow-y-auto">
                               {match.spotifyTracks.map((track) => (
                                 <div key={track.id} className="text-xs p-2 bg-blue-50 rounded border-l-2 border-blue-200">
-                                  <div className="font-medium">{track.title}</div>
-                                  <div className="text-muted-foreground">{track.album || 'Unknown Album'}</div>
+                                  {track.title}
                                 </div>
                               ))}
                             </div>
