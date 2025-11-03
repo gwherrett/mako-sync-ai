@@ -118,8 +118,8 @@ serve(async (req) => {
     // Process and prepare songs for database insertion
     const songsToInsert = processSongsData(allTracks, user.id, artistGenreMap, genreMapping)
 
-    // Clear existing songs and insert new ones
-    const insertedCount = await clearAndInsertSongs(songsToInsert, user.id, supabaseClient)
+    // Clear existing songs and insert new ones - use admin client to bypass RLS
+    const insertedCount = await clearAndInsertSongs(songsToInsert, user.id, supabaseAdmin)
 
     return new Response(
       JSON.stringify({ 
