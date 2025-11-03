@@ -11,6 +11,7 @@ interface LocalTrack {
   id: string;
   title: string | null;
   artist: string | null;
+  primary_artist: string | null;
   album: string | null;
   genre: string | null;
   file_path: string;
@@ -20,6 +21,7 @@ interface SpotifyTrack {
   id: string;
   title: string;
   artist: string;
+  primary_artist: string | null;
   album: string | null;
   genre: string | null;
   super_genre: string | null;
@@ -40,29 +42,25 @@ export class TrackMatchingService {
       .trim();
   }
 
-  // Enhanced artist normalization for better matching
+  // Simplified artist normalization - just basic cleanup since primary_artist is pre-normalized
   private static normalizeArtist(artist: string | null): string {
     if (!artist) return '';
     
     return artist.toLowerCase()
-      // Handle featuring variations
-      .replace(/\s+(feat|ft|featuring|with)\s+.*/g, '') // Remove featuring artists
-      .replace(/\s*\(.*?\)\s*/g, '') // Remove parenthetical content
-      .replace(/\s*\[.*?\]\s*/g, '') // Remove bracketed content
       .replace(/[^\w\s]/g, '') // Remove special characters
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
   }
 
-  // Enhanced artist similarity matching
-  private static compareArtists(localArtist: string | null, spotifyArtist: string | null): {
+  // Compare primary artists (already normalized in DB)
+  private static compareArtists(localPrimaryArtist: string | null, spotifyPrimaryArtist: string | null): {
     exactMatch: boolean;
     similarity: number;
     normalizedLocal: string;
     normalizedSpotify: string;
   } {
-    const normalizedLocal = this.normalizeArtist(localArtist);
-    const normalizedSpotify = this.normalizeArtist(spotifyArtist);
+    const normalizedLocal = this.normalizeArtist(localPrimaryArtist);
+    const normalizedSpotify = this.normalizeArtist(spotifyPrimaryArtist);
     
     // Check for exact match first
     if (normalizedLocal === normalizedSpotify) {
@@ -125,7 +123,7 @@ export class TrackMatchingService {
     return maxLength === 0 ? 100 : ((maxLength - distance) / maxLength) * 100;
   }
 
-  // Exact match algorithm with enhanced artist matching
+  // Exact match algorithm using primary artists
   private static exactMatch(local: LocalTrack, spotify: SpotifyTrack): number {
     const localTitle = this.normalize(local.title);
     const localAlbum = this.normalize(local.album);
@@ -133,7 +131,7 @@ export class TrackMatchingService {
     const spotifyTitle = this.normalize(spotify.title);
     const spotifyAlbum = this.normalize(spotify.album);
 
-    const artistComparison = this.compareArtists(local.artist, spotify.artist);
+    const artistComparison = this.compareArtists(local.primary_artist, spotify.primary_artist);
 
     if (localTitle === spotifyTitle && artistComparison.exactMatch) {
       // Give a small bonus if albums also match, but don't require it
@@ -147,12 +145,12 @@ export class TrackMatchingService {
     return 0;
   }
 
-  // Close match algorithm (title + artist) with enhanced artist matching
+  // Close match algorithm using primary artists
   private static closeMatch(local: LocalTrack, spotify: SpotifyTrack): number {
     const localTitle = this.normalize(local.title);
     const spotifyTitle = this.normalize(spotify.title);
 
-    const artistComparison = this.compareArtists(local.artist, spotify.artist);
+    const artistComparison = this.compareArtists(local.primary_artist, spotify.primary_artist);
 
     if (localTitle === spotifyTitle && artistComparison.exactMatch) {
       console.log(`🎯 Close match found: "${local.title}" by "${artistComparison.normalizedLocal}"`);
@@ -161,12 +159,12 @@ export class TrackMatchingService {
     return 0;
   }
 
-  // Fuzzy match algorithm with enhanced artist matching
+  // Fuzzy match algorithm using primary artists
   private static fuzzyMatch(local: LocalTrack, spotify: SpotifyTrack): number {
     const localTitle = this.normalize(local.title);
     const spotifyTitle = this.normalize(spotify.title);
 
-    const artistComparison = this.compareArtists(local.artist, spotify.artist);
+    const artistComparison = this.compareArtists(local.primary_artist, spotify.primary_artist);
 
     if (!localTitle || !spotifyTitle || !artistComparison.normalizedLocal || !artistComparison.normalizedSpotify) {
       return 0;
@@ -184,9 +182,9 @@ export class TrackMatchingService {
     return 0;
   }
 
-  // Enhanced artist-only match with similarity scoring
+  // Artist-only match using primary artists
   private static artistOnlyMatch(local: LocalTrack, spotify: SpotifyTrack): number {
-    const artistComparison = this.compareArtists(local.artist, spotify.artist);
+    const artistComparison = this.compareArtists(local.primary_artist, spotify.primary_artist);
 
     // Exact artist match
     if (artistComparison.exactMatch) {
@@ -248,7 +246,7 @@ export class TrackMatchingService {
   static async fetchLocalTracks(userId: string): Promise<LocalTrack[]> {
     const { data, error } = await supabase
       .from('local_mp3s')
-      .select('id, title, artist, album, genre, file_path')
+      .select('id, title, artist, primary_artist, album, genre, file_path')
       .eq('user_id', userId)
       .limit(50000); // Override default 1000 limit to handle large collections
 
@@ -264,7 +262,7 @@ export class TrackMatchingService {
   static async fetchSpotifyTracks(userId: string, superGenreFilter?: string): Promise<SpotifyTrack[]> {
     let query = supabase
       .from('spotify_liked')
-      .select('id, title, artist, album, genre, super_genre')
+      .select('id, title, artist, primary_artist, album, genre, super_genre')
       .eq('user_id', userId)
       .limit(50000); // Override default 1000 limit to handle large collections
 
@@ -377,10 +375,10 @@ export class TrackMatchingService {
       similarity: number;
     }>();
 
-    // Group local tracks by normalized artist
+    // Group local tracks by primary artist
     const localArtists = new Map<string, LocalTrack[]>();
     localTracks.forEach(track => {
-      const normalizedArtist = this.normalizeArtist(track.artist);
+      const normalizedArtist = this.normalizeArtist(track.primary_artist);
       if (normalizedArtist) {
         if (!localArtists.has(normalizedArtist)) {
           localArtists.set(normalizedArtist, []);
@@ -391,7 +389,7 @@ export class TrackMatchingService {
 
     // Find matching artists in Spotify tracks
     spotifyTracks.forEach(spotifyTrack => {
-      const spotifyArtistNormalized = this.normalizeArtist(spotifyTrack.artist);
+      const spotifyArtistNormalized = this.normalizeArtist(spotifyTrack.primary_artist);
       
       for (const [localArtist, localTracksForArtist] of localArtists.entries()) {
         const comparison = this.compareArtists(localArtist, spotifyArtistNormalized);
