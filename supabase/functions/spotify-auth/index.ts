@@ -14,12 +14,25 @@ serve(async (req) => {
 
   try {
     console.log('🟢 Step 14: spotify-auth edge function called')
-    console.log('🟢 Step 14a: Initializing Supabase client...')
+    console.log('🟢 Step 14a: Initializing Supabase clients...')
     
+    // Client for user authentication
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    )
+
+    // Admin client for vault operations (requires service_role key)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
     )
 
     const { data: { user } } = await supabaseClient.auth.getUser()
@@ -136,9 +149,9 @@ serve(async (req) => {
     // Store tokens securely in Vault and connection in database
     console.log('🟢 Step 18: Storing tokens in Vault and connection in database...')
     
-    // Step 18a: Store access token in vault
+    // Step 18a: Store access token in vault (using admin client for vault access)
     console.log('🟢 Step 18a: Storing access token in vault...')
-    const { data: accessTokenSecret, error: accessTokenError } = await supabaseClient
+    const { data: accessTokenSecret, error: accessTokenError } = await supabaseAdmin
       .from('vault.secrets')
       .insert({
         secret: tokenData.access_token,
@@ -158,9 +171,9 @@ serve(async (req) => {
     const accessTokenSecretId = accessTokenSecret.id
     console.log('✅ Step 18a Complete: Access token stored in vault')
 
-    // Step 18b: Store refresh token in vault
+    // Step 18b: Store refresh token in vault (using admin client for vault access)
     console.log('🟢 Step 18b: Storing refresh token in vault...')
-    const { data: refreshTokenSecret, error: refreshTokenError } = await supabaseClient
+    const { data: refreshTokenSecret, error: refreshTokenError } = await supabaseAdmin
       .from('vault.secrets')
       .insert({
         secret: tokenData.refresh_token,
