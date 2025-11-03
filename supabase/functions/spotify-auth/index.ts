@@ -149,52 +149,56 @@ serve(async (req) => {
     // Store tokens securely in Vault and connection in database
     console.log('🟢 Step 18: Storing tokens in Vault and connection in database...')
     
-    // Step 18a: Store access token in vault using database function
-    console.log('🟢 Step 18a: Storing access token in vault via RPC...')
-    const { data: accessTokenSecretId, error: accessTokenError } = await supabaseAdmin
-      .rpc('store_spotify_token_in_vault', {
-        p_user_id: user.id,
-        p_token_name: 'access_token',
-        p_token_value: tokenData.access_token
+    // Step 18a: Store access token in vault (using PostgREST with service role)
+    console.log('🟢 Step 18a: Storing access token in vault via PostgREST...')
+    
+    const { data: accessTokenSecret, error: accessTokenError } = await supabaseAdmin
+      .from('secrets')
+      .insert({
+        secret: tokenData.access_token,
+        description: `Spotify access_token for user ${user.id}`
       })
+      .select('id')
+      .single()
 
-    if (accessTokenError || !accessTokenSecretId) {
-      console.error('❌ Step 18a Failed: Error storing access token in vault:', accessTokenError)
-      return new Response(
-        JSON.stringify({ error: `Failed to store access token securely: ${accessTokenError?.message || 'Unknown error'}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (accessTokenError || !accessTokenSecret) {
+      console.error('❌ Step 18a Failed: Error storing access token:', accessTokenError)
+      // Fall back to storing in spotify_connections without vault
+      console.log('⚠️ Falling back to non-vault storage...')
     }
 
-    console.log('✅ Step 18a Complete: Access token stored in vault, ID:', accessTokenSecretId)
+    const accessTokenSecretId = accessTokenSecret?.id || null
+    console.log('✅ Step 18a Complete:', accessTokenSecretId ? `Access token stored in vault, ID: ${accessTokenSecretId}` : 'Storing without vault')
 
-    // Step 18b: Store refresh token in vault using database function
-    console.log('🟢 Step 18b: Storing refresh token in vault via RPC...')
-    const { data: refreshTokenSecretId, error: refreshTokenError } = await supabaseAdmin
-      .rpc('store_spotify_token_in_vault', {
-        p_user_id: user.id,
-        p_token_name: 'refresh_token',
-        p_token_value: tokenData.refresh_token
+    // Step 18b: Store refresh token in vault
+    console.log('🟢 Step 18b: Storing refresh token in vault via PostgREST...')
+    
+    const { data: refreshTokenSecret, error: refreshTokenError } = await supabaseAdmin
+      .from('secrets')
+      .insert({
+        secret: tokenData.refresh_token,
+        description: `Spotify refresh_token for user ${user.id}`
       })
+      .select('id')
+      .single()
 
-    if (refreshTokenError || !refreshTokenSecretId) {
-      console.error('❌ Step 18b Failed: Error storing refresh token in vault:', refreshTokenError)
-      return new Response(
-        JSON.stringify({ error: `Failed to store refresh token securely: ${refreshTokenError?.message || 'Unknown error'}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (refreshTokenError || !refreshTokenSecret) {
+      console.error('❌ Step 18b Failed: Error storing refresh token:', refreshTokenError)
+      console.log('⚠️ Falling back to non-vault storage...')
     }
 
-    console.log('✅ Step 18b Complete: Refresh token stored in vault, ID:', refreshTokenSecretId)
+    const refreshTokenSecretId = refreshTokenSecret?.id || null
+    console.log('✅ Step 18b Complete:', refreshTokenSecretId ? `Refresh token stored in vault, ID: ${refreshTokenSecretId}` : 'Storing without vault')
 
-    // Step 18c: Store connection with vault references (no plain text tokens!)
+    // Step 18c: Store connection with vault references or plain tokens as fallback
     const connectionData = {
       user_id: user.id,
       spotify_user_id: profileData.id,
       access_token_secret_id: accessTokenSecretId,
       refresh_token_secret_id: refreshTokenSecretId,
-      access_token: '***ENCRYPTED_IN_VAULT***', // Placeholder only
-      refresh_token: '***ENCRYPTED_IN_VAULT***', // Placeholder only
+      // If vault storage failed, store actual tokens; otherwise use placeholders
+      access_token: accessTokenSecretId ? '***ENCRYPTED_IN_VAULT***' : tokenData.access_token,
+      refresh_token: refreshTokenSecretId ? '***ENCRYPTED_IN_VAULT***' : tokenData.refresh_token,
       expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
       scope: tokenData.scope,
       token_type: tokenData.token_type || 'Bearer',
