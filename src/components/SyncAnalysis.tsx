@@ -456,20 +456,20 @@ const SyncAnalysis = () => {
                                     )}
                                   </div>
                                   <div className="text-sm text-muted-foreground pt-2 border-t">
-                                    {match.score.details}
+                                  {match.score.details}
+                                </div>
+                                {match.localTrack.mix && (
+                                  <div className="text-sm">
+                                    <span className="text-muted-foreground">Local Mix:</span>
+                                    <span className="ml-2">{match.localTrack.mix}</span>
                                   </div>
-                                  {match.localTrack.version_info && (
-                                    <div className="text-sm">
-                                      <span className="text-muted-foreground">Local Version:</span>
-                                      <span className="ml-2">{match.localTrack.version_info}</span>
-                                    </div>
-                                  )}
-                                  {match.spotifyTrack.version_info && (
-                                    <div className="text-sm">
-                                      <span className="text-muted-foreground">Spotify Version:</span>
-                                      <span className="ml-2">{match.spotifyTrack.version_info}</span>
-                                    </div>
-                                  )}
+                                )}
+                                {match.spotifyTrack.mix && (
+                                  <div className="text-sm">
+                                    <span className="text-muted-foreground">Spotify Mix:</span>
+                                    <span className="ml-2">{match.spotifyTrack.mix}</span>
+                                  </div>
+                                )}
                                 </div>
                               </TableCell>
                             </TableRow>

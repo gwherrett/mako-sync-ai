@@ -58,7 +58,6 @@ export type Database = {
           rating: number | null
           title: string | null
           user_id: string | null
-          version_info: string | null
           year: number | null
         }
         Insert: {
@@ -86,7 +85,6 @@ export type Database = {
           rating?: number | null
           title?: string | null
           user_id?: string | null
-          version_info?: string | null
           year?: number | null
         }
         Update: {
@@ -114,7 +112,6 @@ export type Database = {
           rating?: number | null
           title?: string | null
           user_id?: string | null
-          version_info?: string | null
           year?: number | null
         }
         Relationships: []
@@ -309,7 +306,6 @@ export type Database = {
           super_genre: Database["public"]["Enums"]["super_genre"] | null
           title: string
           user_id: string | null
-          version_info: string | null
           year: number | null
         }
         Insert: {
@@ -332,7 +328,6 @@ export type Database = {
           super_genre?: Database["public"]["Enums"]["super_genre"] | null
           title: string
           user_id?: string | null
-          version_info?: string | null
           year?: number | null
         }
         Update: {
@@ -355,7 +350,6 @@ export type Database = {
           super_genre?: Database["public"]["Enums"]["super_genre"] | null
           title?: string
           user_id?: string | null
-          version_info?: string | null
           year?: number | null
         }
         Relationships: []

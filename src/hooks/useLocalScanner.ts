@@ -64,7 +64,6 @@ export const useLocalScanner = (onScanComplete?: () => void) => {
           normalized_title: normalized.normalizedTitle,
           normalized_artist: normalized.normalizedArtist,
           core_title: normalized.coreTitle,
-          version_info: normalized.versionInfo,
           primary_artist: normalized.primaryArtist,
           featured_artists: normalized.featuredArtists,
           mix: normalized.mix,

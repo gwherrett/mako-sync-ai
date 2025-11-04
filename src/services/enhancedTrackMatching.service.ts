@@ -9,7 +9,6 @@ export interface LocalTrack {
   normalized_title?: string | null;
   normalized_artist?: string | null;
   core_title?: string | null;
-  version_info?: string | null;
   primary_artist?: string | null;
   mix?: string | null;
 }
@@ -23,7 +22,6 @@ export interface SpotifyTrack {
   normalized_title?: string | null;
   normalized_artist?: string | null;
   core_title?: string | null;
-  version_info?: string | null;
   primary_artist?: string | null;
   mix?: string | null;
 }
@@ -122,13 +120,13 @@ export class EnhancedTrackMatchingService {
       algorithm = 'Exact Core Match';
       details = 'Perfect match on core title and primary artist';
 
-      // Version bonus
-      if (local.version_info === spotify.version_info) {
+      // Mix bonus
+      if (local.mix === spotify.mix) {
         breakdown.versionBonus = 10;
-        details += '; Same version';
-      } else if (local.version_info && spotify.version_info && local.version_info !== spotify.version_info) {
+        details += '; Same mix';
+      } else if (local.mix && spotify.mix && local.mix !== spotify.mix) {
         breakdown.penalties = -5;
-        details += '; Different versions';
+        details += '; Different mixes';
       }
 
       // Mix bonus
@@ -156,8 +154,8 @@ export class EnhancedTrackMatchingService {
         algorithm = 'Fuzzy Match';
         details = `Title: ${titleSimilarity.toFixed(1)}%, Artist: ${artistSimilarity.toFixed(1)}%`;
 
-        // Version bonus
-        if (local.version_info === spotify.version_info) {
+        // Mix bonus
+        if (local.mix === spotify.mix) {
           breakdown.versionBonus = 5;
         }
 
@@ -264,7 +262,6 @@ export class EnhancedTrackMatchingService {
       normalized_title: metadata.normalizedTitle,
       normalized_artist: metadata.normalizedArtist,
       core_title: metadata.coreTitle,
-      version_info: metadata.versionInfo,
       primary_artist: metadata.primaryArtist,
       featured_artists: metadata.featuredArtists,
       mix: metadata.mix,

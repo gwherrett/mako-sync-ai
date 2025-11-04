@@ -66,7 +66,6 @@ export interface ScannedTrack {
   normalized_title: string;
   normalized_artist: string;
   core_title: string;
-  version_info: string | null;
   primary_artist: string;
   featured_artists: string[];
   mix: string | null;
@@ -265,7 +264,6 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       normalized_title: normalized.normalizedTitle,
       normalized_artist: normalized.normalizedArtist,
       core_title: normalized.coreTitle,
-      version_info: normalized.versionInfo,
       primary_artist: normalized.primaryArtist,
       featured_artists: normalized.featuredArtists,
       mix: normalized.mix,
@@ -288,7 +286,6 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
         artist: trackData.normalized_artist,
         core_title: trackData.core_title,
         primary_artist: trackData.primary_artist,
-        version_info: trackData.version_info || 'none',
         mix: trackData.mix || 'none'
       }
     });
@@ -319,7 +316,6 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       normalized_title: normalized.normalizedTitle,
       normalized_artist: normalized.normalizedArtist,
       core_title: normalized.coreTitle,
-      version_info: normalized.versionInfo,
       primary_artist: normalized.primaryArtist,
       featured_artists: normalized.featuredArtists,
       mix: normalized.mix,

@@ -7,7 +7,6 @@ export interface NormalizedMetadata {
   normalized_title: string;
   normalized_artist: string;
   core_title: string;
-  version_info: string | null;
   primary_artist: string;
   featured_artists: string[];
   mix: string | null;
@@ -88,39 +87,26 @@ function standardizeFeatures(text: string): string {
 }
 
 /**
- * Step 1.5: Extract version information
+ * Step 1.5: Extract mix/version information
+ * Captures the full text from parentheses (e.g., "Radio Edit", "David Guetta Remix", "Live")
  */
-function extractVersionInfo(title: string | null): { core: string; version: string | null; mix: string | null } {
-  if (!title) return { core: '', version: null, mix: null };
+function extractVersionInfo(title: string | null): { core: string; mix: string | null } {
+  if (!title) return { core: '', mix: null };
 
   let core = title;
-  let version: string | null = null;
   let mix: string | null = null;
 
-  // First, check for remixes and extract mix info
-  const remixMatch = remixPattern.exec(title);
-  if (remixMatch) {
-    mix = remixMatch[1].trim();
-    version = `${mix} Remix`;
-    core = title.replace(remixPattern, '').trim();
+  // Extract content from parentheses (any version/mix/remix info)
+  const parenthesesMatch = /\(([^)]+)\)/.exec(title);
+  if (parenthesesMatch) {
+    mix = parenthesesMatch[1].trim();
+    core = title.replace(/\([^)]+\)/g, '').trim();
   }
 
-  // Then check for other version patterns
-  for (const pattern of versionPatterns) {
-    const match = pattern.exec(core);
-    if (match) {
-      if (!version) {
-        version = match[0].replace(/[()]/g, '').trim();
-      }
-      core = core.replace(pattern, '').trim();
-    }
-  }
-
-  // Clean up any remaining parentheses with content
-  core = core.replace(/\([^)]*\)/g, '').trim();
+  // Clean up whitespace
   core = core.replace(/\s+/g, ' ').trim();
 
-  return { core, version, mix };
+  return { core, mix };
 }
 
 /**
@@ -158,8 +144,8 @@ export function normalize(text: string | null): string {
  * Process complete track metadata
  */
 export function processMetadata(title: string | null, artist: string | null): NormalizedMetadata {
-  // Extract version and mix info from title
-  const { core, version, mix } = extractVersionInfo(title);
+  // Extract mix info from title
+  const { core, mix } = extractVersionInfo(title);
   
   // Parse artist information
   const { primary, featured } = parseArtists(artist);
@@ -174,7 +160,6 @@ export function processMetadata(title: string | null, artist: string | null): No
     normalized_title,
     normalized_artist,
     core_title,
-    version_info: version,
     primary_artist,
     featured_artists: featured,
     mix,
