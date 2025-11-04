@@ -88,7 +88,8 @@ function standardizeFeatures(text: string): string {
 
 /**
  * Step 1.5: Extract mix/version information
- * Captures the full text from parentheses (e.g., "Radio Edit", "David Guetta Remix", "Live")
+ * Captures the full text from parentheses or after hyphen separator
+ * Examples: "Title (Vocal Mix)" or "Title - Vocal Mix"
  */
 function extractVersionInfo(title: string | null): { core: string; mix: string | null } {
   if (!title) return { core: '', mix: null };
@@ -96,11 +97,19 @@ function extractVersionInfo(title: string | null): { core: string; mix: string |
   let core = title;
   let mix: string | null = null;
 
-  // Extract content from parentheses (any version/mix/remix info)
+  // First check for parentheses format: "Title (Vocal Mix)"
   const parenthesesMatch = /\(([^)]+)\)/.exec(title);
   if (parenthesesMatch) {
     mix = parenthesesMatch[1].trim();
     core = title.replace(/\([^)]+\)/g, '').trim();
+  }
+  // Then check for hyphen format: "Title - Vocal Mix"
+  else if (title.includes(' - ')) {
+    const parts = title.split(' - ');
+    if (parts.length === 2) {
+      core = parts[0].trim();
+      mix = parts[1].trim();
+    }
   }
 
   // Clean up whitespace
