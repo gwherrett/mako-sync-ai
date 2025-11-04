@@ -13,24 +13,18 @@ export interface NormalizedMetadata {
 }
 
 export class NormalizationService {
-  // Common version/remix patterns
-  private readonly versionPatterns = [
-    /\(live(?:\s+at\s+[^)]+)?\)/gi,
-    /\(live\)/gi,
-    /\(remaster(?:ed)?(?:\s+\d{4})?\)/gi,
-    /\(radio\s+edit\)/gi,
-    /\(original\s+mix\)/gi,
-    /\(extended\s+mix\)/gi,
-    /\(club\s+mix\)/gi,
-    /\(dub\s+mix\)/gi,
-    /\(instrumental\)/gi,
-    /\(acoustic\)/gi,
-    /\(unplugged\)/gi,
-    /\(\d{4}\s+remaster\)/gi,
+  // Mix/version keywords that indicate track version information
+  private readonly mixKeywords = [
+    'remix', 'mix', 'edit', 'rework', 'bootleg', 'mashup',
+    'version', 'radio', 'club', 'extended', 'vocal', 'instrumental', 'dub', 'original',
+    'live', 'acoustic', 'unplugged', 'session',
+    'remaster', 'remastered', 'demo', 'vip'
   ];
 
-  // Remix patterns - capture remixer name
-  private readonly remixPattern = /\(([^)]+)\s+(?:remix|mix|edit)\)/gi;
+  // Artist feature keywords (negative indicators for mix info)
+  private readonly artistKeywords = [
+    'feat', 'ft', 'featuring', 'with', 'performed by'
+  ];
 
   // Feature patterns
   private readonly featurePatterns = [
@@ -95,29 +89,108 @@ export class NormalizationService {
   }
 
   /**
-   * Step 1.5: Extract mix/version information
-   * Captures the full text from parentheses or after hyphen separator
-   * Examples: "Title (Vocal Mix)" or "Title - Vocal Mix"
+   * Extract all metadata pieces from title (parentheses, brackets, hyphen)
+   */
+  private extractMetadataPieces(title: string): Array<{ content: string; type: string; position: number }> {
+    const pieces: Array<{ content: string; type: string; position: number }> = [];
+
+    // Extract from parentheses
+    const parenthesesRegex = /\(([^)]+)\)/g;
+    let match;
+    while ((match = parenthesesRegex.exec(title)) !== null) {
+      pieces.push({ content: match[1].trim(), type: 'parentheses', position: match.index });
+    }
+
+    // Extract from square brackets
+    const bracketsRegex = /\[([^\]]+)\]/g;
+    while ((match = bracketsRegex.exec(title)) !== null) {
+      pieces.push({ content: match[1].trim(), type: 'brackets', position: match.index });
+    }
+
+    // Extract from hyphen separator (only last occurrence with spaces)
+    const hyphenMatch = title.match(/^(.+?)\s+-\s+([^-]+)$/);
+    if (hyphenMatch) {
+      pieces.push({ content: hyphenMatch[2].trim(), type: 'hyphen', position: hyphenMatch[1].length });
+    }
+
+    return pieces;
+  }
+
+  /**
+   * Score a metadata piece to determine if it's mix info (positive) or artist info (negative)
+   */
+  private scoreMixCandidate(content: string): number {
+    const lower = content.toLowerCase();
+    let score = 0;
+
+    // Positive indicators (mix/version keywords)
+    for (const keyword of this.mixKeywords) {
+      if (lower.includes(keyword)) {
+        score += 10;
+      }
+    }
+
+    // Negative indicators (artist feature keywords)
+    for (const keyword of this.artistKeywords) {
+      if (lower.includes(keyword)) {
+        score -= 20;
+      }
+    }
+
+    // All caps might be artist name (negative)
+    if (content === content.toUpperCase() && content.length > 3) {
+      score -= 5;
+    }
+
+    return score;
+  }
+
+  /**
+   * Step 1.5: Extract mix/version information using smart semantic analysis
+   * Prioritizes mix info over artist features by scoring all metadata pieces
    */
   extractVersionInfo(title: string | null): { core: string; mix: string | null } {
     if (!title) return { core: '', mix: null };
 
+    const pieces = this.extractMetadataPieces(title);
+    
+    if (pieces.length === 0) {
+      return { core: title.trim(), mix: null };
+    }
+
+    // Score each piece
+    const scoredPieces = pieces.map(piece => ({
+      ...piece,
+      score: this.scoreMixCandidate(piece.content)
+    }));
+
+    // Find best mix candidate (highest positive score)
+    const bestMix = scoredPieces
+      .filter(p => p.score > 0)
+      .sort((a, b) => {
+        // Sort by score, then by type priority (brackets > parentheses > hyphen)
+        if (b.score !== a.score) return b.score - a.score;
+        const typePriority = { brackets: 3, parentheses: 2, hyphen: 1 };
+        return typePriority[b.type as keyof typeof typePriority] - typePriority[a.type as keyof typeof typePriority];
+      })[0];
+
     let core = title;
     let mix: string | null = null;
 
-    // First check for parentheses format: "Title (Vocal Mix)"
-    const parenthesesMatch = /\(([^)]+)\)/.exec(title);
-    if (parenthesesMatch) {
-      mix = parenthesesMatch[1].trim();
-      core = title.replace(/\([^)]+\)/g, '').trim();
-    }
-    // Then check for hyphen format: "Title - Vocal Mix"
-    else if (title.includes(' - ')) {
-      const parts = title.split(' - ');
-      if (parts.length === 2) {
-        core = parts[0].trim();
-        mix = parts[1].trim();
+    if (bestMix) {
+      mix = bestMix.content;
+      
+      // Remove the mix piece from title to get core
+      if (bestMix.type === 'parentheses') {
+        core = core.replace(/\([^)]*\)/g, '').trim();
+      } else if (bestMix.type === 'brackets') {
+        core = core.replace(/\[[^\]]*\]/g, '').trim();
+      } else if (bestMix.type === 'hyphen') {
+        core = core.replace(/\s+-\s+[^-]+$/, '').trim();
       }
+    } else {
+      // No good mix candidate found, remove all metadata but keep as core
+      core = core.replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').replace(/\s+-\s+[^-]+$/, '').trim();
     }
 
     // Clean up whitespace
