@@ -50,7 +50,7 @@ interface LocalTrack {
   hash: string | null;
   rating: number | null;
   play_count: number | null;
-  remixer: string | null;
+  mix: string | null;
 }
 
 interface LocalTracksTableProps {
@@ -561,7 +561,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
                     )}
                   </div>
                 </TableHead>
-                <TableHead>Remixer</TableHead>
+                <TableHead>Mix</TableHead>
                 <TableHead>Album</TableHead>
                 <TableHead>Genre</TableHead>
                 <TableHead 
@@ -610,7 +610,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
                     </div>
                   </TableCell>
                   <TableCell>
-                    {track.remixer || <span className="text-muted-foreground">—</span>}
+                    {track.mix || <span className="text-muted-foreground">—</span>}
                   </TableCell>
                   <TableCell>
                     <div className="max-w-[150px] truncate" title={track.album || 'Unknown'}>

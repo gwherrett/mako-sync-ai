@@ -50,12 +50,12 @@ export type Database = {
           id: string
           key: string | null
           last_modified: string | null
+          mix: string | null
           normalized_artist: string | null
           normalized_title: string | null
           play_count: number | null
           primary_artist: string | null
           rating: number | null
-          remixer: string | null
           title: string | null
           user_id: string | null
           version_info: string | null
@@ -78,12 +78,12 @@ export type Database = {
           id?: string
           key?: string | null
           last_modified?: string | null
+          mix?: string | null
           normalized_artist?: string | null
           normalized_title?: string | null
           play_count?: number | null
           primary_artist?: string | null
           rating?: number | null
-          remixer?: string | null
           title?: string | null
           user_id?: string | null
           version_info?: string | null
@@ -106,12 +106,12 @@ export type Database = {
           id?: string
           key?: string | null
           last_modified?: string | null
+          mix?: string | null
           normalized_artist?: string | null
           normalized_title?: string | null
           play_count?: number | null
           primary_artist?: string | null
           rating?: number | null
-          remixer?: string | null
           title?: string | null
           user_id?: string | null
           version_info?: string | null
@@ -301,10 +301,10 @@ export type Database = {
           genre: string | null
           id: string
           key: string | null
+          mix: string | null
           normalized_artist: string | null
           normalized_title: string | null
           primary_artist: string | null
-          remixer: string | null
           spotify_id: string
           super_genre: Database["public"]["Enums"]["super_genre"] | null
           title: string
@@ -324,10 +324,10 @@ export type Database = {
           genre?: string | null
           id?: string
           key?: string | null
+          mix?: string | null
           normalized_artist?: string | null
           normalized_title?: string | null
           primary_artist?: string | null
-          remixer?: string | null
           spotify_id: string
           super_genre?: Database["public"]["Enums"]["super_genre"] | null
           title: string
@@ -347,10 +347,10 @@ export type Database = {
           genre?: string | null
           id?: string
           key?: string | null
+          mix?: string | null
           normalized_artist?: string | null
           normalized_title?: string | null
           primary_artist?: string | null
-          remixer?: string | null
           spotify_id?: string
           super_genre?: Database["public"]["Enums"]["super_genre"] | null
           title?: string

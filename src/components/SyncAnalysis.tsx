@@ -442,10 +442,10 @@ const SyncAnalysis = () => {
                                         <span className="ml-2 font-medium text-green-600">+{match.score.breakdown.albumBonus} pts</span>
                                       </div>
                                     )}
-                                    {match.score.breakdown.remixerBonus > 0 && (
+                                    {match.score.breakdown.mixBonus > 0 && (
                                       <div>
-                                        <span className="text-muted-foreground">Remixer Bonus:</span>
-                                        <span className="ml-2 font-medium text-green-600">+{match.score.breakdown.remixerBonus} pts</span>
+                                        <span className="text-muted-foreground">Mix Bonus:</span>
+                                        <span className="ml-2 font-medium text-green-600">+{match.score.breakdown.mixBonus} pts</span>
                                       </div>
                                     )}
                                     {match.score.breakdown.penalties !== 0 && (

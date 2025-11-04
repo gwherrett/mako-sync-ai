@@ -10,7 +10,7 @@ export interface NormalizedMetadata {
   version_info: string | null;
   primary_artist: string;
   featured_artists: string[];
-  remixer: string | null;
+  mix: string | null;
 }
 
 // Common version/remix patterns
@@ -90,18 +90,18 @@ function standardizeFeatures(text: string): string {
 /**
  * Step 1.5: Extract version information
  */
-function extractVersionInfo(title: string | null): { core: string; version: string | null; remixer: string | null } {
-  if (!title) return { core: '', version: null, remixer: null };
+function extractVersionInfo(title: string | null): { core: string; version: string | null; mix: string | null } {
+  if (!title) return { core: '', version: null, mix: null };
 
   let core = title;
   let version: string | null = null;
-  let remixer: string | null = null;
+  let mix: string | null = null;
 
-  // First, check for remixes and extract remixer
+  // First, check for remixes and extract mix info
   const remixMatch = remixPattern.exec(title);
   if (remixMatch) {
-    remixer = remixMatch[1].trim();
-    version = `${remixer} Remix`;
+    mix = remixMatch[1].trim();
+    version = `${mix} Remix`;
     core = title.replace(remixPattern, '').trim();
   }
 
@@ -120,7 +120,7 @@ function extractVersionInfo(title: string | null): { core: string; version: stri
   core = core.replace(/\([^)]*\)/g, '').trim();
   core = core.replace(/\s+/g, ' ').trim();
 
-  return { core, version, remixer };
+  return { core, version, mix };
 }
 
 /**
@@ -158,8 +158,8 @@ export function normalize(text: string | null): string {
  * Process complete track metadata
  */
 export function processMetadata(title: string | null, artist: string | null): NormalizedMetadata {
-  // Extract version and remixer info from title
-  const { core, version, remixer } = extractVersionInfo(title);
+  // Extract version and mix info from title
+  const { core, version, mix } = extractVersionInfo(title);
   
   // Parse artist information
   const { primary, featured } = parseArtists(artist);
@@ -177,6 +177,6 @@ export function processMetadata(title: string | null, artist: string | null): No
     version_info: version,
     primary_artist,
     featured_artists: featured,
-    remixer,
+    mix,
   };
 }

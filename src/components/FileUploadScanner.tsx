@@ -116,7 +116,7 @@ const FileUploadScanner = () => {
           version_info: normalized.versionInfo,
           primary_artist: normalized.primaryArtist,
           featured_artists: normalized.featuredArtists,
-          remixer: normalized.remixer,
+          mix: normalized.mix,
         };
       });
       

@@ -69,7 +69,7 @@ export interface ScannedTrack {
   version_info: string | null;
   primary_artist: string;
   featured_artists: string[];
-  remixer: string | null;
+  mix: string | null;
 }
 
 /**
@@ -268,7 +268,7 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       version_info: normalized.versionInfo,
       primary_artist: normalized.primaryArtist,
       featured_artists: normalized.featuredArtists,
-      remixer: normalized.remixer,
+      mix: normalized.mix,
     };
 
     // Final extraction results
@@ -289,7 +289,7 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
         core_title: trackData.core_title,
         primary_artist: trackData.primary_artist,
         version_info: trackData.version_info || 'none',
-        remixer: trackData.remixer || 'none'
+        mix: trackData.mix || 'none'
       }
     });
 
@@ -322,7 +322,7 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       version_info: normalized.versionInfo,
       primary_artist: normalized.primaryArtist,
       featured_artists: normalized.featuredArtists,
-      remixer: normalized.remixer,
+      mix: normalized.mix,
     };
   }
 };

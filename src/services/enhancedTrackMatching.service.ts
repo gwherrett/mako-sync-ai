@@ -11,7 +11,7 @@ export interface LocalTrack {
   core_title?: string | null;
   version_info?: string | null;
   primary_artist?: string | null;
-  remixer?: string | null;
+  mix?: string | null;
 }
 
 export interface SpotifyTrack {
@@ -25,7 +25,7 @@ export interface SpotifyTrack {
   core_title?: string | null;
   version_info?: string | null;
   primary_artist?: string | null;
-  remixer?: string | null;
+  mix?: string | null;
 }
 
 export interface MatchScore {
@@ -35,7 +35,7 @@ export interface MatchScore {
     artistMatch: number;
     versionBonus: number;
     albumBonus: number;
-    remixerBonus: number;
+    mixBonus: number;
     penalties: number;
   };
   algorithm: string;
@@ -102,7 +102,7 @@ export class EnhancedTrackMatchingService {
       artistMatch: 0,
       versionBonus: 0,
       albumBonus: 0,
-      remixerBonus: 0,
+      mixBonus: 0,
       penalties: 0,
     };
 
@@ -131,10 +131,10 @@ export class EnhancedTrackMatchingService {
         details += '; Different versions';
       }
 
-      // Remixer bonus
-      if (local.remixer && spotify.remixer && local.remixer === spotify.remixer) {
-        breakdown.remixerBonus = 15;
-        details += '; Same remixer';
+      // Mix bonus
+      if (local.mix && spotify.mix && local.mix === spotify.mix) {
+        breakdown.mixBonus = 15;
+        details += '; Same mix';
       }
 
       // Album bonus
@@ -175,14 +175,14 @@ export class EnhancedTrackMatchingService {
         algorithm = 'Artist + Partial Title';
         details = `Same artist, similar title (${titleSimilarity.toFixed(1)}%)`;
 
-        // Remixer handling
-        if (local.remixer && spotify.remixer) {
-          if (local.remixer === spotify.remixer) {
-            breakdown.remixerBonus = 15;
-            details += '; Same remix';
+        // Mix handling
+        if (local.mix && spotify.mix) {
+          if (local.mix === spotify.mix) {
+            breakdown.mixBonus = 15;
+            details += '; Same mix';
           } else {
             breakdown.penalties = -10;
-            details += '; Different remix';
+            details += '; Different mix';
           }
         }
       }
@@ -211,7 +211,7 @@ export class EnhancedTrackMatchingService {
       breakdown.artistMatch + 
       breakdown.versionBonus + 
       breakdown.albumBonus + 
-      breakdown.remixerBonus + 
+      breakdown.mixBonus + 
       breakdown.penalties
     );
 
@@ -267,7 +267,7 @@ export class EnhancedTrackMatchingService {
       version_info: metadata.versionInfo,
       primary_artist: metadata.primaryArtist,
       featured_artists: metadata.featuredArtists,
-      remixer: metadata.remixer,
+      mix: metadata.mix,
     };
 
     const { error } = await supabase

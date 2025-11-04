@@ -10,7 +10,7 @@ export interface NormalizedMetadata {
   versionInfo: string | null;
   primaryArtist: string;
   featuredArtists: string[];
-  remixer: string | null;
+  mix: string | null;
 }
 
 export class NormalizationService {
@@ -99,18 +99,18 @@ export class NormalizationService {
    * Step 1.5: Extract version information
    * Returns { core: "track without version", version: "Live" | "Radio Edit" | etc. }
    */
-  extractVersionInfo(title: string | null): { core: string; version: string | null; remixer: string | null } {
-    if (!title) return { core: '', version: null, remixer: null };
+  extractVersionInfo(title: string | null): { core: string; version: string | null; mix: string | null } {
+    if (!title) return { core: '', version: null, mix: null };
 
     let core = title;
     let version: string | null = null;
-    let remixer: string | null = null;
+    let mix: string | null = null;
 
-    // First, check for remixes and extract remixer
+    // First, check for remixes and extract mix info
     const remixMatch = this.remixPattern.exec(title);
     if (remixMatch) {
-      remixer = remixMatch[1].trim();
-      version = `${remixer} Remix`;
+      mix = remixMatch[1].trim();
+      version = `${mix} Remix`;
       core = title.replace(this.remixPattern, '').trim();
     }
 
@@ -129,7 +129,7 @@ export class NormalizationService {
     core = core.replace(/\([^)]*\)/g, '').trim();
     core = core.replace(/\s+/g, ' ').trim();
 
-    return { core, version, remixer };
+    return { core, version, mix };
   }
 
   /**
@@ -167,8 +167,8 @@ export class NormalizationService {
    * Process complete track metadata
    */
   processMetadata(title: string | null, artist: string | null): NormalizedMetadata {
-    // Extract version and remixer info from title
-    const { core, version, remixer } = this.extractVersionInfo(title);
+    // Extract version and mix info from title
+    const { core, version, mix } = this.extractVersionInfo(title);
     
     // Parse artist information
     const { primary, featured } = this.parseArtists(artist);
@@ -186,7 +186,7 @@ export class NormalizationService {
       versionInfo: version,
       primaryArtist,
       featuredArtists: featured,
-      remixer,
+      mix,
     };
   }
 }

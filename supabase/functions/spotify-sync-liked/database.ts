@@ -23,7 +23,7 @@ export async function clearAndInsertSongs(songsToInsert: any[], userId: string, 
       version_info: normalized.version_info,
       primary_artist: normalized.primary_artist,
       featured_artists: normalized.featured_artists,
-      remixer: normalized.remixer,
+      mix: normalized.mix,
     }
   })
 
