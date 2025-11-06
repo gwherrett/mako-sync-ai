@@ -18,26 +18,19 @@ export function extractUniqueArtistIds(allTracks: SpotifyTrack[]): string[] {
 
 export function processSongsData(allTracks: SpotifyTrack[], userId: string, artistGenreMap: Map<string, string[]>, genreMapping: Map<string, string>) {
   return allTracks.map(item => {
-    // Get genre from any artist on the track (fallback to secondary artists)
+    // Get the primary artist's genre (first artist, first genre)
     let primaryGenre: string | null = null
     let superGenre: string | null = null
     
     if (item.track?.artists && item.track.artists.length > 0) {
-      // Loop through all artists until we find one with genres
-      for (let i = 0; i < item.track.artists.length; i++) {
-        const artistId = item.track.artists[i]?.id
-        if (artistId && artistGenreMap.has(artistId)) {
-          const genres = artistGenreMap.get(artistId) || []
-          if (genres.length > 0) {
-            primaryGenre = genres[0]
-            
-            // Get super genre from mapping if primary genre exists
-            if (primaryGenre && genreMapping.has(primaryGenre)) {
-              superGenre = genreMapping.get(primaryGenre) || null
-            }
-            
-            break // Found genres, stop looking
-          }
+      const primaryArtistId = item.track.artists[0]?.id
+      if (primaryArtistId && artistGenreMap.has(primaryArtistId)) {
+        const genres = artistGenreMap.get(primaryArtistId) || []
+        primaryGenre = genres.length > 0 ? genres[0] : null
+        
+        // Get super genre from mapping if primary genre exists
+        if (primaryGenre && genreMapping.has(primaryGenre)) {
+          superGenre = genreMapping.get(primaryGenre) || null
         }
       }
     }

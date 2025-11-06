@@ -3,7 +3,7 @@ import type { SpotifyConnection } from './types.ts'
 export async function refreshSpotifyToken(connection: SpotifyConnection, supabaseClient: any, userId: string): Promise<string> {
   console.log('Token expired, attempting refresh')
   
-  // Get refresh token from vault using database function
+  // Get refresh token from vault only (no plain text fallback)
   if (!connection.refresh_token_secret_id) {
     console.error('No refresh token vault reference found')
     throw new Error('No refresh token available - please reconnect Spotify')
@@ -16,7 +16,7 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
     })
 
   if (vaultError || !refreshToken) {
-    console.error('Failed to retrieve refresh token from vault:', vaultError)
+    console.error('Failed to retrieve refresh token from vault')
     throw new Error('Failed to retrieve refresh token from vault - please reconnect Spotify')
   }
 
@@ -82,7 +82,7 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
     throw new Error('Invalid connection state - please reconnect Spotify')
   }
 
-  // Update access token in vault using database function
+  // Update access token in vault
   console.log('Updating access token in vault')
   const { error: accessTokenUpdateError } = await supabaseClient
     .rpc('update_spotify_token_in_vault', {
@@ -91,7 +91,7 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
     })
 
   if (accessTokenUpdateError) {
-    console.error('Failed to update access token in vault:', accessTokenUpdateError)
+    console.error('Failed to update access token in vault')
     throw new Error('Failed to update access token in vault')
   }
 
@@ -110,7 +110,7 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
       })
 
     if (refreshTokenUpdateError) {
-      console.error('Failed to update refresh token in vault:', refreshTokenUpdateError)
+      console.error('Failed to update refresh token in vault')
       throw new Error('Failed to update refresh token in vault')
     }
   }
@@ -146,7 +146,7 @@ export async function getValidAccessToken(connection: SpotifyConnection, supabas
     return await refreshSpotifyToken(connection, supabaseClient, userId)
   }
   
-  // Get access token from vault using database function
+  // Get access token from vault only (no plain text fallback)
   if (!connection.access_token_secret_id) {
     console.error('No access token vault reference found')
     throw new Error('No access token available - please reconnect Spotify')
@@ -159,7 +159,7 @@ export async function getValidAccessToken(connection: SpotifyConnection, supabas
     })
 
   if (vaultError || !accessToken) {
-    console.error('Failed to retrieve access token from vault:', vaultError)
+    console.error('Failed to retrieve access token from vault')
     throw new Error('Failed to retrieve access token from vault - please reconnect Spotify')
   }
 
