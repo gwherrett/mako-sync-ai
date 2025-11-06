@@ -140,9 +140,18 @@ serve(async (req) => {
       .single()
 
     if (accessTokenError || !accessTokenVault?.id) {
-      console.error('Failed to store access token in vault:', accessTokenError)
+      console.error('Failed to store access token in vault - full error:', JSON.stringify(accessTokenError))
+      console.error('Error details:', {
+        message: accessTokenError?.message,
+        details: accessTokenError?.details,
+        hint: accessTokenError?.hint,
+        code: accessTokenError?.code
+      })
       return new Response(
-        JSON.stringify({ error: 'Failed to securely store tokens. Please try again.' }),
+        JSON.stringify({ 
+          error: 'Failed to securely store tokens. Please try again.',
+          debug: accessTokenError?.message 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
