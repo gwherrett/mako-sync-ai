@@ -257,46 +257,47 @@ const SyncAnalysis = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <Card>
-        <CardContent className="space-y-4">
-          {/* Genre Filter */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Filter by Common Genre:</span>
+      {/* Control Panel */}
+      <Card className="border-expos-blue/20 bg-expos-dark-elevated/50">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            {/* Genre Filter */}
+            <div className="flex items-center gap-3">
+              <Filter className="h-5 w-5 text-expos-blue" />
+              <span className="text-sm font-medium text-foreground whitespace-nowrap">
+                Filter by Genre:
+              </span>
+              <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+                <SelectTrigger className="w-[180px] border-expos-blue/30 bg-expos-dark/50">
+                  <SelectValue placeholder="Select genre" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Genres</SelectItem>
+                  {superGenres.map((genre) => (
+                    <SelectItem key={genre} value={genre}>
+                      {genre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Select genre" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Common Genres</SelectItem>
-                {superGenres.map((genre) => (
-                  <SelectItem key={genre} value={genre}>
-                    {genre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-4">
+            {/* Action Button */}
             <Button 
               onClick={performMatching}
               disabled={isMatching}
-              className="bg-primary hover:bg-primary/90"
+              size="lg"
+              className="bg-primary hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all"
             >
               {isMatching ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   Matching...
                 </>
               ) : (
                 <>
-                  <Target className="w-4 h-4 mr-2" />
-                  run matching algo
+                  <Target className="w-5 h-5 mr-2" />
+                  Run Matching Algo
                 </>
               )}
             </Button>
@@ -304,12 +305,12 @@ const SyncAnalysis = () => {
 
           {/* Progress Bar */}
           {isMatching && (
-            <div className="mt-4">
+            <div className="mt-6 animate-fade-in">
               <div className="flex justify-between text-sm text-muted-foreground mb-2">
-                <span>Processing tracks...</span>
-                <span>{matchingProgress}%</span>
+                <span className="font-medium">Processing tracks...</span>
+                <span className="font-semibold text-expos-blue">{matchingProgress}%</span>
               </div>
-              <Progress value={matchingProgress} className="w-full" />
+              <Progress value={matchingProgress} className="h-2" />
             </div>
           )}
         </CardContent>
