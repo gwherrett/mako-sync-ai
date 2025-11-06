@@ -137,11 +137,15 @@ serve(async (req) => {
         p_token_value: tokenData.access_token
       })
 
-    if (accessTokenError) {
-      console.error('Failed to store access token in vault')
-    } else {
-      console.log('Access token stored in vault successfully')
+    if (accessTokenError || !accessTokenSecretId) {
+      console.error('Failed to store access token in vault - vault storage is mandatory')
+      return new Response(
+        JSON.stringify({ error: 'Failed to securely store tokens. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
+    
+    console.log('Access token stored in vault successfully')
 
     // Store refresh token in vault
     console.log('Storing refresh token in vault')
@@ -153,21 +157,25 @@ serve(async (req) => {
         p_token_value: tokenData.refresh_token
       })
 
-    if (refreshTokenError) {
-      console.error('Failed to store refresh token in vault')
-    } else {
-      console.log('Refresh token stored in vault successfully')
+    if (refreshTokenError || !refreshTokenSecretId) {
+      console.error('Failed to store refresh token in vault - vault storage is mandatory')
+      return new Response(
+        JSON.stringify({ error: 'Failed to securely store tokens. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
+    
+    console.log('Refresh token stored in vault successfully')
 
-    // Store connection with vault references or plain tokens as fallback
+    // Store connection with vault references only (no plain text fallback)
     const connectionData = {
       user_id: user.id,
       spotify_user_id: profileData.id,
       access_token_secret_id: accessTokenSecretId,
       refresh_token_secret_id: refreshTokenSecretId,
-      // If vault storage failed, store actual tokens; otherwise use placeholders
-      access_token: accessTokenSecretId ? '***ENCRYPTED_IN_VAULT***' : tokenData.access_token,
-      refresh_token: refreshTokenSecretId ? '***ENCRYPTED_IN_VAULT***' : tokenData.refresh_token,
+      // Always use placeholder - tokens only stored in vault
+      access_token: '***ENCRYPTED_IN_VAULT***',
+      refresh_token: '***ENCRYPTED_IN_VAULT***',
       expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
       scope: tokenData.scope,
       token_type: tokenData.token_type || 'Bearer',
