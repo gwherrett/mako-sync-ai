@@ -8,7 +8,6 @@ import MetadataExtractor from '@/components/MetadataExtractor';
 import TracksTable from '@/components/TracksTable';
 import LocalTracksTable from '@/components/LocalTracksTable';
 import SpotifySyncButton from '@/components/SpotifySyncButton';
-import LocalScanButton from '@/components/LocalScanButton';
 import FileUploadScanner from '@/components/FileUploadScanner';
 import SyncAnalysis from '@/components/SyncAnalysis';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -53,7 +52,6 @@ interface LocalTrack {
 const Index = () => {
   const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
   const [selectedLocalTrack, setSelectedLocalTrack] = useState<LocalTrack | null>(null);
-  const [localLibraryRefresh, setLocalLibraryRefresh] = useState(0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black">
@@ -169,15 +167,10 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="local" className="space-y-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-white">Local Library</h3>
-              <LocalScanButton onScanComplete={() => setLocalLibraryRefresh(prev => prev + 1)} />
-            </div>
             <FileUploadScanner />
             <LocalTracksTable 
               onTrackSelect={setSelectedLocalTrack} 
               selectedTrack={selectedLocalTrack}
-              refreshTrigger={localLibraryRefresh}
             />
             {selectedLocalTrack && (
               <div className="bg-serato-dark/20 rounded-lg border border-serato-cyan/20 p-6">

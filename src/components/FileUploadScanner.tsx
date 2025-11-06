@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, Music, Loader2, Trash2 } from 'lucide-react';
+import { Upload, X, Music, Loader2, Trash2, FolderSearch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { useLocalScanner } from '@/hooks/useLocalScanner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +26,7 @@ const FileUploadScanner = () => {
   const [user, setUser] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { isScanning, scanLocalFiles, scanProgress } = useLocalScanner();
 
   // Get user on mount
   React.useEffect(() => {
@@ -231,10 +234,10 @@ const FileUploadScanner = () => {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Upload className="w-5 h-5" />
-              Test Data Upload
+              Add Local Music Files
             </CardTitle>
             <CardDescription>
-              Upload MP3 files for testing metadata extraction and sync functionality
+              Choose between scanning your local file system or uploading test files
             </CardDescription>
           </div>
           <AlertDialog>
@@ -262,13 +265,55 @@ const FileUploadScanner = () => {
           </AlertDialog>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
+        {/* Method 1: Scan Local Files */}
         <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <FolderSearch className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold text-lg">Method 1: Scan Local File System</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Scan your computer's music folder to import all MP3 files automatically
+          </p>
+          <Button 
+            onClick={scanLocalFiles}
+            disabled={isScanning || isUploading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg"
+          >
+            {isScanning ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                {scanProgress.total > 0 
+                  ? `Scanning... ${scanProgress.current}/${scanProgress.total}`
+                  : 'Scanning...'
+                }
+              </>
+            ) : (
+              <>
+                <FolderSearch className="w-4 h-4 mr-2" />
+                Scan Local Files
+              </>
+            )}
+          </Button>
+        </div>
+
+        <Separator />
+
+        {/* Method 2: Upload Files */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Music className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold text-lg">Method 2: Upload Test Files</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Upload specific MP3 files for testing metadata extraction (marked as [TEST] in database)
+          </p>
+          
           <div className="flex items-center gap-4">
             <Button
               onClick={() => fileInputRef.current?.click()}
               variant="outline"
-              disabled={isUploading}
+              disabled={isUploading || isScanning}
             >
               <Music className="w-4 h-4 mr-2" />
               Select MP3 Files
@@ -279,7 +324,7 @@ const FileUploadScanner = () => {
                 onClick={clearAllFiles}
                 variant="outline"
                 size="sm"
-                disabled={isUploading}
+                disabled={isUploading || isScanning}
               >
                 <X className="w-4 h-4 mr-2" />
                 Clear All
@@ -316,7 +361,7 @@ const FileUploadScanner = () => {
                       onClick={() => removeFile(index)}
                       variant="ghost"
                       size="sm"
-                      disabled={isUploading}
+                      disabled={isUploading || isScanning}
                     >
                       <X className="w-3 h-3" />
                     </Button>
@@ -329,7 +374,7 @@ const FileUploadScanner = () => {
           {selectedFiles.length > 0 && (
             <Button
               onClick={uploadAndProcess}
-              disabled={isUploading}
+              disabled={isUploading || isScanning}
               className="w-full"
             >
               {isUploading ? (
@@ -345,12 +390,6 @@ const FileUploadScanner = () => {
               )}
             </Button>
           )}
-        </div>
-
-        <div className="text-xs text-muted-foreground space-y-1">
-          <p>• Upload MP3 files to test metadata extraction and sync functionality</p>
-          <p>• Test files will be marked with [TEST] prefix in the database</p>
-          <p>• Use this for sanity checks with smaller datasets</p>
         </div>
       </CardContent>
     </Card>
