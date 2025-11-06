@@ -12,14 +12,11 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
   
   console.log('Retrieving refresh token from vault using Postgres driver')
   
-  const pool = new Pool({
-    tls: { enabled: false },
-    database: 'postgres',
-    hostname: Deno.env.get('DB_HOSTNAME'),
-    user: 'postgres',
-    port: 6543,
-    password: Deno.env.get('DB_PASSWORD'),
-  }, 1)
+  // Use connection string for internal socket connection
+  const pool = new Pool(
+    Deno.env.get('SUPABASE_DB_URL')!,
+    1
+  )
 
   let refreshToken: string
   
@@ -195,14 +192,11 @@ export async function getValidAccessToken(connection: SpotifyConnection, supabas
   
   console.log('Retrieving access token from vault using Postgres driver')
   
-  const pool = new Pool({
-    tls: { enabled: false },
-    database: 'postgres',
-    hostname: Deno.env.get('DB_HOSTNAME'),
-    user: 'postgres',
-    port: 6543,
-    password: Deno.env.get('DB_PASSWORD'),
-  }, 1)
+  // Use connection string for internal socket connection
+  const pool = new Pool(
+    Deno.env.get('SUPABASE_DB_URL')!,
+    1
+  )
 
   try {
     const connection_pg = await pool.connect()

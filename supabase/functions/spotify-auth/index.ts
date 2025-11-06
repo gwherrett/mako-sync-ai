@@ -128,15 +128,11 @@ serve(async (req) => {
     // Store tokens securely in Vault using Postgres driver for direct SQL access
     console.log('Storing tokens in vault using Postgres driver')
     
-    // Create Postgres connection pool
-    const pool = new Pool({
-      tls: { enabled: false },
-      database: 'postgres',
-      hostname: Deno.env.get('DB_HOSTNAME'),
-      user: 'postgres',
-      port: 6543,
-      password: Deno.env.get('DB_PASSWORD'),
-    }, 1)
+    // Create Postgres connection pool - use connection string for internal socket connection
+    const pool = new Pool(
+      Deno.env.get('SUPABASE_DB_URL')!,
+      1
+    )
 
     let accessTokenSecretId: string
     let refreshTokenSecretId: string
