@@ -230,166 +230,165 @@ const FileUploadScanner = () => {
   return (
     <Card className="w-full">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5" />
-              Add Local Music Files
-            </CardTitle>
-            <CardDescription>
-              Choose between scanning your local file system or uploading test files
-            </CardDescription>
-          </div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete All Test Data
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete All Test Data?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete all tracks with [TEST] prefix from your library. 
-                  This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={deleteAllTestData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Delete All
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Upload className="w-5 h-5" />
+            Add Local Music Files
+          </CardTitle>
+          <CardDescription>
+            Choose between scanning your local file system or uploading test files
+          </CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Method 1: Scan Local Files */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <FolderSearch className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold text-lg">Method 1: Scan Local File System</h3>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Scan your computer's music folder to import all MP3 files automatically
-          </p>
-          <Button 
-            onClick={scanLocalFiles}
-            disabled={isScanning || isUploading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg"
-          >
-            {isScanning ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {scanProgress.total > 0 
-                  ? `Scanning... ${scanProgress.current}/${scanProgress.total}`
-                  : 'Scanning...'
-                }
-              </>
-            ) : (
-              <>
-                <FolderSearch className="w-4 h-4 mr-2" />
-                Scan Local Files
-              </>
-            )}
-          </Button>
-        </div>
-
-        <Separator />
-
-        {/* Method 2: Upload Files */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Music className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold text-lg">Method 2: Upload Test Files</h3>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Upload specific MP3 files for testing metadata extraction (marked as [TEST] in database)
-          </p>
-          
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              variant="outline"
-              disabled={isUploading || isScanning}
-            >
-              <Music className="w-4 h-4 mr-2" />
-              Select MP3 Files
-            </Button>
-            
-            {selectedFiles.length > 0 && (
-              <Button
-                onClick={clearAllFiles}
-                variant="outline"
-                size="sm"
-                disabled={isUploading || isScanning}
-              >
-                <X className="w-4 h-4 mr-2" />
-                Clear All
-              </Button>
-            )}
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".mp3"
-            multiple
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-
-          {selectedFiles.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm text-muted-foreground">
-                {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected 
-                ({selectedFiles.reduce((acc, file) => acc + file.size, 0) / (1024 * 1024) | 0} MB total)
-              </div>
-              
-              <div className="max-h-40 overflow-y-auto space-y-1">
-                {selectedFiles.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm"
-                  >
-                    <span className="truncate flex-1">
-                      {file.name} ({formatFileSize(file.size)} MB)
-                    </span>
-                    <Button
-                      onClick={() => removeFile(index)}
-                      variant="ghost"
-                      size="sm"
-                      disabled={isUploading || isScanning}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Method 1: Scan Local Files */}
+          <div className="space-y-4 p-4 border border-border rounded-lg">
+            <div className="flex items-center gap-2">
+              <FolderSearch className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-lg">Scan Local File System</h3>
             </div>
-          )}
-
-          {selectedFiles.length > 0 && (
-            <Button
-              onClick={uploadAndProcess}
-              disabled={isUploading || isScanning}
-              className="w-full"
+            <p className="text-sm text-muted-foreground">
+              Scan your computer's music folder to import all MP3 files automatically
+            </p>
+            <Button 
+              onClick={scanLocalFiles}
+              disabled={isScanning || isUploading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg"
             >
-              {isUploading ? (
+              {isScanning ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {uploadProgress.total > 0 
-                    ? `Processing... ${uploadProgress.current}/${uploadProgress.total}`
-                    : 'Processing...'
+                  {scanProgress.total > 0 
+                    ? `Scanning... ${scanProgress.current}/${scanProgress.total}`
+                    : 'Scanning...'
                   }
                 </>
               ) : (
-                `Process ${selectedFiles.length} File${selectedFiles.length > 1 ? 's' : ''}`
+                <>
+                  <FolderSearch className="w-4 h-4 mr-2" />
+                  Scan Local Files
+                </>
               )}
             </Button>
-          )}
+          </div>
+
+          {/* Method 2: Upload Test Files */}
+          <div className="space-y-4 p-4 border border-border rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Music className="w-5 h-5 text-primary" />
+                <h3 className="font-semibold text-lg">Upload Test Files</h3>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Test Data
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete All Test Data?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete all tracks with [TEST] prefix from your library. 
+                      This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={deleteAllTestData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Delete All
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Upload specific MP3 files for testing (marked as [TEST] in database)
+            </p>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                variant="outline"
+                disabled={isUploading || isScanning}
+                size="sm"
+              >
+                <Music className="w-4 h-4 mr-2" />
+                Select Files
+              </Button>
+              
+              {selectedFiles.length > 0 && (
+                <Button
+                  onClick={clearAllFiles}
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploading || isScanning}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Clear
+                </Button>
+              )}
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".mp3"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground">
+                  {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected 
+                  ({selectedFiles.reduce((acc, file) => acc + file.size, 0) / (1024 * 1024) | 0} MB)
+                </div>
+                
+                <div className="max-h-32 overflow-y-auto space-y-1">
+                  {selectedFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm"
+                    >
+                      <span className="truncate flex-1 text-xs">
+                        {file.name} ({formatFileSize(file.size)} MB)
+                      </span>
+                      <Button
+                        onClick={() => removeFile(index)}
+                        variant="ghost"
+                        size="sm"
+                        disabled={isUploading || isScanning}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <Button
+                  onClick={uploadAndProcess}
+                  disabled={isUploading || isScanning}
+                  className="w-full"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {uploadProgress.total > 0 
+                        ? `Processing... ${uploadProgress.current}/${uploadProgress.total}`
+                        : 'Processing...'
+                      }
+                    </>
+                  ) : (
+                    `Process ${selectedFiles.length} File${selectedFiles.length > 1 ? 's' : ''}`
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
