@@ -450,19 +450,6 @@ export type Database = {
         Args: { p_connection_id: string }
         Returns: undefined
       }
-      vault_create_secret: {
-        Args: {
-          plaintext: string
-          secret_description: string
-          secret_name: string
-        }
-        Returns: string
-      }
-      vault_read_secret: { Args: { secret_id: string }; Returns: string }
-      vault_update_secret: {
-        Args: { new_plaintext: string; secret_id: string }
-        Returns: undefined
-      }
     }
     Enums: {
       app_role: "admin" | "user"

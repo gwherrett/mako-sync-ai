@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -124,60 +125,76 @@ serve(async (req) => {
 
     console.log('Spotify profile retrieved successfully')
 
-    // Store tokens securely in Vault using direct access
-    console.log('Storing tokens in vault directly')
+    // Store tokens securely in Vault using Postgres driver for direct SQL access
+    console.log('Storing tokens in vault using Postgres driver')
     
-    // Store access token in vault
-    console.log('Storing access token in vault')
-    
-    const { data: accessTokenVault, error: accessTokenError } = await supabaseAdmin
-      .from('vault.secrets')
-      .insert({
-        secret: tokenData.access_token,
-        description: `Spotify access_token for user ${user.id}`
-      })
-      .select('id')
-      .single()
+    // Create Postgres connection pool
+    const pool = new Pool({
+      tls: { enabled: false },
+      database: 'postgres',
+      hostname: Deno.env.get('DB_HOSTNAME'),
+      user: 'postgres',
+      port: 6543,
+      password: Deno.env.get('DB_PASSWORD'),
+    }, 1)
 
-    if (accessTokenError || !accessTokenVault) {
-      console.error('Failed to store access token in vault:', JSON.stringify(accessTokenError))
+    let accessTokenSecretId: string
+    let refreshTokenSecretId: string
+    
+    try {
+      const connection = await pool.connect()
+      
+      try {
+        // Store access token in vault
+        console.log('Creating access token secret in vault')
+        const accessTokenResult = await connection.queryObject<{ id: string }>`
+          SELECT vault.create_secret(
+            ${tokenData.access_token},
+            ${'spotify_access_token_' + user.id},
+            ${'Spotify access_token for user ' + user.id}
+          ) as id
+        `
+        
+        if (!accessTokenResult.rows[0]?.id) {
+          throw new Error('Failed to create access token secret')
+        }
+        
+        accessTokenSecretId = accessTokenResult.rows[0].id
+        console.log('Access token stored in vault successfully')
+
+        // Store refresh token in vault
+        console.log('Creating refresh token secret in vault')
+        const refreshTokenResult = await connection.queryObject<{ id: string }>`
+          SELECT vault.create_secret(
+            ${tokenData.refresh_token},
+            ${'spotify_refresh_token_' + user.id},
+            ${'Spotify refresh_token for user ' + user.id}
+          ) as id
+        `
+        
+        if (!refreshTokenResult.rows[0]?.id) {
+          throw new Error('Failed to create refresh token secret')
+        }
+        
+        refreshTokenSecretId = refreshTokenResult.rows[0].id
+        console.log('Refresh token stored in vault successfully')
+        
+      } finally {
+        connection.release()
+      }
+    } catch (vaultError: any) {
+      console.error('Failed to store tokens in vault:', vaultError)
+      await pool.end()
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to securely store access token. Please try again.',
-          debug: accessTokenError?.message 
+          error: 'Failed to securely store tokens. Please try again.',
+          debug: vaultError.message 
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    } finally {
+      await pool.end()
     }
-    
-    const accessTokenSecretId = accessTokenVault.id
-    console.log('Access token stored in vault successfully')
-
-    // Store refresh token in vault
-    console.log('Storing refresh token in vault')
-    
-    const { data: refreshTokenVault, error: refreshTokenError } = await supabaseAdmin
-      .from('vault.secrets')
-      .insert({
-        secret: tokenData.refresh_token,
-        description: `Spotify refresh_token for user ${user.id}`
-      })
-      .select('id')
-      .single()
-
-    if (refreshTokenError || !refreshTokenVault) {
-      console.error('Failed to store refresh token in vault:', JSON.stringify(refreshTokenError))
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to securely store refresh token. Please try again.',
-          debug: refreshTokenError?.message 
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-    
-    const refreshTokenSecretId = refreshTokenVault.id
-    console.log('Refresh token stored in vault successfully')
 
     // Store connection with vault references only (no plain text fallback)
     const connectionData = {
