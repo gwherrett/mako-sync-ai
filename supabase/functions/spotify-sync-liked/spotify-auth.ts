@@ -10,10 +10,13 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
   }
   
   console.log('Retrieving refresh token from vault')
-  const { data: refreshToken, error: vaultError } = await supabaseClient
-    .rpc('get_spotify_token_from_vault', {
-      p_secret_id: connection.refresh_token_secret_id
-    })
+  const { data: vaultSecret, error: vaultError } = await supabaseClient
+    .from('vault.decrypted_secrets')
+    .select('decrypted_secret')
+    .eq('id', connection.refresh_token_secret_id)
+    .single()
+
+  const refreshToken = vaultSecret?.decrypted_secret
 
   if (vaultError || !refreshToken) {
     console.error('Failed to retrieve refresh token from vault')
@@ -85,10 +88,9 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
   // Update access token in vault
   console.log('Updating access token in vault')
   const { error: accessTokenUpdateError } = await supabaseClient
-    .rpc('update_spotify_token_in_vault', {
-      p_secret_id: connection.access_token_secret_id,
-      p_new_token_value: newAccessToken
-    })
+    .from('vault.secrets')
+    .update({ secret: newAccessToken, updated_at: new Date().toISOString() })
+    .eq('id', connection.access_token_secret_id)
 
   if (accessTokenUpdateError) {
     console.error('Failed to update access token in vault')
@@ -104,10 +106,9 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
 
     console.log('Updating refresh token in vault')
     const { error: refreshTokenUpdateError } = await supabaseClient
-      .rpc('update_spotify_token_in_vault', {
-        p_secret_id: connection.refresh_token_secret_id,
-        p_new_token_value: refreshData.refresh_token
-      })
+      .from('vault.secrets')
+      .update({ secret: refreshData.refresh_token, updated_at: new Date().toISOString() })
+      .eq('id', connection.refresh_token_secret_id)
 
     if (refreshTokenUpdateError) {
       console.error('Failed to update refresh token in vault')
@@ -153,10 +154,13 @@ export async function getValidAccessToken(connection: SpotifyConnection, supabas
   }
   
   console.log('Retrieving access token from vault')
-  const { data: accessToken, error: vaultError } = await supabaseClient
-    .rpc('get_spotify_token_from_vault', {
-      p_secret_id: connection.access_token_secret_id
-    })
+  const { data: vaultSecret, error: vaultError } = await supabaseClient
+    .from('vault.decrypted_secrets')
+    .select('decrypted_secret')
+    .eq('id', connection.access_token_secret_id)
+    .single()
+
+  const accessToken = vaultSecret?.decrypted_secret
 
   if (vaultError || !accessToken) {
     console.error('Failed to retrieve access token from vault')
