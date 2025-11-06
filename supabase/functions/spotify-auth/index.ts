@@ -124,8 +124,8 @@ serve(async (req) => {
 
     console.log('Spotify profile retrieved successfully')
 
-    // Store tokens securely in Vault and connection in database
-    console.log('Storing tokens in vault and connection in database')
+    // Store tokens securely in Vault using database functions
+    console.log('Storing tokens in vault using database functions')
     
     // Store access token in vault
     console.log('Storing access token in vault')
@@ -138,9 +138,12 @@ serve(async (req) => {
       })
 
     if (accessTokenError || !accessTokenSecretId) {
-      console.error('Failed to store access token in vault - vault storage is mandatory')
+      console.error('Failed to store access token in vault:', JSON.stringify(accessTokenError))
       return new Response(
-        JSON.stringify({ error: 'Failed to securely store tokens. Please try again.' }),
+        JSON.stringify({ 
+          error: 'Failed to securely store access token. Please try again.',
+          debug: accessTokenError?.message 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -158,9 +161,12 @@ serve(async (req) => {
       })
 
     if (refreshTokenError || !refreshTokenSecretId) {
-      console.error('Failed to store refresh token in vault - vault storage is mandatory')
+      console.error('Failed to store refresh token in vault:', JSON.stringify(refreshTokenError))
       return new Response(
-        JSON.stringify({ error: 'Failed to securely store tokens. Please try again.' }),
+        JSON.stringify({ 
+          error: 'Failed to securely store refresh token. Please try again.',
+          debug: refreshTokenError?.message 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
