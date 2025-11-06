@@ -60,10 +60,6 @@ const Index = () => {
       <LibraryHeader />
       
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <SetupChecklist />
-        </div>
-        
         <div className="mb-8">
           <div className="mb-4">
             <h2 className="text-3xl font-bold text-white mb-2">Spotify - Local Collection Dashboard</h2>
@@ -71,6 +67,10 @@ const Index = () => {
               Use Spotify metadata to find matches with local library
             </p>
           </div>
+        </div>
+        
+        <div className="mb-8">
+          <StatsOverview />
         </div>
         
         <Tabs defaultValue="overview" className="w-full">
@@ -92,7 +92,7 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="overview">
-            <StatsOverview />
+            <SetupChecklist />
           </TabsContent>
 
           <TabsContent value="sync">
