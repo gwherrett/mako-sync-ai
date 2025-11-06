@@ -259,8 +259,6 @@ const SyncAnalysis = () => {
     <div className="space-y-6">
       {/* Header */}
       <Card>
-        <CardHeader>
-        </CardHeader>
         <CardContent className="space-y-4">
           {/* Genre Filter */}
           <div className="flex items-center gap-4">
@@ -284,7 +282,7 @@ const SyncAnalysis = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-4">
+          <div className="flex justify-end gap-4">
             <Button 
               onClick={performMatching}
               disabled={isMatching}
@@ -298,7 +296,7 @@ const SyncAnalysis = () => {
               ) : (
                 <>
                   <Target className="w-4 h-4 mr-2" />
-                  Run Track Matching
+                  run matching algo
                 </>
               )}
             </Button>
