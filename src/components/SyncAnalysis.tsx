@@ -321,27 +321,38 @@ const SyncAnalysis = () => {
         <TabsList className="grid w-full grid-cols-4 h-auto bg-card border border-border p-1.5 gap-1">
           <TabsTrigger 
             value="overview" 
-            className="flex items-center justify-center gap-2 data-[state=active]:expos-blue-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(0,61,165,0.4)] transition-all duration-300 py-3 px-2"
+            className="flex items-center justify-center gap-2 data-[state=active]:expos-blue-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(0,61,165,0.4)] transition-all duration-300 py-3 px-2 group"
           >
-            <BarChart3 className="h-4 w-4 shrink-0" />
+            <div className="relative flex items-center justify-center">
+              <Target className="h-4 w-4 shrink-0 group-data-[state=active]:animate-pulse" />
+              <Zap className="h-3 w-3 shrink-0 absolute -top-1 -right-1 opacity-0 group-data-[state=active]:opacity-100 text-yellow-400" />
+            </div>
             <span className="hidden sm:inline">Match Overview</span>
-            <span className="sm:hidden text-xs">Overview</span>
+            <span className="sm:hidden text-xs">Matching</span>
           </TabsTrigger>
           <TabsTrigger 
             value="artists"
-            className="flex items-center justify-center gap-2 data-[state=active]:expos-blue-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(0,61,165,0.4)] transition-all duration-300 py-3 px-2"
+            className="flex items-center justify-center gap-2 data-[state=active]:spotify-gradient data-[state=active]:text-black data-[state=active]:shadow-[0_0_20px_rgba(29,185,84,0.5)] transition-all duration-300 py-3 px-2 group"
           >
-            <UserCheck className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">Artist Discovery</span>
-            <span className="sm:hidden text-xs">Artists</span>
+            <div className="relative flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-current" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+              </svg>
+              <Users2 className="h-3 w-3 shrink-0" />
+            </div>
+            <span className="hidden sm:inline">Spotify Artists</span>
+            <span className="sm:hidden text-xs">Spotify</span>
           </TabsTrigger>
           <TabsTrigger 
             value="missing"
-            className="flex items-center justify-center gap-2 data-[state=active]:expos-red-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(245,63,87,0.4)] transition-all duration-300 py-3 px-2"
+            className="flex items-center justify-center gap-2 data-[state=active]:expos-red-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(245,63,87,0.4)] transition-all duration-300 py-3 px-2 group"
           >
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">Missing Tracks</span>
-            <span className="sm:hidden text-xs">Missing</span>
+            <div className="relative flex items-center gap-1">
+              <Music2 className="h-4 w-4 shrink-0" />
+              <AlertCircle className="h-3 w-3 shrink-0 absolute -top-1 -right-1 opacity-0 group-data-[state=active]:opacity-100" />
+            </div>
+            <span className="hidden sm:inline">Local Missing</span>
+            <span className="sm:hidden text-xs">Local</span>
           </TabsTrigger>
           <TabsTrigger 
             value="normalized"
