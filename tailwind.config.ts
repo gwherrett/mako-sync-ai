@@ -63,11 +63,11 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				'expos-blue': 'hsl(var(--expos-blue))',
-				'expos-red': 'hsl(var(--expos-red))',
-				'expos-white': 'hsl(var(--expos-white))',
-				'expos-light-bg': 'hsl(var(--expos-light-bg))',
-				'expos-gray': 'hsl(var(--expos-gray))'
+				'serato-blue': 'hsl(var(--serato-blue))',
+				'serato-cyan': 'hsl(var(--serato-cyan))',
+				'serato-orange': 'hsl(var(--serato-orange))',
+				'serato-dark': 'hsl(var(--serato-dark))',
+				'serato-dark-elevated': 'hsl(var(--serato-dark-elevated))'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
