@@ -318,44 +318,40 @@ const SyncAnalysis = () => {
 
       {/* Results */}
       <Tabs defaultValue="overview" className="w-full">
-        <Card className="border-expos-blue/20 bg-expos-dark-elevated/30">
-          <CardContent className="pt-6 pb-3">
-            <TabsList className="grid w-full grid-cols-4 h-auto bg-expos-dark/50 p-1">
-              <TabsTrigger 
-                value="overview" 
-                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all py-3"
-              >
-                <BarChart3 className="h-4 w-4" />
-                <span className="hidden sm:inline">Match Overview</span>
-                <span className="sm:hidden">Overview</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="artists"
-                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all py-3"
-              >
-                <UserCheck className="h-4 w-4" />
-                <span className="hidden sm:inline">Artist Discovery</span>
-                <span className="sm:hidden">Artists</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="missing"
-                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all py-3"
-              >
-                <AlertCircle className="h-4 w-4" />
-                <span className="hidden sm:inline">Missing Tracks</span>
-                <span className="sm:hidden">Missing</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="normalized"
-                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all py-3"
-              >
-                <GitCompare className="h-4 w-4" />
-                <span className="hidden sm:inline">Normalized Artists</span>
-                <span className="sm:hidden">Normalized</span>
-              </TabsTrigger>
-            </TabsList>
-          </CardContent>
-        </Card>
+        <TabsList className="grid w-full grid-cols-4 h-auto bg-card border border-border p-1.5 gap-1">
+          <TabsTrigger 
+            value="overview" 
+            className="flex items-center justify-center gap-2 data-[state=active]:expos-blue-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(0,61,165,0.4)] transition-all duration-300 py-3 px-2"
+          >
+            <BarChart3 className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Match Overview</span>
+            <span className="sm:hidden text-xs">Overview</span>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="artists"
+            className="flex items-center justify-center gap-2 data-[state=active]:expos-blue-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(0,61,165,0.4)] transition-all duration-300 py-3 px-2"
+          >
+            <UserCheck className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Artist Discovery</span>
+            <span className="sm:hidden text-xs">Artists</span>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="missing"
+            className="flex items-center justify-center gap-2 data-[state=active]:expos-red-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(245,63,87,0.4)] transition-all duration-300 py-3 px-2"
+          >
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Missing Tracks</span>
+            <span className="sm:hidden text-xs">Missing</span>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="normalized"
+            className="flex items-center justify-center gap-2 data-[state=active]:expos-blue-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(0,61,165,0.4)] transition-all duration-300 py-3 px-2"
+          >
+            <GitCompare className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Normalized Artists</span>
+            <span className="sm:hidden text-xs">Normalized</span>
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           {matchingStats ? (
