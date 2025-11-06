@@ -91,6 +91,9 @@ export const useSpotifyAuth = () => {
       const { success, message, error } = await SpotifyService.syncLikedSongs();
       
       if (success) {
+        // Trigger a manual refresh of stats
+        await checkConnection();
+        
         toast({
           title: "Sync Complete",
           description: message,
