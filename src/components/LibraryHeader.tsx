@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, LogOut, Loader2 } from 'lucide-react';
+import { LogOut, Loader2 } from 'lucide-react';
 import BrandLogo from '@/components/BrandLogo';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/NewAuthContext';
@@ -45,11 +45,6 @@ const LibraryHeader = () => {
               Connect Spotify
             </Button>
           )}
-          
-          <Button variant="outline" size="sm" className="text-white border-white/20 hover:bg-white/10">
-            <Settings className="w-4 h-4 mr-2" />
-            Settings
-          </Button>
           
           <Button
             onClick={signOut}
