@@ -13,12 +13,9 @@ const LibraryHeader = () => {
     <header className="bg-spotify-dark border-b border-white/10 p-4">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <BrandLogo size={40} />
+          <BrandLogo size={48} />
           <div>
-            <h1 className="text-xl font-bold text-white">Mako Sync</h1>
-            <p className="text-sm text-gray-400">
-              Manage your Spotify and local music collections
-            </p>
+            <h1 className="text-3xl font-bold text-white">Mako Sync</h1>
           </div>
         </div>
         
