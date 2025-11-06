@@ -7,6 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Music2, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { z } from 'zod';
+
+// Validation schemas
+const emailSchema = z.string().trim().email('Invalid email address').max(255, 'Email too long');
+const passwordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/^(?=.*[a-z])/, 'Password must contain at least one lowercase letter')
+  .regex(/^(?=.*[A-Z])/, 'Password must contain at least one uppercase letter')
+  .regex(/^(?=.*\d)/, 'Password must contain at least one number');
+const displayNameSchema = z.string().trim().max(100, 'Display name too long').optional();
 
 const NewAuth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -16,6 +26,7 @@ const NewAuth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showResendConfirmation, setShowResendConfirmation] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const { 
     user, 
@@ -46,10 +57,49 @@ const NewAuth = () => {
     e.preventDefault();
     setIsSubmitting(true);
     clearError();
+    setValidationErrors({});
 
     try {
+      // Validate inputs
+      const errors: Record<string, string> = {};
+      
+      const emailValidation = emailSchema.safeParse(email);
+      if (!emailValidation.success) {
+        errors.email = emailValidation.error.errors[0].message;
+      }
+
+      // More strict password validation for signup
+      if (!isLogin) {
+        const passwordValidation = passwordSchema.safeParse(password);
+        if (!passwordValidation.success) {
+          errors.password = passwordValidation.error.errors[0].message;
+        }
+      } else {
+        // Basic validation for login (allow existing users with old requirements)
+        if (password.length < 6) {
+          errors.password = 'Password must be at least 6 characters';
+        }
+      }
+
+      if (displayName) {
+        const displayNameValidation = displayNameSchema.safeParse(displayName);
+        if (!displayNameValidation.success) {
+          errors.displayName = displayNameValidation.error.errors[0].message;
+        }
+      }
+
+      if (Object.keys(errors).length > 0) {
+        setValidationErrors(errors);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Sanitize inputs
+      const sanitizedEmail = email.trim().toLowerCase();
+      const sanitizedDisplayName = displayName.trim();
+
       if (isLogin) {
-        const success = await signIn({ email, password });
+        const success = await signIn({ email: sanitizedEmail, password });
         if (success) {
           // Redirect will be handled by useAuthRedirect
         } else {
@@ -59,7 +109,11 @@ const NewAuth = () => {
           }
         }
       } else {
-        const success = await signUp({ email, password, displayName: displayName || undefined });
+        const success = await signUp({ 
+          email: sanitizedEmail, 
+          password, 
+          displayName: sanitizedDisplayName || undefined 
+        });
         if (success) {
           setIsLogin(true);
           setPassword('');
@@ -67,7 +121,8 @@ const NewAuth = () => {
         }
       }
     } catch (error) {
-      console.error('Auth error:', error);
+      // Don't log sensitive auth details
+      console.error('Authentication failed');
     } finally {
       setIsSubmitting(false);
     }
@@ -96,6 +151,7 @@ const NewAuth = () => {
 
   const switchMode = () => {
     setIsLogin(!isLogin);
+    setValidationErrors({});
     resetForm();
   };
 
@@ -225,9 +281,12 @@ const NewAuth = () => {
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="bg-white/10 border-white/20 text-white placeholder-gray-400"
+                  className={`bg-white/10 border-white/20 text-white placeholder-gray-400 ${validationErrors.displayName ? 'border-red-500' : ''}`}
                   placeholder="Enter your display name"
                 />
+                {validationErrors.displayName && (
+                  <p className="text-red-400 text-sm">{validationErrors.displayName}</p>
+                )}
               </div>
             )}
             
@@ -239,13 +298,18 @@ const NewAuth = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="bg-white/10 border-white/20 text-white placeholder-gray-400"
+                className={`bg-white/10 border-white/20 text-white placeholder-gray-400 ${validationErrors.email ? 'border-red-500' : ''}`}
                 placeholder="Enter your email"
               />
+              {validationErrors.email && (
+                <p className="text-red-400 text-sm">{validationErrors.email}</p>
+              )}
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">Password</Label>
+              <Label htmlFor="password" className="text-white">
+                Password {!isLogin && <span className="text-gray-400 text-xs">(min 8 chars, must include uppercase, lowercase, and number)</span>}
+              </Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -253,8 +317,8 @@ const NewAuth = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
-                  className="bg-white/10 border-white/20 text-white placeholder-gray-400 pr-10"
+                  minLength={isLogin ? 6 : 8}
+                  className={`bg-white/10 border-white/20 text-white placeholder-gray-400 pr-10 ${validationErrors.password ? 'border-red-500' : ''}`}
                   placeholder="Enter your password"
                 />
                 <button
@@ -265,6 +329,9 @@ const NewAuth = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {validationErrors.password && (
+                <p className="text-red-400 text-sm">{validationErrors.password}</p>
+              )}
             </div>
             
             <Button 
@@ -300,8 +367,7 @@ const NewAuth = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    // This would open a password reset modal or redirect
-                    console.log('Password reset requested for:', email);
+                    // Password reset functionality would go here
                   }}
                   className="text-gray-400 hover:text-gray-300 text-xs transition-colors"
                 >
