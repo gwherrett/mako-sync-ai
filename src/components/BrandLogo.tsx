@@ -79,7 +79,7 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ size = 40, className = '' }) => {
 
   return (
     <div 
-      className={`relative flex items-center justify-center group ${className}`}
+      className={`relative flex items-center justify-center ${className}`}
       style={{ width: size, height: size }}
     >
       {/* Static white circle background */}
@@ -90,7 +90,7 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ size = 40, className = '' }) => {
         <img
           src={makoSharkImage}
           alt="Mako Shark Logo"
-          className="w-full h-full object-cover transition-transform duration-700 ease-in-out group-hover:rotate-[360deg]"
+          className="w-full h-full object-cover"
           onError={handleImageError}
           style={{
             imageRendering: 'crisp-edges'
