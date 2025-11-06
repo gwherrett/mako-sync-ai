@@ -124,20 +124,22 @@ serve(async (req) => {
 
     console.log('Spotify profile retrieved successfully')
 
-    // Store tokens securely in Vault using database functions
-    console.log('Storing tokens in vault using database functions')
+    // Store tokens securely in Vault using direct access
+    console.log('Storing tokens in vault directly')
     
     // Store access token in vault
     console.log('Storing access token in vault')
     
-    const { data: accessTokenSecretId, error: accessTokenError } = await supabaseAdmin
-      .rpc('store_spotify_token_in_vault', {
-        p_user_id: user.id,
-        p_token_name: 'access_token',
-        p_token_value: tokenData.access_token
+    const { data: accessTokenVault, error: accessTokenError } = await supabaseAdmin
+      .from('vault.secrets')
+      .insert({
+        secret: tokenData.access_token,
+        description: `Spotify access_token for user ${user.id}`
       })
+      .select('id')
+      .single()
 
-    if (accessTokenError || !accessTokenSecretId) {
+    if (accessTokenError || !accessTokenVault) {
       console.error('Failed to store access token in vault:', JSON.stringify(accessTokenError))
       return new Response(
         JSON.stringify({ 
@@ -148,19 +150,22 @@ serve(async (req) => {
       )
     }
     
+    const accessTokenSecretId = accessTokenVault.id
     console.log('Access token stored in vault successfully')
 
     // Store refresh token in vault
     console.log('Storing refresh token in vault')
     
-    const { data: refreshTokenSecretId, error: refreshTokenError } = await supabaseAdmin
-      .rpc('store_spotify_token_in_vault', {
-        p_user_id: user.id,
-        p_token_name: 'refresh_token',
-        p_token_value: tokenData.refresh_token
+    const { data: refreshTokenVault, error: refreshTokenError } = await supabaseAdmin
+      .from('vault.secrets')
+      .insert({
+        secret: tokenData.refresh_token,
+        description: `Spotify refresh_token for user ${user.id}`
       })
+      .select('id')
+      .single()
 
-    if (refreshTokenError || !refreshTokenSecretId) {
+    if (refreshTokenError || !refreshTokenVault) {
       console.error('Failed to store refresh token in vault:', JSON.stringify(refreshTokenError))
       return new Response(
         JSON.stringify({ 
@@ -171,6 +176,7 @@ serve(async (req) => {
       )
     }
     
+    const refreshTokenSecretId = refreshTokenVault.id
     console.log('Refresh token stored in vault successfully')
 
     // Store connection with vault references only (no plain text fallback)

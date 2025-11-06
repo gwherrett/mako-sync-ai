@@ -435,10 +435,6 @@ export type Database = {
       }
     }
     Functions: {
-      get_spotify_token_from_vault: {
-        Args: { p_secret_id: string }
-        Returns: string
-      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -452,14 +448,6 @@ export type Database = {
       }
       migrate_connection_to_vault: {
         Args: { p_connection_id: string }
-        Returns: undefined
-      }
-      store_spotify_token_in_vault: {
-        Args: { p_token_name: string; p_token_value: string; p_user_id: string }
-        Returns: string
-      }
-      update_spotify_token_in_vault: {
-        Args: { p_new_token_value: string; p_secret_id: string }
         Returns: undefined
       }
     }

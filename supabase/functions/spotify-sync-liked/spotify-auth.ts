@@ -3,22 +3,25 @@ import type { SpotifyConnection } from './types.ts'
 export async function refreshSpotifyToken(connection: SpotifyConnection, supabaseClient: any, userId: string): Promise<string> {
   console.log('Token expired, attempting refresh')
   
-  // Get refresh token from vault using database function
+  // Get refresh token from vault directly
   if (!connection.refresh_token_secret_id) {
     console.error('No refresh token vault reference found')
     throw new Error('No refresh token available - please reconnect Spotify')
   }
   
   console.log('Retrieving refresh token from vault')
-  const { data: refreshToken, error: vaultError } = await supabaseClient
-    .rpc('get_spotify_token_from_vault', {
-      p_secret_id: connection.refresh_token_secret_id
-    })
+  const { data: refreshTokenData, error: vaultError } = await supabaseClient
+    .from('vault.decrypted_secrets')
+    .select('decrypted_secret')
+    .eq('id', connection.refresh_token_secret_id)
+    .single()
 
-  if (vaultError || !refreshToken) {
+  if (vaultError || !refreshTokenData) {
     console.error('Failed to retrieve refresh token from vault:', vaultError)
     throw new Error('Failed to retrieve refresh token from vault - please reconnect Spotify')
   }
+  
+  const refreshToken = refreshTokenData.decrypted_secret
 
   // Validate client credentials exist
   const clientId = Deno.env.get('SPOTIFY_CLIENT_ID')
@@ -82,13 +85,15 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
     throw new Error('Invalid connection state - please reconnect Spotify')
   }
 
-  // Update access token in vault using database function
+  // Update access token in vault directly
   console.log('Updating access token in vault')
   const { error: accessTokenUpdateError } = await supabaseClient
-    .rpc('update_spotify_token_in_vault', {
-      p_secret_id: connection.access_token_secret_id,
-      p_new_token_value: newAccessToken
+    .from('vault.secrets')
+    .update({
+      secret: newAccessToken,
+      updated_at: new Date().toISOString()
     })
+    .eq('id', connection.access_token_secret_id)
 
   if (accessTokenUpdateError) {
     console.error('Failed to update access token in vault:', accessTokenUpdateError)
@@ -104,10 +109,12 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
 
     console.log('Updating refresh token in vault')
     const { error: refreshTokenUpdateError } = await supabaseClient
-      .rpc('update_spotify_token_in_vault', {
-        p_secret_id: connection.refresh_token_secret_id,
-        p_new_token_value: refreshData.refresh_token
+      .from('vault.secrets')
+      .update({
+        secret: refreshData.refresh_token,
+        updated_at: new Date().toISOString()
       })
+      .eq('id', connection.refresh_token_secret_id)
 
     if (refreshTokenUpdateError) {
       console.error('Failed to update refresh token in vault:', refreshTokenUpdateError)
@@ -146,22 +153,23 @@ export async function getValidAccessToken(connection: SpotifyConnection, supabas
     return await refreshSpotifyToken(connection, supabaseClient, userId)
   }
   
-  // Get access token from vault using database function
+  // Get access token from vault directly
   if (!connection.access_token_secret_id) {
     console.error('No access token vault reference found')
     throw new Error('No access token available - please reconnect Spotify')
   }
   
   console.log('Retrieving access token from vault')
-  const { data: accessToken, error: vaultError } = await supabaseClient
-    .rpc('get_spotify_token_from_vault', {
-      p_secret_id: connection.access_token_secret_id
-    })
+  const { data: accessTokenData, error: vaultError } = await supabaseClient
+    .from('vault.decrypted_secrets')
+    .select('decrypted_secret')
+    .eq('id', connection.access_token_secret_id)
+    .single()
 
-  if (vaultError || !accessToken) {
+  if (vaultError || !accessTokenData) {
     console.error('Failed to retrieve access token from vault:', vaultError)
     throw new Error('Failed to retrieve access token from vault - please reconnect Spotify')
   }
 
-  return accessToken
+  return accessTokenData.decrypted_secret
 }
