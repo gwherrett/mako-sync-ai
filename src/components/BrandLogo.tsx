@@ -82,9 +82,25 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ size = 40, className = '' }) => {
       className={`relative flex items-center justify-center ${className}`}
       style={{ width: size, height: size }}
     >
+      {/* Animated glow effect */}
+      <div 
+        className="absolute inset-0 rounded-full animate-pulse"
+        style={{
+          background: 'radial-gradient(circle, rgba(6, 182, 212, 0.4) 0%, transparent 70%)',
+          animation: 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+        }}
+      />
+      
+      {/* Tail splash effect */}
+      <div 
+        className="absolute -right-1 top-1/2 -translate-y-1/2 animate-tail-splash"
+      >
+        <div className="w-2 h-2 bg-serato-cyan/60 rounded-full blur-sm" />
+      </div>
+      
       {/* Simple white circle background */}
       <div 
-        className="w-full h-full rounded-full overflow-hidden bg-white border border-gray-200 shadow-sm"
+        className="relative w-full h-full rounded-full overflow-hidden bg-white border border-gray-200 shadow-lg transition-transform duration-300 hover:scale-105"
         style={{ width: size, height: size }}
       >
         <img

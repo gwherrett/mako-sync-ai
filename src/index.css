@@ -72,4 +72,19 @@
     backdrop-filter: blur(10px);
     border: 1px solid rgba(0, 212, 255, 0.2);
   }
+
+  @keyframes tail-splash {
+    0%, 100% {
+      opacity: 0;
+      transform: translateX(0) translateY(-50%) scale(0.8);
+    }
+    50% {
+      opacity: 1;
+      transform: translateX(8px) translateY(-50%) scale(1.2);
+    }
+  }
+
+  .animate-tail-splash {
+    animation: tail-splash 2s ease-in-out infinite;
+  }
 }
