@@ -7,6 +7,7 @@ import { fetchAllLikedSongs, fetchAudioFeatures } from './spotify-api.ts'
 import { extractUniqueArtistIds, processSongsData } from './data-processing.ts'
 import { clearAndInsertSongs } from './database.ts'
 import { getArtistGenresWithCache } from './artist-genres.ts'
+import { getAlbumGenresWithCache, extractUniqueAlbumIds } from './album-genres.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -95,6 +96,11 @@ serve(async (req) => {
     // Fetch artist genres with caching
     const artistGenreMap = await getArtistGenresWithCache(accessToken, artistIds, supabaseClient)
 
+    // Extract unique album IDs and fetch album genres
+    const albumIds = extractUniqueAlbumIds(allTracks)
+    console.log(`Found ${albumIds.length} unique albums to fetch genres for`)
+    const albumGenreMap = await getAlbumGenresWithCache(accessToken, albumIds, supabaseClient)
+
     // Fetch effective genre mapping for this user
     const { data: genreMappingData, error: genreMappingError } = await supabaseClient
       .from('v_effective_spotify_genre_map')
@@ -115,8 +121,8 @@ serve(async (req) => {
       })
     }
 
-    // Process and prepare songs for database insertion
-    const songsToInsert = processSongsData(allTracks, user.id, artistGenreMap, genreMapping)
+    // Process and prepare songs for database insertion (now with album fallback)
+    const songsToInsert = processSongsData(allTracks, user.id, artistGenreMap, albumGenreMap, genreMapping)
 
     // Clear existing songs and insert new ones - use admin client to bypass RLS
     const insertedCount = await clearAndInsertSongs(songsToInsert, user.id, supabaseAdmin)

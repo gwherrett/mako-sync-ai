@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      album_genres: {
+        Row: {
+          cached_at: string
+          genres: Json
+          spotify_album_id: string
+        }
+        Insert: {
+          cached_at?: string
+          genres: Json
+          spotify_album_id: string
+        }
+        Update: {
+          cached_at?: string
+          genres?: Json
+          spotify_album_id?: string
+        }
+        Relationships: []
+      }
       artist_genres: {
         Row: {
           cached_at: string
