@@ -137,7 +137,7 @@ const SpotifyCallback = () => {
   }, [navigate, toast]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black flex items-center justify-center">
       <div className="text-center">
         <Loader2 className="w-8 h-8 animate-spin text-green-400 mx-auto mb-4" />
         <h1 className="text-xl font-bold text-white mb-2">Connecting to Spotify...</h1>

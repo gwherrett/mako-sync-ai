@@ -158,7 +158,7 @@ const NewAuth = () => {
   // Show loading while auth state is being determined
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black flex items-center justify-center p-4">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-green-400 mx-auto mb-4" />
           <p className="text-gray-400">Loading...</p>
@@ -170,7 +170,7 @@ const NewAuth = () => {
   // Show email verification notice for unverified users
   if (isAuthenticated && !isEmailVerified) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black flex items-center justify-center p-4">
         <Card className="w-full max-w-md bg-spotify-dark border-white/10">
           <CardHeader className="text-center">
             <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -222,7 +222,7 @@ const NewAuth = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-spotify-dark border-white/10">
         <CardHeader className="text-center">
           <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
