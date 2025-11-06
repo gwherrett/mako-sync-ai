@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Loader2, Settings, Database, Search, Filter, ChevronDown, ChevronUp, Shuffle } from 'lucide-react';
+import { Loader2, Zap, Target, Search, Users2, Filter, ChevronDown, ChevronUp, Music2, BarChart3, UserCheck, AlertCircle, GitCompare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { enhancedTrackMatchingService, TrackMatch } from '@/services/enhancedTrackMatching.service';
 import { TrackMatchingService } from '@/services/trackMatching.service';
@@ -296,7 +296,7 @@ const SyncAnalysis = () => {
                 </>
               ) : (
                 <>
-                  <Shuffle className="w-5 h-5 mr-2" />
+                  <Target className="w-5 h-5 mr-2" />
                   Run Matching Algo
                 </>
               )}
@@ -321,37 +321,35 @@ const SyncAnalysis = () => {
         <TabsList className="grid w-full grid-cols-4 h-auto bg-card border border-border p-1.5 gap-1">
           <TabsTrigger 
             value="overview" 
-            className="flex items-center justify-center gap-2 data-[state=active]:expos-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_25px_rgba(0,61,165,0.5)] transition-all duration-300 py-3 px-2 group"
+            className="flex items-center justify-center gap-2 data-[state=active]:expos-blue-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(0,61,165,0.4)] transition-all duration-300 py-3 px-2"
           >
-            <Shuffle className="h-4 w-4 shrink-0 group-data-[state=active]:animate-pulse" />
-            <span className="hidden sm:inline">Matching</span>
-            <span className="sm:hidden text-xs">Match</span>
+            <BarChart3 className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Match Overview</span>
+            <span className="sm:hidden text-xs">Overview</span>
           </TabsTrigger>
           <TabsTrigger 
             value="artists"
-            className="flex items-center justify-center gap-2 data-[state=active]:spotify-gradient data-[state=active]:text-black data-[state=active]:shadow-[0_0_25px_rgba(29,185,84,0.5)] transition-all duration-300 py-3 px-2 group"
+            className="flex items-center justify-center gap-2 data-[state=active]:expos-blue-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(0,61,165,0.4)] transition-all duration-300 py-3 px-2"
           >
-            <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-current" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-            </svg>
-            <span className="hidden sm:inline">Spotify</span>
-            <span className="sm:hidden text-xs">Spotify</span>
+            <UserCheck className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Artist Discovery</span>
+            <span className="sm:hidden text-xs">Artists</span>
           </TabsTrigger>
           <TabsTrigger 
             value="missing"
-            className="flex items-center justify-center gap-2 data-[state=active]:expos-red-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_25px_rgba(245,63,87,0.5)] transition-all duration-300 py-3 px-2"
+            className="flex items-center justify-center gap-2 data-[state=active]:expos-red-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(245,63,87,0.4)] transition-all duration-300 py-3 px-2"
           >
-            <Database className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">Local</span>
-            <span className="sm:hidden text-xs">Local</span>
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Missing Tracks</span>
+            <span className="sm:hidden text-xs">Missing</span>
           </TabsTrigger>
           <TabsTrigger 
             value="normalized"
-            className="flex items-center justify-center gap-2 data-[state=active]:expos-blue-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_25px_rgba(0,61,165,0.5)] transition-all duration-300 py-3 px-2"
+            className="flex items-center justify-center gap-2 data-[state=active]:expos-blue-gradient data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_20px_rgba(0,61,165,0.4)] transition-all duration-300 py-3 px-2"
           >
-            <Settings className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">Setup</span>
-            <span className="sm:hidden text-xs">Setup</span>
+            <GitCompare className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Normalized Artists</span>
+            <span className="sm:hidden text-xs">Normalized</span>
           </TabsTrigger>
         </TabsList>
 
@@ -513,7 +511,7 @@ const SyncAnalysis = () => {
           {!matchingStats && matches.length === 0 && (
             <Card>
               <CardContent className="text-center py-8">
-                <Shuffle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Matching Results Yet</h3>
                 <p className="text-muted-foreground mb-4">
                   Run track matching to see how your local collection compares to your Spotify library.
@@ -542,7 +540,7 @@ const SyncAnalysis = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
+                <Music2 className="h-5 w-5" />
                 Normalized Artist Names
               </CardTitle>
               <CardDescription>
@@ -622,7 +620,7 @@ const SyncAnalysis = () => {
 
               {normalizedArtists.length === 0 && !loadingArtists && (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <Music2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>Click "Load Artist Data" to view normalized artist names</p>
                 </div>
               )}
