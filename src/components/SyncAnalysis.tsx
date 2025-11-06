@@ -260,13 +260,6 @@ const SyncAnalysis = () => {
       {/* Header */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5" />
-            Sync Analysis Dashboard
-          </CardTitle>
-          <CardDescription>
-            Analyze and match your local music collection with your Spotify library.
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Genre Filter */}
