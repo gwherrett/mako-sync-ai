@@ -117,31 +117,31 @@ const MetadataExtractor = ({ selectedTrack }: MetadataExtractorProps) => {
   return (
     <div className="space-y-6">
       {/* Make Integration */}
-      <Card className="glass-card border-serato-cyan/20">
+      <Card className="glass-card border-expos-blue/20">
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2 text-white">
-            <Zap className="w-5 h-5 text-serato-cyan" />
+          <CardTitle className="flex items-center space-x-2 text-gray-900">
+            <Zap className="w-5 h-5 text-expos-blue" />
             <span>Make Integration</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-300 mb-2 block">
+              <label className="text-sm font-medium text-gray-700 mb-2 block">
                 Make Webhook URL
               </label>
               <Input
                 placeholder="https://hook.integromat.com/your-webhook-url"
                 value={webhookUrl}
                 onChange={(e) => setWebhookUrl(e.target.value)}
-                className="bg-serato-dark/30 border-serato-cyan/30 text-white placeholder-gray-400"
+                className="bg-white border-gray-300 text-gray-900 placeholder-gray-500"
               />
             </div>
             <div className="flex space-x-3">
               <Button 
                 onClick={handleMakeWebhook}
                 disabled={isLoading || !selectedTrack}
-                className="serato-gradient text-serato-dark font-medium hover:opacity-90"
+                className="expos-gradient text-white font-medium hover:opacity-90"
               >
                 <Zap className="w-4 h-4 mr-2" />
                 {isLoading ? "Sending..." : "Send to Make"}
@@ -150,14 +150,14 @@ const MetadataExtractor = ({ selectedTrack }: MetadataExtractorProps) => {
                 onClick={exportToJSON}
                 disabled={!selectedTrack}
                 variant="outline" 
-                className="border-serato-cyan/30 text-serato-cyan hover:bg-serato-cyan/10"
+                className="border-expos-blue/30 text-expos-blue hover:bg-expos-blue/10"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Export JSON
               </Button>
             </div>
             {!selectedTrack && (
-              <p className="text-sm text-gray-400">Select a track to enable Make integration and export</p>
+              <p className="text-sm text-gray-500">Select a track to enable Make integration and export</p>
             )}
           </div>
         </CardContent>

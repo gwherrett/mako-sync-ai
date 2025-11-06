@@ -7,41 +7,41 @@
 
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 210 17% 98%;
+    --foreground: 0 0% 10%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
 
-    --primary: 200 100% 50%;
-    --primary-foreground: 210 100% 15%;
+    --primary: 218 100% 32%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 208 25% 35%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 210 14% 93%;
+    --secondary-foreground: 218 100% 32%;
 
-    --muted: 208 25% 35%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 210 14% 93%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 208 25% 35%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 355 85% 52%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 355 85% 52%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 208 25% 35%;
-    --input: 208 25% 35%;
-    --ring: 200 100% 50%;
+    --border: 210 14% 89%;
+    --input: 210 14% 89%;
+    --ring: 218 100% 32%;
 
     --radius: 0.5rem;
 
-    --serato-blue: 200 100% 50%;
-    --serato-cyan: 185 100% 50%;
-    --serato-orange: 15 100% 60%;
-    --serato-dark: 210 100% 15%;
-    --serato-dark-elevated: 210 90% 20%;
+    --expos-blue: 218 100% 32%;
+    --expos-red: 355 85% 52%;
+    --expos-white: 0 0% 100%;
+    --expos-light-bg: 210 17% 98%;
+    --expos-gray: 210 14% 93%;
   }
 
   * {
@@ -55,12 +55,16 @@
 }
 
 @layer utilities {
-  .serato-gradient {
-    background: linear-gradient(135deg, hsl(var(--serato-blue)) 0%, hsl(var(--serato-cyan)) 100%);
+  .expos-gradient {
+    background: linear-gradient(135deg, hsl(var(--expos-blue)) 0%, hsl(var(--expos-red)) 100%);
   }
   
-  .serato-orange-gradient {
-    background: linear-gradient(135deg, hsl(var(--serato-orange)) 0%, #ff8c42 100%);
+  .expos-blue-gradient {
+    background: linear-gradient(135deg, #003DA5 0%, #0055D4 100%);
+  }
+  
+  .expos-red-gradient {
+    background: linear-gradient(135deg, #ED1B2F 0%, #FF4444 100%);
   }
   
   .spotify-gradient {
@@ -68,9 +72,9 @@
   }
   
   .glass-card {
-    background: rgba(27, 54, 93, 0.1);
+    background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(0, 212, 255, 0.2);
+    border: 1px solid rgba(0, 61, 165, 0.2);
   }
 
   @keyframes tail-splash {

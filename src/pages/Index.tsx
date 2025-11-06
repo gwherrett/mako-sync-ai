@@ -54,14 +54,14 @@ const Index = () => {
   const [selectedLocalTrack, setSelectedLocalTrack] = useState<LocalTrack | null>(null);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-serato-dark via-serato-dark-elevated to-black">
+    <div className="min-h-screen bg-gradient-to-br from-expos-light-bg via-gray-50 to-white">
       <LibraryHeader />
       
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <div className="mb-4">
-            <h2 className="text-3xl font-bold text-white mb-2">Spotify - Local Collection Dashboard</h2>
-            <p className="text-gray-400">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Spotify - Local Collection Dashboard</h2>
+            <p className="text-gray-600">
               Use Spotify metadata to find matches with local library
             </p>
           </div>
@@ -90,19 +90,19 @@ const Index = () => {
           <TabsContent value="spotify" className="space-y-8">
             <TracksTable onTrackSelect={setSelectedTrack} selectedTrack={selectedTrack} />
             {selectedTrack && (
-              <div className="bg-serato-dark/20 rounded-lg border border-serato-cyan/20 p-6">
-                <h3 className="text-xl font-semibold text-white mb-4">Track Details</h3>
-                <div className="p-4 bg-serato-dark/30 rounded-lg border border-serato-cyan/10">
+              <div className="bg-white rounded-lg border border-expos-blue/20 p-6 shadow-sm">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Track Details</h3>
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <h4 className="font-semibold text-white text-lg">{selectedTrack.title}</h4>
-                      <p className="text-gray-300">{selectedTrack.artist} • {selectedTrack.album || 'Unknown Album'}</p>
+                      <h4 className="font-semibold text-gray-900 text-lg">{selectedTrack.title}</h4>
+                      <p className="text-gray-700">{selectedTrack.artist} • {selectedTrack.album || 'Unknown Album'}</p>
                       {selectedTrack.genre && (
-                        <p className="text-purple-400 text-sm">{selectedTrack.genre}</p>
+                        <p className="text-expos-blue text-sm">{selectedTrack.genre}</p>
                       )}
                     </div>
                     <button 
-                      className="text-serato-cyan hover:text-serato-cyan/80 transition-colors"
+                      className="text-expos-blue hover:text-expos-blue/80 transition-colors"
                       onClick={() => window.open(`https://open.spotify.com/track/${selectedTrack.spotify_id}`, '_blank')}
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -113,14 +113,14 @@ const Index = () => {
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
                     <div>
-                      <span className="text-xs text-gray-400 block">BPM</span>
-                      <span className="text-sm text-serato-cyan font-semibold">
+                      <span className="text-xs text-gray-500 block">BPM</span>
+                      <span className="text-sm text-expos-blue font-semibold">
                         {selectedTrack.bpm ? Math.round(selectedTrack.bpm) : 'Unknown'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-xs text-gray-400 block">Key</span>
-                      <span className="text-sm text-serato-cyan font-semibold">
+                      <span className="text-xs text-gray-500 block">Key</span>
+                      <span className="text-sm text-expos-blue font-semibold">
                         {selectedTrack.key ? (() => {
                           const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
                           const keyNum = parseInt(selectedTrack.key);
@@ -129,12 +129,12 @@ const Index = () => {
                       </span>
                     </div>
                     <div>
-                      <span className="text-xs text-gray-400 block">Year</span>
-                      <span className="text-sm text-white">{selectedTrack.year || 'Unknown'}</span>
+                      <span className="text-xs text-gray-500 block">Year</span>
+                      <span className="text-sm text-gray-900">{selectedTrack.year || 'Unknown'}</span>
                     </div>
                     <div>
-                      <span className="text-xs text-gray-400 block">Added</span>
-                      <span className="text-sm text-white">
+                      <span className="text-xs text-gray-500 block">Added</span>
+                      <span className="text-sm text-gray-900">
                         {selectedTrack.added_at ? new Date(selectedTrack.added_at).toLocaleDateString() : 'Unknown'}
                       </span>
                     </div>
@@ -142,11 +142,11 @@ const Index = () => {
 
                   <div className="flex space-x-2">
                     {selectedTrack.danceability && (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-serato-cyan/10 text-serato-cyan border border-serato-cyan/30">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-expos-blue/10 text-expos-blue border border-expos-blue/30">
                         Danceability: {(selectedTrack.danceability * 100).toFixed(0)}%
                       </span>
                     )}
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-serato-orange/10 text-serato-orange border border-serato-orange/30">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-expos-red/10 text-expos-red border border-expos-red/30">
                       Spotify Track
                     </span>
                   </div>
@@ -163,18 +163,18 @@ const Index = () => {
               selectedTrack={selectedLocalTrack}
             />
             {selectedLocalTrack && (
-              <div className="bg-serato-dark/20 rounded-lg border border-serato-cyan/20 p-6">
-                <h3 className="text-xl font-semibold text-white mb-4">Local Track Details</h3>
-                <div className="p-4 bg-serato-dark/30 rounded-lg border border-serato-cyan/10">
+              <div className="bg-white rounded-lg border border-expos-blue/20 p-6 shadow-sm">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Local Track Details</h3>
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <h4 className="font-semibold text-white text-lg">
+                      <h4 className="font-semibold text-gray-900 text-lg">
                         {selectedLocalTrack.title || selectedLocalTrack.file_path.split('/').pop()}
                       </h4>
-                      <p className="text-gray-300">
+                      <p className="text-gray-700">
                         {selectedLocalTrack.artist || 'Unknown Artist'} • {selectedLocalTrack.album || 'Unknown Album'}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1" title={selectedLocalTrack.file_path}>
+                      <p className="text-xs text-gray-500 mt-1" title={selectedLocalTrack.file_path}>
                         {selectedLocalTrack.file_path}
                       </p>
                     </div>
@@ -182,26 +182,26 @@ const Index = () => {
                   
                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
                      <div>
-                       <span className="text-xs text-gray-400 block">BPM</span>
-                       <span className="text-sm text-serato-cyan font-semibold">
+                       <span className="text-xs text-gray-500 block">BPM</span>
+                       <span className="text-sm text-expos-blue font-semibold">
                          {selectedLocalTrack.bpm || 'Unknown'}
                        </span>
                      </div>
                      <div>
-                       <span className="text-xs text-gray-400 block">Key</span>
-                       <span className="text-sm text-serato-cyan font-semibold">
+                       <span className="text-xs text-gray-500 block">Key</span>
+                       <span className="text-sm text-expos-blue font-semibold">
                          {selectedLocalTrack.key || 'Unknown'}
                        </span>
                      </div>
                      <div>
-                       <span className="text-xs text-gray-400 block">Bitrate</span>
-                       <span className="text-sm text-white">
+                       <span className="text-xs text-gray-500 block">Bitrate</span>
+                       <span className="text-sm text-gray-900">
                          {selectedLocalTrack.bitrate || 'Unknown'}
                        </span>
                      </div>
                      <div>
-                       <span className="text-xs text-gray-400 block">Genre</span>
-                       <span className="text-sm text-serato-cyan font-semibold">
+                       <span className="text-xs text-gray-500 block">Genre</span>
+                       <span className="text-sm text-expos-blue font-semibold">
                          {selectedLocalTrack.genre || 'Unknown'}
                        </span>
                      </div>
@@ -209,39 +209,39 @@ const Index = () => {
                    
                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-3">
                      <div>
-                       <span className="text-xs text-gray-400 block">Year</span>
-                       <span className="text-sm text-white">{selectedLocalTrack.year || 'Unknown'}</span>
+                       <span className="text-xs text-gray-500 block">Year</span>
+                       <span className="text-sm text-gray-900">{selectedLocalTrack.year || 'Unknown'}</span>
                      </div>
                      <div>
-                       <span className="text-xs text-gray-400 block">File Size</span>
-                       <span className="text-sm text-white">
+                       <span className="text-xs text-gray-500 block">File Size</span>
+                       <span className="text-sm text-gray-900">
                          {selectedLocalTrack.file_size ? 
                            `${(selectedLocalTrack.file_size / (1024 * 1024)).toFixed(1)} MB` : 'Unknown'}
                        </span>
                      </div>
                      <div>
-                       <span className="text-xs text-gray-400 block">Last Modified</span>
-                       <span className="text-sm text-white">
+                       <span className="text-xs text-gray-500 block">Last Modified</span>
+                       <span className="text-sm text-gray-900">
                          {selectedLocalTrack.last_modified ? 
                            new Date(selectedLocalTrack.last_modified).toLocaleDateString() : 'Unknown'}
                        </span>
                      </div>
                    </div>
 
-                  <div className="flex space-x-2">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-serato-orange/10 text-serato-orange border border-serato-orange/30">
-                      Local File
-                    </span>
-                    {selectedLocalTrack.hash && (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30">
-                        Hashed
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </TabsContent>
+                   <div className="flex space-x-2">
+                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-expos-red/10 text-expos-red border border-expos-red/30">
+                       Local File
+                     </span>
+                     {selectedLocalTrack.hash && (
+                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-expos-blue/10 text-expos-blue border border-expos-blue/30">
+                         Hashed
+                       </span>
+                     )}
+                   </div>
+                 </div>
+               </div>
+             )}
+           </TabsContent>
         </Tabs>
       </main>
     </div>
