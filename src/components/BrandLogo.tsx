@@ -82,16 +82,6 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ size = 40, className = '' }) => {
       className={`relative flex items-center justify-center group ${className}`}
       style={{ width: size, height: size }}
     >
-      {/* Splash effect - appears on hover */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-        {/* Water droplets */}
-        <div className="absolute -top-1 left-1/4 w-1.5 h-1.5 bg-serato-cyan rounded-full animate-[ping_0.5s_ease-out]" />
-        <div className="absolute -top-2 right-1/3 w-1 h-1 bg-serato-cyan/70 rounded-full animate-[ping_0.6s_ease-out_0.1s]" />
-        <div className="absolute top-0 right-1/4 w-1.5 h-1.5 bg-serato-cyan/80 rounded-full animate-[ping_0.5s_ease-out_0.2s]" />
-        <div className="absolute -bottom-1 left-1/3 w-1.5 h-1.5 bg-serato-cyan rounded-full animate-[ping_0.5s_ease-out_0.15s]" />
-        <div className="absolute -bottom-2 right-1/4 w-1 h-1 bg-serato-cyan/60 rounded-full animate-[ping_0.6s_ease-out_0.25s]" />
-      </div>
-      
       {/* Static white circle background */}
       <div 
         className="relative w-full h-full rounded-full overflow-hidden bg-white border border-gray-200 shadow-lg"
