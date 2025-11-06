@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Loader2, Zap, Target, Search, Users2, Filter, ChevronDown, ChevronUp, Music2 } from 'lucide-react';
+import { Loader2, Zap, Target, Search, Users2, Filter, ChevronDown, ChevronUp, Music2, BarChart3, UserCheck, AlertCircle, GitCompare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { enhancedTrackMatchingService, TrackMatch } from '@/services/enhancedTrackMatching.service';
 import { TrackMatchingService } from '@/services/trackMatching.service';
@@ -318,12 +318,44 @@ const SyncAnalysis = () => {
 
       {/* Results */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Match Overview</TabsTrigger>
-          <TabsTrigger value="artists">Artist Discovery</TabsTrigger>
-          <TabsTrigger value="missing">Missing Tracks</TabsTrigger>
-          <TabsTrigger value="normalized">Normalized Artists</TabsTrigger>
-        </TabsList>
+        <Card className="border-expos-blue/20 bg-expos-dark-elevated/30">
+          <CardContent className="pt-6 pb-3">
+            <TabsList className="grid w-full grid-cols-4 h-auto bg-expos-dark/50 p-1">
+              <TabsTrigger 
+                value="overview" 
+                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all py-3"
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Match Overview</span>
+                <span className="sm:hidden">Overview</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="artists"
+                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all py-3"
+              >
+                <UserCheck className="h-4 w-4" />
+                <span className="hidden sm:inline">Artist Discovery</span>
+                <span className="sm:hidden">Artists</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="missing"
+                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all py-3"
+              >
+                <AlertCircle className="h-4 w-4" />
+                <span className="hidden sm:inline">Missing Tracks</span>
+                <span className="sm:hidden">Missing</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="normalized"
+                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all py-3"
+              >
+                <GitCompare className="h-4 w-4" />
+                <span className="hidden sm:inline">Normalized Artists</span>
+                <span className="sm:hidden">Normalized</span>
+              </TabsTrigger>
+            </TabsList>
+          </CardContent>
+        </Card>
 
         <TabsContent value="overview" className="space-y-4">
           {matchingStats ? (
