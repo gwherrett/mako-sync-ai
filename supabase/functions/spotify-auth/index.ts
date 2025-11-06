@@ -124,62 +124,53 @@ serve(async (req) => {
 
     console.log('Spotify profile retrieved successfully')
 
-    // Store tokens securely in Vault using direct vault operations
-    console.log('Storing tokens in vault using direct vault API')
+    // Store tokens securely in Vault using database functions
+    console.log('Storing tokens in vault using database functions')
     
-    // Store access token in vault using admin client
+    // Store access token in vault
     console.log('Storing access token in vault')
     
-    const { data: accessTokenVault, error: accessTokenError } = await supabaseAdmin
-      .from('vault.secrets')
-      .insert({
-        secret: tokenData.access_token,
-        description: `Spotify access_token for user ${user.id}`
+    const { data: accessTokenSecretId, error: accessTokenError } = await supabaseAdmin
+      .rpc('store_spotify_token_in_vault', {
+        p_user_id: user.id,
+        p_token_name: 'access_token',
+        p_token_value: tokenData.access_token
       })
-      .select('id')
-      .single()
 
-    if (accessTokenError || !accessTokenVault?.id) {
-      console.error('Failed to store access token in vault - full error:', JSON.stringify(accessTokenError))
-      console.error('Error details:', {
-        message: accessTokenError?.message,
-        details: accessTokenError?.details,
-        hint: accessTokenError?.hint,
-        code: accessTokenError?.code
-      })
+    if (accessTokenError || !accessTokenSecretId) {
+      console.error('Failed to store access token in vault:', JSON.stringify(accessTokenError))
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to securely store tokens. Please try again.',
+          error: 'Failed to securely store access token. Please try again.',
           debug: accessTokenError?.message 
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
     
-    const accessTokenSecretId = accessTokenVault.id
     console.log('Access token stored in vault successfully')
 
-    // Store refresh token in vault using admin client
+    // Store refresh token in vault
     console.log('Storing refresh token in vault')
     
-    const { data: refreshTokenVault, error: refreshTokenError } = await supabaseAdmin
-      .from('vault.secrets')
-      .insert({
-        secret: tokenData.refresh_token,
-        description: `Spotify refresh_token for user ${user.id}`
+    const { data: refreshTokenSecretId, error: refreshTokenError } = await supabaseAdmin
+      .rpc('store_spotify_token_in_vault', {
+        p_user_id: user.id,
+        p_token_name: 'refresh_token',
+        p_token_value: tokenData.refresh_token
       })
-      .select('id')
-      .single()
 
-    if (refreshTokenError || !refreshTokenVault?.id) {
-      console.error('Failed to store refresh token in vault:', refreshTokenError)
+    if (refreshTokenError || !refreshTokenSecretId) {
+      console.error('Failed to store refresh token in vault:', JSON.stringify(refreshTokenError))
       return new Response(
-        JSON.stringify({ error: 'Failed to securely store tokens. Please try again.' }),
+        JSON.stringify({ 
+          error: 'Failed to securely store refresh token. Please try again.',
+          debug: refreshTokenError?.message 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
     
-    const refreshTokenSecretId = refreshTokenVault.id
     console.log('Refresh token stored in vault successfully')
 
     // Store connection with vault references only (no plain text fallback)
