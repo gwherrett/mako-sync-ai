@@ -264,20 +264,26 @@ export const NoGenreTracksProcessor = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[40%]">Track</TableHead>
-                <TableHead className="w-[25%]">Artist</TableHead>
-                <TableHead className="w-[20%]">AI Suggestion</TableHead>
-                <TableHead className="w-[15%]">Actions</TableHead>
+                <TableHead className="w-[45%]">Track</TableHead>
+                <TableHead className="w-[30%]">AI Suggestion</TableHead>
+                <TableHead className="w-[25%]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {batchTracks.map((track, index) => (
                 <TableRow key={track.id}>
-                  <TableCell className="font-medium">
-                    {track.title}
-                    {track.album && <div className="text-xs text-muted-foreground">{track.album}</div>}
+                  <TableCell>
+                    <div className="space-y-1">
+                      <div className="font-medium">{track.title}</div>
+                      <div className="text-sm text-muted-foreground">{track.artist}</div>
+                      {track.album && <div className="text-xs text-muted-foreground">💿 {track.album}</div>}
+                      {track.suggestion && (
+                        <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                          {track.suggestion.reasoning}
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
-                  <TableCell>{track.artist}</TableCell>
                   <TableCell>
                     {track.isProcessing ? (
                       <div className="flex items-center gap-2">
@@ -285,16 +291,11 @@ export const NoGenreTracksProcessor = () => {
                         <span className="text-sm text-muted-foreground">Loading...</span>
                       </div>
                     ) : track.suggestion ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">{track.suggestion.suggestedGenre}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {track.suggestion.confidence}%
-                          </Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground line-clamp-2">
-                          {track.suggestion.reasoning}
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{track.suggestion.suggestedGenre}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {track.suggestion.confidence}%
+                        </Badge>
                       </div>
                     ) : track.decision === 'rejected' ? (
                       <div className="space-y-2">
