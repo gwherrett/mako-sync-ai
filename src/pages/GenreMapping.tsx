@@ -68,7 +68,7 @@ export const GenreMapping = () => {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between">
             <span>
-              <span className="font-medium">{noGenreCount} {noGenreCount === 1 ? 'track has' : 'tracks have'}</span> no Spotify genre. You can assign a genre to these tracks using AI!
+              <span className="font-medium">{noGenreCount} Tracks Unmapped</span>
             </span>
             <Button variant="default" size="sm" asChild>
               <Link to="/no-genre-tracks">
