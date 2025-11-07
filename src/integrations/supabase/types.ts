@@ -75,7 +75,7 @@ export type Database = {
           primary_artist: string | null
           rating: number | null
           title: string | null
-          user_id: string | null
+          user_id: string
           year: number | null
         }
         Insert: {
@@ -102,7 +102,7 @@ export type Database = {
           primary_artist?: string | null
           rating?: number | null
           title?: string | null
-          user_id?: string | null
+          user_id: string
           year?: number | null
         }
         Update: {
@@ -129,7 +129,7 @@ export type Database = {
           primary_artist?: string | null
           rating?: number | null
           title?: string | null
-          user_id?: string | null
+          user_id?: string
           year?: number | null
         }
         Relationships: []
@@ -205,14 +205,14 @@ export type Database = {
       spotify_connections: {
         Row: {
           access_token: string
-          access_token_secret_id: string | null
+          access_token_secret_id: string
           created_at: string | null
           display_name: string | null
           email: string | null
           expires_at: string
           id: string
           refresh_token: string | null
-          refresh_token_secret_id: string | null
+          refresh_token_secret_id: string
           scope: string | null
           spotify_user_id: string
           token_type: string | null
@@ -221,14 +221,14 @@ export type Database = {
         }
         Insert: {
           access_token: string
-          access_token_secret_id?: string | null
+          access_token_secret_id: string
           created_at?: string | null
           display_name?: string | null
           email?: string | null
           expires_at: string
           id?: string
           refresh_token?: string | null
-          refresh_token_secret_id?: string | null
+          refresh_token_secret_id: string
           scope?: string | null
           spotify_user_id: string
           token_type?: string | null
@@ -237,14 +237,14 @@ export type Database = {
         }
         Update: {
           access_token?: string
-          access_token_secret_id?: string | null
+          access_token_secret_id?: string
           created_at?: string | null
           display_name?: string | null
           email?: string | null
           expires_at?: string
           id?: string
           refresh_token?: string | null
-          refresh_token_secret_id?: string | null
+          refresh_token_secret_id?: string
           scope?: string | null
           spotify_user_id?: string
           token_type?: string | null
@@ -323,7 +323,7 @@ export type Database = {
           spotify_id: string
           super_genre: Database["public"]["Enums"]["super_genre"] | null
           title: string
-          user_id: string | null
+          user_id: string
           year: number | null
         }
         Insert: {
@@ -345,7 +345,7 @@ export type Database = {
           spotify_id: string
           super_genre?: Database["public"]["Enums"]["super_genre"] | null
           title: string
-          user_id?: string | null
+          user_id: string
           year?: number | null
         }
         Update: {
@@ -367,7 +367,7 @@ export type Database = {
           spotify_id?: string
           super_genre?: Database["public"]["Enums"]["super_genre"] | null
           title?: string
-          user_id?: string | null
+          user_id?: string
           year?: number | null
         }
         Relationships: []
