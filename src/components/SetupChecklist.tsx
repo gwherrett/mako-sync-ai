@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, XCircle, AlertCircle, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { GenreMappingService } from '@/services/genreMapping.service';
 import { supabase } from '@/integrations/supabase/client';
@@ -97,15 +97,19 @@ export const SetupChecklist: React.FC = () => {
     }
   ];
 
-  const getStatusIcon = (status: ChecklistItem['status']) => {
-    switch (status) {
-      case 'complete':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'warning':
-        return <AlertCircle className="h-5 w-5 text-yellow-500" />;
-      default:
-        return <XCircle className="h-5 w-5 text-gray-400" />;
-    }
+  const getStepNumber = (index: number, status: ChecklistItem['status']) => {
+    const baseClasses = "flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm shrink-0";
+    const statusClasses = {
+      complete: "bg-green-500 text-white",
+      warning: "bg-yellow-500 text-white",
+      incomplete: "bg-muted text-muted-foreground border border-border"
+    };
+    
+    return (
+      <div className={`${baseClasses} ${statusClasses[status]}`}>
+        {index + 1}
+      </div>
+    );
   };
 
   const getStatusBadge = (item: ChecklistItem) => {
@@ -135,15 +139,19 @@ export const SetupChecklist: React.FC = () => {
 
   return (
     <Card>
-      <CardContent className="pt-6">
+      <CardHeader>
+        <CardTitle>Setup Steps</CardTitle>
+        <CardDescription>Follow these 3 steps to set up your music library</CardDescription>
+      </CardHeader>
+      <CardContent>
         <div className="space-y-4">
-          {checklist.map((item) => (
+          {checklist.map((item, index) => (
             <div 
               key={item.id} 
               className="flex items-center justify-between p-4 border border-border/50 rounded-lg"
             >
               <div className="flex items-start gap-3 flex-1">
-                {getStatusIcon(item.status)}
+                {getStepNumber(index, item.status)}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <h4 className="font-medium text-foreground">{item.title}</h4>
