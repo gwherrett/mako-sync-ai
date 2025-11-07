@@ -139,11 +139,7 @@ export const SetupChecklist: React.FC = () => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Setup Steps</CardTitle>
-        <CardDescription>Follow these 3 steps to set up your music library</CardDescription>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <div className="space-y-4">
           {checklist.map((item, index) => (
             <div 
