@@ -47,6 +47,10 @@ export default function NoGenreTracks() {
         .from('spotify_liked')
         .select('id, title, artist, album, mix')
         .is('genre', null)
+        .not('title', 'is', null)
+        .not('artist', 'is', null)
+        .neq('title', '')
+        .neq('artist', '')
         .limit(50); // Limit to first 50 to avoid overwhelming
 
       if (error) throw error;
