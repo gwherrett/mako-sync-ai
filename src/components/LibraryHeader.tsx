@@ -13,8 +13,8 @@ const LibraryHeader = () => {
     <header className="bg-spotify-dark border-b border-white/10 p-4">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-4 group">
-          <BrandLogo size={56} className="flex-shrink-0 transition-transform duration-500 group-hover:rotate-[360deg]" />
-          <div className="flex flex-col justify-center transition-transform duration-500 group-hover:translate-x-2">
+          <BrandLogo size={56} className="flex-shrink-0 group-hover:animate-swim-shake" />
+          <div className="flex flex-col justify-center transition-transform duration-300 group-hover:translate-x-1">
             <h1 className="text-3xl font-bold text-white leading-tight">Mako Sync</h1>
           </div>
         </div>

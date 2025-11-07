@@ -91,4 +91,17 @@
   .animate-tail-splash {
     animation: tail-splash 2s ease-in-out infinite;
   }
+
+  @keyframes swim-shake {
+    0%, 100% { transform: translateX(0); }
+    10% { transform: translateX(-3px); }
+    20% { transform: translateX(3px); }
+    30% { transform: translateX(-3px); }
+    40% { transform: translateX(3px); }
+    50% { transform: translateX(0); }
+  }
+
+  .animate-swim-shake {
+    animation: swim-shake 0.6s ease-in-out;
+  }
 }
