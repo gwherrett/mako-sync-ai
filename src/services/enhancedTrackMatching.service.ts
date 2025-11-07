@@ -344,16 +344,31 @@ export class EnhancedTrackMatchingService {
 
     if (spotifyError) throw spotifyError;
 
-    // Perform matching
-    const matches: TrackMatch[] = [];
+    const localCount = localTracks?.length || 0;
+    const spotifyCount = spotifyTracks?.length || 0;
     
-    for (const localTrack of localTracks || []) {
+    console.log(`📊 Matching ${localCount} local tracks against ${spotifyCount} Spotify tracks`);
+    console.log(`⚠️ This will perform ~${localCount * spotifyCount} comparisons`);
+
+    // Perform matching with progress updates
+    const matches: TrackMatch[] = [];
+    const totalTracks = localCount;
+    
+    for (let i = 0; i < (localTracks || []).length; i++) {
+      const localTrack = localTracks![i];
+      
+      // Log progress every 10 tracks
+      if (i % 10 === 0) {
+        console.log(`🔄 Processing track ${i + 1}/${totalTracks} (${Math.round((i / totalTracks) * 100)}%)`);
+      }
+      
       const match = await this.findBestMatch(localTrack, spotifyTracks || []);
       if (match) {
         matches.push(match);
       }
     }
 
+    console.log(`✅ Matching complete: ${matches.length} matches found`);
     return matches;
   }
 }
