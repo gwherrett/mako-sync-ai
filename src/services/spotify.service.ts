@@ -142,7 +142,7 @@ export class SpotifyService {
     }
   }
 
-  static async syncLikedSongs(): Promise<{ success: boolean; message?: string; error?: string }> {
+  static async syncLikedSongs(forceFullSync: boolean = false): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -154,6 +154,9 @@ export class SpotifyService {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
+        body: {
+          force_full_sync: forceFullSync
+        }
       });
 
       if (response.error) {

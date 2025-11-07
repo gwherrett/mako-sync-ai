@@ -85,10 +85,10 @@ export const useSpotifyAuth = () => {
     }
   };
 
-  const syncLikedSongs = async () => {
+  const syncLikedSongs = async (forceFullSync: boolean = false) => {
     setIsSyncing(true);
     try {
-      const { success, message, error } = await SpotifyService.syncLikedSongs();
+      const { success, message, error } = await SpotifyService.syncLikedSongs(forceFullSync);
       
       if (success) {
         // Trigger a manual refresh of stats

@@ -378,7 +378,10 @@ export type Database = {
           created_at: string
           error_message: string | null
           id: string
+          is_full_sync: boolean | null
           last_offset: number
+          last_sync_completed_at: string | null
+          new_tracks_added: number | null
           status: string
           sync_id: string
           total_tracks: number | null
@@ -392,7 +395,10 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          is_full_sync?: boolean | null
           last_offset?: number
+          last_sync_completed_at?: string | null
+          new_tracks_added?: number | null
           status?: string
           sync_id?: string
           total_tracks?: number | null
@@ -406,7 +412,10 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          is_full_sync?: boolean | null
           last_offset?: number
+          last_sync_completed_at?: string | null
+          new_tracks_added?: number | null
           status?: string
           sync_id?: string
           total_tracks?: number | null

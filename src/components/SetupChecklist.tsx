@@ -80,7 +80,7 @@ export const SetupChecklist: React.FC = () => {
       count: likedSongsCount,
       action: !isConnected ? undefined : {
         label: isSyncing ? 'Syncing...' : (likedSongsCount > 0 ? 'Sync Again' : 'Start Sync'),
-        onClick: syncLikedSongs
+        onClick: () => syncLikedSongs(false)
       }
     },
     {

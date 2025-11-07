@@ -20,9 +20,13 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== SPOTIFY SYNC STARTED - DEBUG VERSION ===')
+    // Parse request body for force_full_sync flag
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
+    const forceFullSync = body.force_full_sync === true
+    
+    console.log('=== SPOTIFY SYNC STARTED ===')
     console.log('Request method:', req.method)
-    console.log('Request headers:', Object.fromEntries(req.headers.entries()))
+    console.log('Force full sync:', forceFullSync)
     
     // Create client for user auth and RLS-protected operations
     const supabaseClient = createClient(
@@ -97,20 +101,48 @@ serve(async (req) => {
     let syncId: string
     let startOffset = 0
     let totalTracks: number | null = null
+    let lastSyncTime: string | null = null
+    let isFullSync = forceFullSync
 
     if (existingSync) {
       console.log(`📝 Resuming sync from offset ${existingSync.last_offset}`)
       syncId = existingSync.sync_id
       startOffset = existingSync.last_offset
       totalTracks = existingSync.total_tracks
+      isFullSync = existingSync.is_full_sync ?? false
     } else {
+      // Check for last successful sync to determine if incremental is possible
+      if (!forceFullSync) {
+        const { data: lastSync } = await supabaseClient
+          .from('sync_progress')
+          .select('last_sync_completed_at')
+          .eq('user_id', user.id)
+          .eq('status', 'completed')
+          .not('last_sync_completed_at', 'is', null)
+          .order('last_sync_completed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        
+        if (lastSync?.last_sync_completed_at) {
+          lastSyncTime = lastSync.last_sync_completed_at
+          isFullSync = false
+          console.log(`🔄 Incremental sync mode - fetching songs added after ${lastSyncTime}`)
+        } else {
+          isFullSync = true
+          console.log('🆕 First sync - will sync all songs')
+        }
+      } else {
+        console.log('🔄 Force full sync requested')
+      }
+
       // Create new sync progress record
       const { data: newSync, error: syncError } = await supabaseClient
         .from('sync_progress')
         .insert({
           user_id: user.id,
           status: 'in_progress',
-          last_offset: 0
+          last_offset: 0,
+          is_full_sync: isFullSync
         })
         .select()
         .single()
@@ -122,15 +154,17 @@ serve(async (req) => {
       syncId = newSync.sync_id
       console.log(`🆕 Starting new sync with ID: ${syncId}`)
 
-      // Clear existing songs on first chunk only
-      console.log('🗑️ Clearing existing songs...')
-      const { error: deleteError } = await supabaseAdmin
-        .from('spotify_liked')
-        .delete()
-        .eq('user_id', user.id)
+      // Clear existing songs only for full sync
+      if (isFullSync) {
+        console.log('🗑️ Clearing existing songs for full sync...')
+        const { error: deleteError } = await supabaseAdmin
+          .from('spotify_liked')
+          .delete()
+          .eq('user_id', user.id)
 
-      if (deleteError) {
-        throw new Error(`Failed to clear existing songs: ${deleteError.message}`)
+        if (deleteError) {
+          throw new Error(`Failed to clear existing songs: ${deleteError.message}`)
+        }
       }
     }
 
@@ -138,6 +172,7 @@ serve(async (req) => {
     let currentOffset = startOffset
     let hasMore = true
     let allChunkTracks: any[] = []
+    let newTracksCount = 0
 
     while (hasMore) {
       const url = `https://api.spotify.com/v1/me/tracks?limit=50&offset=${currentOffset}`
@@ -167,7 +202,18 @@ serve(async (req) => {
       }
 
       const data = await response.json()
-      allChunkTracks = allChunkTracks.concat(data.items)
+      
+      // For incremental sync, filter out tracks already synced
+      let newItems = data.items
+      if (!isFullSync && lastSyncTime) {
+        newItems = data.items.filter((item: any) => {
+          const addedAt = new Date(item.added_at).toISOString()
+          return addedAt > lastSyncTime
+        })
+        console.log(`Filtered ${data.items.length} tracks to ${newItems.length} new tracks`)
+      }
+      
+      allChunkTracks = allChunkTracks.concat(newItems)
       
       // Set total on first fetch
       if (totalTracks === null) {
@@ -183,7 +229,7 @@ serve(async (req) => {
       hasMore = data.next !== null
 
       // Process chunk if we have enough tracks or reached the end
-      if (allChunkTracks.length >= CHUNK_SIZE || !hasMore) {
+      if (allChunkTracks.length >= CHUNK_SIZE || (!hasMore && allChunkTracks.length > 0)) {
         console.log(`🔄 Processing chunk of ${allChunkTracks.length} tracks`)
 
         // Extract artist IDs and fetch genres
@@ -208,6 +254,7 @@ serve(async (req) => {
 
         // Process and insert songs
         const songsToInsert = processSongsData(allChunkTracks, user.id, artistGenreMap, new Map(), genreMapping)
+        newTracksCount += songsToInsert.length
 
         const { error: insertError } = await supabaseAdmin
           .from('spotify_liked')
@@ -237,38 +284,55 @@ serve(async (req) => {
           .update({
             tracks_fetched: currentOffset,
             tracks_processed: currentOffset,
-            last_offset: currentOffset
+            last_offset: currentOffset,
+            new_tracks_added: newTracksCount
           })
           .eq('sync_id', syncId)
 
-        console.log(`✅ Processed ${currentOffset}/${totalTracks} tracks`)
+        console.log(`✅ Processed ${currentOffset}/${totalTracks} tracks (${newTracksCount} new)`)
 
         // Clear chunk for next iteration
         allChunkTracks = []
+      }
+      
+      // For incremental sync, stop early if no new tracks found
+      if (!isFullSync && lastSyncTime && newItems.length === 0) {
+        console.log('No more new tracks found, stopping incremental sync')
+        hasMore = false
+        break
       }
 
       // Break if we've processed everything
       if (!hasMore) break
     }
 
-    // Mark sync as completed
+    // Mark sync as completed with timestamp
     await supabaseClient
       .from('sync_progress')
       .update({
         status: 'completed',
         tracks_fetched: currentOffset,
-        tracks_processed: currentOffset
+        tracks_processed: currentOffset,
+        new_tracks_added: newTracksCount,
+        last_sync_completed_at: new Date().toISOString()
       })
       .eq('sync_id', syncId)
 
-    console.log(`🎉 Sync completed successfully`)
+    const syncType = isFullSync ? 'Full' : 'Incremental'
+    const message = isFullSync 
+      ? `Full sync complete: ${currentOffset} tracks synced`
+      : `Incremental sync complete: ${newTracksCount} new tracks added`
+    
+    console.log(`🎉 ${message}`)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Synced ${currentOffset} liked songs from Spotify`,
+        message,
         total_songs: totalTracks,
         processed_songs: currentOffset,
+        new_tracks_added: newTracksCount,
+        sync_type: syncType,
         sync_id: syncId
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

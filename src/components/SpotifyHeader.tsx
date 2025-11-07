@@ -43,7 +43,7 @@ const SpotifyHeader = () => {
             </Button>
           ) : isConnected ? (
             <Button 
-              onClick={syncLikedSongs}
+              onClick={() => syncLikedSongs(false)}
               disabled={isSyncing}
               className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 transition-colors shadow-lg"
             >

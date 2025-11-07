@@ -87,20 +87,32 @@ const SpotifySyncButton = () => {
 
   return (
     <div className="flex flex-col gap-2 w-full">
-      <Button 
-        onClick={syncLikedSongs}
-        disabled={isSyncing}
-        className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 transition-colors shadow-lg w-full"
-      >
-        {isSyncing ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Syncing...
-          </>
-        ) : (
-          'Sync Liked Songs'
-        )}
-      </Button>
+      <div className="flex gap-2">
+        <Button 
+          onClick={() => syncLikedSongs(false)}
+          disabled={isSyncing}
+          className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 transition-colors shadow-lg flex-1"
+        >
+          {isSyncing ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Syncing...
+            </>
+          ) : (
+            'Sync Liked Songs'
+          )}
+        </Button>
+        
+        <Button 
+          onClick={() => syncLikedSongs(true)}
+          disabled={isSyncing}
+          variant="outline"
+          className="px-4 py-2 transition-colors"
+          title="Clear all songs and re-sync from scratch"
+        >
+          Force Full Sync
+        </Button>
+      </div>
       
       {syncProgress && syncProgress.total_tracks && (
         <div className="space-y-1">
