@@ -32,6 +32,7 @@ export class TrackGenreService {
       .from('spotify_liked')
       .select('id, title, artist, album, spotify_id')
       .is('genre', null)
+      .is('super_genre', null)
       .order('artist', { ascending: true })
       .order('title', { ascending: true });
 
@@ -133,7 +134,8 @@ export class TrackGenreService {
     const { count, error } = await supabase
       .from('spotify_liked')
       .select('*', { count: 'exact', head: true })
-      .is('genre', null);
+      .is('genre', null)
+      .is('super_genre', null);
 
     if (error) {
       console.error('Error counting tracks without genre:', error);
