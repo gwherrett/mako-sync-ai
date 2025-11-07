@@ -22,3 +22,6 @@ sms_confirm = false
 [edge_functions]
 enabled = true
 port = 54323
+
+[functions.ai-genre-suggest]
+verify_jwt = false
