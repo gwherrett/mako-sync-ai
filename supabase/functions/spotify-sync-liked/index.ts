@@ -252,13 +252,37 @@ serve(async (req) => {
           })
         }
 
-        // Process and insert songs
+        // Process songs data
         const songsToInsert = processSongsData(allChunkTracks, user.id, artistGenreMap, new Map(), genreMapping)
         newTracksCount += songsToInsert.length
 
+        // Get existing tracks with manually assigned super_genre to preserve them
+        const spotifyIds = songsToInsert.map(s => s.spotify_id)
+        const { data: existingTracks } = await supabaseClient
+          .from('spotify_liked')
+          .select('spotify_id, super_genre')
+          .eq('user_id', user.id)
+          .in('spotify_id', spotifyIds)
+          .not('super_genre', 'is', null)
+        
+        // Create a set of spotify_ids that have manually assigned genres
+        const tracksWithManualGenres = new Set(
+          (existingTracks || []).map(t => t.spotify_id)
+        )
+        
+        // For tracks with manual genres, preserve the super_genre by removing it from upsert data
+        const songsToUpsert = songsToInsert.map(song => {
+          if (tracksWithManualGenres.has(song.spotify_id)) {
+            // Remove super_genre from update to preserve manual assignment
+            const { super_genre, ...songWithoutSuperGenre } = song
+            return songWithoutSuperGenre
+          }
+          return song
+        })
+
         const { error: insertError } = await supabaseAdmin
           .from('spotify_liked')
-          .upsert(songsToInsert, {
+          .upsert(songsToUpsert, {
             onConflict: 'user_id,spotify_id',
             ignoreDuplicates: false
           })
