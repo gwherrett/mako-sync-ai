@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { AiGenreSuggestService } from '@/services/aiGenreSuggest.service';
-import { BatchAiProcessor } from './BatchAiProcessor';
 import type { GenreMapping, SuperGenre } from '@/types/genreMapping';
 import { SUPER_GENRES } from '@/types/genreMapping';
 interface GenreMappingTableProps {
@@ -207,10 +206,6 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
             </p>
           </div>
           <div className="flex gap-2">
-            <BatchAiProcessor 
-              unmappedGenres={unmappedGenres}
-              onApplyBulk={onBulkOverrides}
-            />
             <Button onClick={onExport} variant="outline" size="sm">
               <Download className="w-4 h-4 mr-2" />
               Export CSV
