@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { GenreMappingTable } from '@/components/GenreMapping/GenreMappingTable';
@@ -60,12 +60,22 @@ export const GenreMapping = () => {
       {noGenreCount > 0 && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            <span className="font-medium">{noGenreCount} tracks</span> have no Spotify-provided genre and cannot be mapped here.{' '}
-            You can view these tracks by using the "Unmapped Only" filter in{' '}
-            <Button variant="link" asChild className="h-auto p-0 text-foreground underline">
-              <Link to="/">Liked Songs</Link>
-            </Button>.
+          <AlertDescription className="space-y-3">
+            <div>
+              <span className="font-medium">{noGenreCount} tracks</span> have no Spotify-provided genre and cannot be mapped here.{' '}
+              You can view these tracks by using the "Unmapped Only" filter in{' '}
+              <Button variant="link" asChild className="h-auto p-0 text-foreground underline">
+                <Link to="/">Liked Songs</Link>
+              </Button>.
+            </div>
+            <div>
+              <Button variant="default" size="sm" asChild>
+                <Link to="/no-genre-tracks">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Process Tracks with AI
+                </Link>
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       )}
