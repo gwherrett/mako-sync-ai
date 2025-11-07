@@ -3,46 +3,68 @@ export async function fetchAlbumGenres(accessToken: string, albumIds: string[]):
   
   // Spotify allows up to 20 album IDs per request
   const batchSize = 20
+  const maxConcurrent = 10 // Process up to 10 batches in parallel
   
+  // Create batches
+  const batches: string[][] = []
   for (let i = 0; i < albumIds.length; i += batchSize) {
-    const batch = albumIds.slice(i, i + batchSize)
-    const idsParam = batch.join(',')
-    
-    console.log(`Fetching genres for ${batch.length} albums (batch ${Math.floor(i/batchSize) + 1})`)
-    
-    const response = await fetch(`https://api.spotify.com/v1/albums?ids=${idsParam}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'SpotifyMetadataSync/1.0'
-      },
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Failed to fetch album data: ${response.status} ${response.statusText} - ${errorText}`)
-      
-      if (response.status === 401) {
-        throw new Error('Spotify token invalid')
-      }
-      
-      // Continue with other batches on non-auth errors
-      console.warn(`Skipping batch due to error: ${errorText}`)
-      continue
-    }
-
-    const data = await response.json()
-    
-    if (data.albums) {
-      data.albums.forEach((album: any) => {
-        if (album && album.id) {
-          genreMap.set(album.id, album.genres || [])
-        }
-      })
-    }
+    batches.push(albumIds.slice(i, i + batchSize))
   }
   
-  console.log(`Fetched genres for ${genreMap.size} albums`)
+  console.log(`Fetching genres for ${albumIds.length} albums in ${batches.length} batches`)
+  
+  // Process batches in parallel chunks
+  for (let i = 0; i < batches.length; i += maxConcurrent) {
+    const batchChunk = batches.slice(i, i + maxConcurrent)
+    
+    const promises = batchChunk.map(async (batch, idx) => {
+      const batchNum = i + idx + 1
+      const idsParam = batch.join(',')
+      
+      try {
+        const response = await fetch(`https://api.spotify.com/v1/albums?ids=${idsParam}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'User-Agent': 'SpotifyMetadataSync/1.0'
+          },
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`Batch ${batchNum} failed: ${response.status} - ${errorText}`)
+          
+          if (response.status === 401) {
+            throw new Error('Spotify token invalid')
+          }
+          return null
+        }
+
+        const data = await response.json()
+        return { batchNum, data }
+      } catch (error) {
+        console.error(`Batch ${batchNum} error:`, error)
+        return null
+      }
+    })
+    
+    const results = await Promise.all(promises)
+    
+    // Process results
+    results.forEach(result => {
+      if (result?.data?.albums) {
+        result.data.albums.forEach((album: any) => {
+          if (album && album.id) {
+            genreMap.set(album.id, album.genres || [])
+          }
+        })
+      }
+    })
+    
+    console.log(`Processed batches ${i + 1}-${Math.min(i + maxConcurrent, batches.length)} of ${batches.length} (${genreMap.size} albums so far)`)
+  }
+  
+  console.log(`✅ Fetched genres for ${genreMap.size} albums`)
   return genreMap
 }
 

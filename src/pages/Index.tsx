@@ -52,26 +52,51 @@ interface LocalTrack {
 const Index = () => {
   const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
   const [selectedLocalTrack, setSelectedLocalTrack] = useState<LocalTrack | null>(null);
+  const [isDashboardCollapsed, setIsDashboardCollapsed] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black">
       <LibraryHeader />
       
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold text-white">Collections Dashboard</h2>
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-          {/* Stats Cards - Left Column */}
-          <div className="lg:col-span-4">
-            <StatsOverview />
-          </div>
+        {/* Collapsible Dashboard Section */}
+        <div className="mb-8">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsDashboardCollapsed(!isDashboardCollapsed)}
+            className="mb-4 text-gray-400 hover:text-white transition-colors"
+          >
+            {isDashboardCollapsed ? (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                Show Dashboard
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+                Hide Dashboard
+              </>
+            )}
+          </Button>
           
-          {/* Setup Checklist - Right Column */}
-          <div className="lg:col-span-8">
-            <SetupChecklist />
-          </div>
+          {!isDashboardCollapsed && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
+              {/* Stats Cards - Left Column */}
+              <div className="lg:col-span-4">
+                <StatsOverview />
+              </div>
+              
+              {/* Setup Checklist - Right Column */}
+              <div className="lg:col-span-8">
+                <SetupChecklist />
+              </div>
+            </div>
+          )}
         </div>
         
         <Tabs defaultValue="spotify" className="w-full">
