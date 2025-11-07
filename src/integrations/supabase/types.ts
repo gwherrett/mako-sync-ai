@@ -372,6 +372,51 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_progress: {
+        Row: {
+          artists_processed: number
+          created_at: string
+          error_message: string | null
+          id: string
+          last_offset: number
+          status: string
+          sync_id: string
+          total_tracks: number | null
+          tracks_fetched: number
+          tracks_processed: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          artists_processed?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_offset?: number
+          status?: string
+          sync_id?: string
+          total_tracks?: number | null
+          tracks_fetched?: number
+          tracks_processed?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          artists_processed?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_offset?: number
+          status?: string
+          sync_id?: string
+          total_tracks?: number | null
+          tracks_fetched?: number
+          tracks_processed?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       track_matches: {
         Row: {
           id: string

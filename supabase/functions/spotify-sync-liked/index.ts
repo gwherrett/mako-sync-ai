@@ -3,10 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 import type { SpotifyConnection } from './types.ts'
 import { getValidAccessToken, refreshSpotifyToken } from './spotify-auth.ts'
-import { fetchAllLikedSongs, fetchAudioFeatures } from './spotify-api.ts'
+import { fetchAudioFeatures } from './spotify-api.ts'
 import { extractUniqueArtistIds, processSongsData } from './data-processing.ts'
-import { clearAndInsertSongs } from './database.ts'
 import { getArtistGenresWithCache } from './artist-genres.ts'
+
+const CHUNK_SIZE = 500 // Process 500 tracks at a time
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -85,48 +86,190 @@ serve(async (req) => {
       throw error
     }
 
-    // Fetch all liked songs from Spotify
-    const allTracks = await fetchAllLikedSongs(accessToken)
+    // Check for existing in-progress sync
+    const { data: existingSync } = await supabaseClient
+      .from('sync_progress')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'in_progress')
+      .maybeSingle()
 
-    // Extract unique artist IDs for genre fetching
-    const artistIds = extractUniqueArtistIds(allTracks)
-    console.log(`Found ${artistIds.length} unique artists to fetch genres for`)
+    let syncId: string
+    let startOffset = 0
+    let totalTracks: number | null = null
 
-    // Fetch artist genres with caching
-    const artistGenreMap = await getArtistGenresWithCache(accessToken, artistIds, supabaseClient)
+    if (existingSync) {
+      console.log(`📝 Resuming sync from offset ${existingSync.last_offset}`)
+      syncId = existingSync.sync_id
+      startOffset = existingSync.last_offset
+      totalTracks = existingSync.total_tracks
+    } else {
+      // Create new sync progress record
+      const { data: newSync, error: syncError } = await supabaseClient
+        .from('sync_progress')
+        .insert({
+          user_id: user.id,
+          status: 'in_progress',
+          last_offset: 0
+        })
+        .select()
+        .single()
 
-    // Fetch effective genre mapping for this user
-    const { data: genreMappingData, error: genreMappingError } = await supabaseClient
-      .from('v_effective_spotify_genre_map')
-      .select('spotify_genre, super_genre')
+      if (syncError || !newSync) {
+        throw new Error('Failed to create sync progress record')
+      }
 
-    if (genreMappingError) {
-      console.error('Error fetching genre mapping:', genreMappingError)
-      throw new Error('Failed to fetch genre mapping')
+      syncId = newSync.sync_id
+      console.log(`🆕 Starting new sync with ID: ${syncId}`)
+
+      // Clear existing songs on first chunk only
+      console.log('🗑️ Clearing existing songs...')
+      const { error: deleteError } = await supabaseAdmin
+        .from('spotify_liked')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (deleteError) {
+        throw new Error(`Failed to clear existing songs: ${deleteError.message}`)
+      }
     }
 
-    // Convert to Map for efficient lookups
-    const genreMapping = new Map<string, string>()
-    if (genreMappingData) {
-      genreMappingData.forEach(item => {
-        if (item.spotify_genre && item.super_genre) {
-          genreMapping.set(item.spotify_genre, item.super_genre)
-        }
+    // Fetch tracks in chunks
+    let currentOffset = startOffset
+    let hasMore = true
+    let allChunkTracks: any[] = []
+
+    while (hasMore) {
+      const url = `https://api.spotify.com/v1/me/tracks?limit=50&offset=${currentOffset}`
+      console.log(`📥 Fetching tracks at offset ${currentOffset}`)
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
       })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Failed to fetch tracks: ${response.status} ${response.statusText} - ${errorText}`)
+        
+        // Update sync status to failed
+        await supabaseClient
+          .from('sync_progress')
+          .update({
+            status: 'failed',
+            error_message: `Spotify API error: ${response.status} - ${errorText}`
+          })
+          .eq('sync_id', syncId)
+
+        throw new Error(`Failed to fetch liked songs from Spotify: ${response.status}`)
+      }
+
+      const data = await response.json()
+      allChunkTracks = allChunkTracks.concat(data.items)
+      
+      // Set total on first fetch
+      if (totalTracks === null) {
+        totalTracks = data.total
+        await supabaseClient
+          .from('sync_progress')
+          .update({ total_tracks: totalTracks })
+          .eq('sync_id', syncId)
+        console.log(`📊 Total tracks to sync: ${totalTracks}`)
+      }
+
+      currentOffset += data.items.length
+      hasMore = data.next !== null
+
+      // Process chunk if we have enough tracks or reached the end
+      if (allChunkTracks.length >= CHUNK_SIZE || !hasMore) {
+        console.log(`🔄 Processing chunk of ${allChunkTracks.length} tracks`)
+
+        // Extract artist IDs and fetch genres
+        const artistIds = extractUniqueArtistIds(allChunkTracks)
+        console.log(`Found ${artistIds.length} unique artists for this chunk`)
+
+        const artistGenreMap = await getArtistGenresWithCache(accessToken, artistIds, supabaseClient)
+
+        // Fetch genre mapping
+        const { data: genreMappingData } = await supabaseClient
+          .from('v_effective_spotify_genre_map')
+          .select('spotify_genre, super_genre')
+
+        const genreMapping = new Map<string, string>()
+        if (genreMappingData) {
+          genreMappingData.forEach(item => {
+            if (item.spotify_genre && item.super_genre) {
+              genreMapping.set(item.spotify_genre, item.super_genre)
+            }
+          })
+        }
+
+        // Process and insert songs
+        const songsToInsert = processSongsData(allChunkTracks, user.id, artistGenreMap, new Map(), genreMapping)
+
+        const { error: insertError } = await supabaseAdmin
+          .from('spotify_liked')
+          .upsert(songsToInsert, {
+            onConflict: 'user_id,spotify_id',
+            ignoreDuplicates: false
+          })
+
+        if (insertError) {
+          console.error('Insert error:', insertError)
+          
+          // Update sync status to failed
+          await supabaseClient
+            .from('sync_progress')
+            .update({
+              status: 'failed',
+              error_message: `Database insert error: ${insertError.message}`
+            })
+            .eq('sync_id', syncId)
+
+          throw new Error(`Failed to insert songs: ${insertError.message}`)
+        }
+
+        // Update progress
+        await supabaseClient
+          .from('sync_progress')
+          .update({
+            tracks_fetched: currentOffset,
+            tracks_processed: currentOffset,
+            last_offset: currentOffset
+          })
+          .eq('sync_id', syncId)
+
+        console.log(`✅ Processed ${currentOffset}/${totalTracks} tracks`)
+
+        // Clear chunk for next iteration
+        allChunkTracks = []
+      }
+
+      // Break if we've processed everything
+      if (!hasMore) break
     }
 
-    // Process and prepare songs for database insertion
-    const songsToInsert = processSongsData(allTracks, user.id, artistGenreMap, new Map(), genreMapping)
+    // Mark sync as completed
+    await supabaseClient
+      .from('sync_progress')
+      .update({
+        status: 'completed',
+        tracks_fetched: currentOffset,
+        tracks_processed: currentOffset
+      })
+      .eq('sync_id', syncId)
 
-    // Clear existing songs and insert new ones - use admin client to bypass RLS
-    const insertedCount = await clearAndInsertSongs(songsToInsert, user.id, supabaseAdmin)
+    console.log(`🎉 Sync completed successfully`)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Synced ${insertedCount} liked songs from Spotify`,
-        total_songs: allTracks.length,
-        inserted_songs: insertedCount
+        message: `Synced ${currentOffset} liked songs from Spotify`,
+        total_songs: totalTracks,
+        processed_songs: currentOffset,
+        sync_id: syncId
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
