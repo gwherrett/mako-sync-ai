@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Music, Database, RefreshCw, Clock } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Music, Database, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 
-const StatsOverview = () => {
+export const StatsOverview = () => {
   const [likedSongsCount, setLikedSongsCount] = useState<number>(0);
   const [localFilesCount, setLocalFilesCount] = useState<number>(0);
   const [lastSpotifySync, setLastSpotifySync] = useState<string | null>(null);
@@ -149,53 +149,53 @@ const StatsOverview = () => {
     }
   };
 
-  const stats = [
+  const collections = [
     {
-      title: "Liked Songs",
-      value: loading ? "..." : likedSongsCount.toLocaleString(),
+      title: 'Spotify Collection',
+      count: likedSongsCount,
+      lastSync: lastSpotifySync,
       icon: Music,
-      color: "text-green-400",
-      bgColor: "bg-green-400/10"
+      color: 'text-green-400',
+      bgColor: 'bg-green-400/10',
+      borderColor: 'hover:border-green-400/30',
+      shadowColor: 'hover:shadow-green-400/10',
     },
     {
-      title: "Last Spotify Sync",
-      value: loading ? "..." : (lastSpotifySync ? formatDistanceToNow(new Date(lastSpotifySync), { addSuffix: true }) : "Never"),
-      icon: RefreshCw,
-      color: "text-blue-400",
-      bgColor: "bg-blue-400/10"
-    },
-    {
-      title: "Local Files",
-      value: loading ? "..." : localFilesCount.toLocaleString(),
+      title: 'Local Collection',
+      count: localFilesCount,
+      lastSync: lastLocalSync,
       icon: Database,
-      color: "text-purple-400",
-      bgColor: "bg-purple-400/10"
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-400/10',
+      borderColor: 'hover:border-purple-400/30',
+      shadowColor: 'hover:shadow-purple-400/10',
     },
-    {
-      title: "Last Local Sync",
-      value: loading ? "..." : (lastLocalSync ? formatDistanceToNow(new Date(lastLocalSync), { addSuffix: true }) : "Never"),
-      icon: Clock,
-      color: "text-orange-400",
-      bgColor: "bg-orange-400/10"
-    }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-      {stats.map((stat, index) => (
+    <div className="space-y-4">
+      {collections.map((collection, index) => (
         <Card 
           key={index} 
-          className="glass-card border-white/10 hover:border-expos-blue/30 transition-all duration-300 hover:shadow-lg hover:shadow-expos-blue/10"
+          className={`glass-card border-white/10 ${collection.borderColor} transition-all duration-300 hover:shadow-lg ${collection.shadowColor}`}
         >
           <CardContent className="p-6">
-            <div className="flex items-start justify-between mb-3">
-              <div className={`p-3 rounded-xl ${stat.bgColor} ring-1 ring-white/10`}>
-                <stat.icon className={`h-5 w-5 ${stat.color}`} />
+            <div className="flex items-start gap-4">
+              <div className={`p-3 rounded-xl ${collection.bgColor} ring-1 ring-white/10`}>
+                <collection.icon className={`h-6 w-6 ${collection.color}`} />
               </div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">{stat.title}</div>
-              <div className="text-2xl font-bold text-white">{stat.value}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-gray-400 uppercase tracking-wide mb-1">
+                  {collection.title}
+                </div>
+                <div className="text-3xl font-bold text-white mb-2">
+                  {loading ? '...' : collection.count.toLocaleString()}
+                </div>
+                <div className="text-xs text-gray-400 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Last synced: {loading ? '...' : (collection.lastSync ? formatDistanceToNow(new Date(collection.lastSync), { addSuffix: true }) : 'Never')}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -203,5 +203,3 @@ const StatsOverview = () => {
     </div>
   );
 };
-
-export default StatsOverview;
