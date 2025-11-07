@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, Download, Edit3, ArrowUpDown, CheckCircle2, Circle, Sparkles, Loader2 } from 'lucide-react';
+import { Search, Download, Edit3, ArrowUpDown, CheckCircle2, Circle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
-import { AiGenreSuggestService } from '@/services/aiGenreSuggest.service';
 import type { GenreMapping, SuperGenre } from '@/types/genreMapping';
 import { SUPER_GENRES } from '@/types/genreMapping';
 interface GenreMappingTableProps {
@@ -35,11 +32,6 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [reviewedGenres, setReviewedGenres] = useState<Set<string>>(new Set());
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
-  const [aiDialogOpen, setAiDialogOpen] = useState(false);
-  const [aiSuggestionGenre, setAiSuggestionGenre] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiSuggestion, setAiSuggestion] = useState<{ suggestedGenre: SuperGenre; confidence: string; reasoning: string } | null>(null);
-  const { toast } = useToast();
 
   // Load reviewed genres from localStorage
   useEffect(() => {
@@ -76,7 +68,6 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
   });
   const overriddenCount = mappings.filter(m => m.is_overridden).length;
   const unmappedCount = mappings.filter(m => !m.super_genre).length;
-  const unmappedGenres = mappings.filter(m => !m.super_genre);
   const handleRowSelect = (spotifyGenre: string, checked: boolean) => {
     const newSelected = new Set(selectedRows);
     if (checked) {
@@ -139,60 +130,6 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
   const reviewedCount = Array.from(reviewedGenres).filter(genre => 
     mappings.some(m => m.spotify_genre === genre)
   ).length;
-
-  const handleAiSuggest = async (spotifyGenre: string) => {
-    setAiSuggestionGenre(spotifyGenre);
-    setAiDialogOpen(true);
-    setAiLoading(true);
-    setAiSuggestion(null);
-
-    try {
-      // Create a representative track info for the genre
-      const trackInfo = {
-        title: `Example track in ${spotifyGenre}`,
-        artist: 'Various Artists',
-        spotifyGenre: spotifyGenre
-      };
-
-      const suggestion = await AiGenreSuggestService.suggestGenre(trackInfo);
-      setAiSuggestion(suggestion);
-    } catch (error) {
-      console.error('AI suggestion error:', error);
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to get AI suggestion',
-        variant: 'destructive'
-      });
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const handleAcceptAiSuggestion = () => {
-    if (aiSuggestionGenre && aiSuggestion) {
-      onSetOverride(aiSuggestionGenre, aiSuggestion.suggestedGenre);
-      setAiDialogOpen(false);
-      setAiSuggestion(null);
-      setAiSuggestionGenre(null);
-      toast({
-        title: 'Applied AI Suggestion',
-        description: `Set ${aiSuggestionGenre} to ${aiSuggestion.suggestedGenre}`
-      });
-    }
-  };
-
-  const getConfidenceColor = (confidence: string) => {
-    switch (confidence) {
-      case 'high':
-        return 'bg-green-500/10 text-green-700 dark:text-green-400';
-      case 'medium':
-        return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400';
-      case 'low':
-        return 'bg-red-500/10 text-red-700 dark:text-red-400';
-      default:
-        return 'bg-gray-500/10 text-gray-700 dark:text-gray-400';
-    }
-  };
   if (isLoading) {
     return <div className="flex items-center justify-center h-64">Loading genre mappings...</div>;
   }
@@ -205,12 +142,10 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
               {mappings.length} total genres • {overriddenCount} overridden • {unmappedCount} unmapped • {reviewedCount} reviewed
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={onExport} variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />
-              Export CSV
-            </Button>
-          </div>
+          <Button onClick={onExport} variant="outline" size="sm">
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
         </div>
         
         <div className="flex gap-4 items-center">
@@ -295,14 +230,6 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      onClick={() => handleAiSuggest(mapping.spotify_genre)}
-                      title="Get AI suggestion"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => setEditingRow(editingRow === mapping.spotify_genre ? null : mapping.spotify_genre)}>
                       <Edit3 className="w-3 h-3" />
                     </Button>
@@ -348,59 +275,5 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
             No genres found matching your search criteria.
           </div>}
       </CardContent>
-
-      <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
-              AI Genre Suggestion
-            </DialogTitle>
-            <DialogDescription>
-              {aiSuggestionGenre && `Getting AI recommendation for "${aiSuggestionGenre}"`}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {aiLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="ml-3 text-sm text-muted-foreground">Analyzing genre...</span>
-              </div>
-            ) : aiSuggestion ? (
-              <>
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold">{aiSuggestion.suggestedGenre}</span>
-                    <Badge className={getConfidenceColor(aiSuggestion.confidence)}>
-                      {aiSuggestion.confidence} confidence
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{aiSuggestion.reasoning}</p>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button onClick={handleAcceptAiSuggestion} className="flex-1">
-                    Apply Suggestion
-                  </Button>
-                  <Button 
-                    onClick={() => {
-                      setAiDialogOpen(false);
-                      setAiSuggestion(null);
-                    }} 
-                    variant="outline"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-4 text-muted-foreground">
-                No suggestion available
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </Card>;
 };

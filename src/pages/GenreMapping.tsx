@@ -1,10 +1,13 @@
-import { ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { GenreMappingTable } from '@/components/GenreMapping/GenreMappingTable';
 import { useGenreMapping } from '@/hooks/useGenreMapping';
+import { GenreMappingService } from '@/services/genreMapping.service';
 import { Link } from 'react-router-dom';
-
 export const GenreMapping = () => {
+  const [noGenreCount, setNoGenreCount] = useState<number>(0);
   const {
     mappings,
     isLoading,
@@ -14,6 +17,19 @@ export const GenreMapping = () => {
     setBulkOverrides,
     exportToCSV
   } = useGenreMapping();
+
+  useEffect(() => {
+    const fetchNoGenreCount = async () => {
+      try {
+        const count = await GenreMappingService.getNoGenreCount();
+        setNoGenreCount(count);
+      } catch (error) {
+        console.error('Error fetching no-genre count:', error);
+      }
+    };
+
+    fetchNoGenreCount();
+  }, []);
   if (error) {
     return <div className="container mx-auto py-8">
         <div className="text-center">
@@ -41,7 +57,20 @@ export const GenreMapping = () => {
         </div>
       </div>
 
-      <GenreMappingTable
+      {noGenreCount > 0 && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <span className="font-medium">{noGenreCount} tracks</span> have no Spotify-provided genre and cannot be mapped here.{' '}
+            You can view these tracks by using the "Unmapped Only" filter in{' '}
+            <Button variant="link" asChild className="h-auto p-0 text-foreground underline">
+              <Link to="/">Liked Songs</Link>
+            </Button>.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <GenreMappingTable 
         mappings={mappings} 
         onSetOverride={setOverride} 
         onRemoveOverride={removeOverride} 
