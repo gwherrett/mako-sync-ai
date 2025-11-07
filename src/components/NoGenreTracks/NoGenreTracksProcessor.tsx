@@ -313,7 +313,7 @@ export const NoGenreTracksProcessor = () => {
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {SUPER_GENRES.map(genre => (
+                            {[...SUPER_GENRES].sort().map(genre => (
                               <SelectItem key={genre} value={genre}>
                                 {genre}
                               </SelectItem>
