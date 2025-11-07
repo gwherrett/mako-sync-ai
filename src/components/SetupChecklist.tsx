@@ -86,7 +86,7 @@ export const SetupChecklist: React.FC = () => {
     {
       id: 'map-genres',
       title: 'Map Genres',
-      description: 'Organize your music by mapping Spotify genres to super-genres',
+      description: 'Map Spotify genres to your local files.',
       status: !isConnected || likedSongsCount === 0 ? 'incomplete' : 
              (unmappedCount === 0 ? 'complete' : 'warning'),
       count: unmappedCount,
