@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sparkles, Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AiGenreSuggestService } from '@/services/aiGenreSuggest.service';
@@ -158,17 +159,33 @@ export const BatchAiProcessor: React.FC<BatchAiProcessorProps> = ({
     }
   };
 
+  const isDisabled = unmappedGenres.length === 0;
+
   return (
     <>
-      <Button 
-        onClick={startBatchProcessing} 
-        disabled={unmappedGenres.length === 0}
-        variant="default"
-        size="sm"
-      >
-        <Sparkles className="mr-2 h-4 w-4" />
-        AI Batch Process ({unmappedGenres.length})
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button 
+                onClick={startBatchProcessing} 
+                disabled={isDisabled}
+                variant="default"
+                size="sm"
+                className={isDisabled ? 'cursor-not-allowed' : ''}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                AI Batch Process ({unmappedGenres.length})
+              </Button>
+            </span>
+          </TooltipTrigger>
+          {isDisabled && (
+            <TooltipContent>
+              <p>No unmapped genres found. Filter by "Unmapped" to see genres without super-genre assignments.</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </TooltipProvider>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh]">
