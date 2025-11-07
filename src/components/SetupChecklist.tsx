@@ -160,7 +160,7 @@ export const SetupChecklist: React.FC = () => {
                 </div>
               </div>
               {item.action && (
-                <div className="ml-4">
+                <div className="ml-4 flex gap-2">
                   {item.action.href ? (
                     <Button asChild variant="outline" size="sm">
                       <Link to={item.action.href} className="flex items-center gap-2">
@@ -169,14 +169,29 @@ export const SetupChecklist: React.FC = () => {
                       </Link>
                     </Button>
                   ) : (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={item.action.onClick}
-                      disabled={isSyncing && item.id === 'sync-liked-songs'}
-                    >
-                      {item.action.label}
-                    </Button>
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={item.action.onClick}
+                        disabled={isSyncing && item.id === 'sync-liked-songs'}
+                      >
+                        {item.action.label}
+                      </Button>
+                      {/* Add Force Full Sync button for sync step */}
+                      {item.id === 'sync-liked-songs' && isConnected && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => syncLikedSongs(true)}
+                          disabled={isSyncing}
+                          title="Clear all songs and re-sync from scratch"
+                          className="text-xs"
+                        >
+                          Force Full
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               )}
