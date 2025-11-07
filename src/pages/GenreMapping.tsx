@@ -60,12 +60,16 @@ export const GenreMapping = () => {
       {noGenreCount > 0 && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            <span className="font-medium">{noGenreCount} tracks</span> have no Spotify-provided genre and cannot be mapped here.{' '}
-            You can view these tracks by using the "Unmapped Only" filter in{' '}
-            <Button variant="link" asChild className="h-auto p-0 text-foreground underline">
-              <Link to="/">Liked Songs</Link>
-            </Button>.
+          <AlertDescription className="flex items-center justify-between">
+            <div>
+              <span className="font-medium">{noGenreCount} tracks</span> have no Spotify-provided genre and cannot be mapped here.{' '}
+              Use AI to suggest genres for these tracks.
+            </div>
+            <Button variant="default" size="sm" asChild>
+              <Link to="/no-genre-tracks">
+                Fix with AI →
+              </Link>
+            </Button>
           </AlertDescription>
         </Alert>
       )}
