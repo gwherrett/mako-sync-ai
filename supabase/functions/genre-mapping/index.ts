@@ -52,6 +52,34 @@ serve(async (req) => {
     const url = new URL(req.url);
     const path = url.pathname.split('/').pop();
 
+    // GET /export - export effective mapping as CSV (check this BEFORE regular GET)
+    if (req.method === 'GET' && url.searchParams.get('export') === 'csv') {
+      const { data, error } = await userSupabase
+        .from('v_effective_spotify_genre_map')
+        .select('*')
+        .order('spotify_genre');
+
+      if (error) {
+        console.error('Error fetching mapping for export:', error);
+        throw error;
+      }
+
+      // Convert to CSV
+      const csvHeader = 'spotify_genre,super_genre,is_overridden\n';
+      const csvRows = data.map(row => 
+        `"${row.spotify_genre}","${row.super_genre}",${row.is_overridden}`
+      ).join('\n');
+      const csv = csvHeader + csvRows;
+
+      return new Response(csv, {
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename="spotify-genre-mapping.csv"'
+        },
+      });
+    }
+
     // GET /mapping - returns effective mapping for current user
     if (req.method === 'GET' && path === 'genre-mapping') {
       const { data, error } = await userSupabase
@@ -165,34 +193,6 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // GET /export - export effective mapping as CSV
-    if (req.method === 'GET' && url.searchParams.get('export') === 'csv') {
-      const { data, error } = await userSupabase
-        .from('v_effective_spotify_genre_map')
-        .select('*')
-        .order('spotify_genre');
-
-      if (error) {
-        console.error('Error fetching mapping for export:', error);
-        throw error;
-      }
-
-      // Convert to CSV
-      const csvHeader = 'spotify_genre,super_genre,is_overridden\n';
-      const csvRows = data.map(row => 
-        `"${row.spotify_genre}","${row.super_genre}",${row.is_overridden}`
-      ).join('\n');
-      const csv = csvHeader + csvRows;
-
-      return new Response(csv, {
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'text/csv',
-          'Content-Disposition': 'attachment; filename="spotify-genre-mapping.csv"'
-        },
       });
     }
 
