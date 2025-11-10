@@ -256,17 +256,17 @@ export type Database = {
       spotify_genre_map_base: {
         Row: {
           spotify_genre: string
-          super_genre: Database["public"]["Enums"]["super_genre"]
+          super_genre: Database["public"]["Enums"]["super_genre"] | null
           updated_at: string
         }
         Insert: {
           spotify_genre: string
-          super_genre: Database["public"]["Enums"]["super_genre"]
+          super_genre?: Database["public"]["Enums"]["super_genre"] | null
           updated_at?: string
         }
         Update: {
           spotify_genre?: string
-          super_genre?: Database["public"]["Enums"]["super_genre"]
+          super_genre?: Database["public"]["Enums"]["super_genre"] | null
           updated_at?: string
         }
         Relationships: []
@@ -526,24 +526,32 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       super_genre:
-        | "House"
-        | "Drum & Bass"
-        | "UK Garage"
-        | "Hip Hop"
-        | "Urban"
-        | "Pop"
-        | "Rock"
-        | "Jazz"
+        | "Bass"
         | "Blues"
-        | "Country/Folk"
-        | "Electronic"
+        | "Books & Spoken"
         | "Classical"
-        | "Latin"
-        | "Reggae/Dancehall"
-        | "World"
+        | "Comedy"
+        | "Country"
+        | "Dance"
         | "Disco"
+        | "Drum & Bass"
+        | "Electronic"
+        | "Folk"
+        | "Hip Hop"
+        | "House"
+        | "Indie-Alternative"
+        | "Jazz"
+        | "Latin"
         | "Metal"
         | "Other"
+        | "Pop"
+        | "Reggae/Dancehall"
+        | "Rock"
+        | "Seasonal"
+        | "Soul-Jazz-Funk"
+        | "UK Garage"
+        | "Urban"
+        | "World"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -673,24 +681,32 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       super_genre: [
-        "House",
-        "Drum & Bass",
-        "UK Garage",
-        "Hip Hop",
-        "Urban",
-        "Pop",
-        "Rock",
-        "Jazz",
+        "Bass",
         "Blues",
-        "Country/Folk",
-        "Electronic",
+        "Books & Spoken",
         "Classical",
-        "Latin",
-        "Reggae/Dancehall",
-        "World",
+        "Comedy",
+        "Country",
+        "Dance",
         "Disco",
+        "Drum & Bass",
+        "Electronic",
+        "Folk",
+        "Hip Hop",
+        "House",
+        "Indie-Alternative",
+        "Jazz",
+        "Latin",
         "Metal",
         "Other",
+        "Pop",
+        "Reggae/Dancehall",
+        "Rock",
+        "Seasonal",
+        "Soul-Jazz-Funk",
+        "UK Garage",
+        "Urban",
+        "World",
       ],
     },
   },

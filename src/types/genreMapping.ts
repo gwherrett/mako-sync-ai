@@ -1,42 +1,58 @@
 export type SuperGenre = 
-  | 'House'
-  | 'Drum & Bass'
-  | 'UK Garage'
-  | 'Hip Hop'
-  | 'Urban'
-  | 'Pop'
-  | 'Rock'
-  | 'Jazz'
+  | 'Bass'
   | 'Blues'
-  | 'Country/Folk'
-  | 'Electronic'
+  | 'Books & Spoken'
   | 'Classical'
-  | 'Latin'
-  | 'Reggae/Dancehall'
-  | 'World'
+  | 'Comedy'
+  | 'Country'
+  | 'Dance'
   | 'Disco'
+  | 'Drum & Bass'
+  | 'Electronic'
+  | 'Folk'
+  | 'Hip Hop'
+  | 'House'
+  | 'Indie-Alternative'
+  | 'Jazz'
+  | 'Latin'
   | 'Metal'
-  | 'Other';
+  | 'Other'
+  | 'Pop'
+  | 'Reggae/Dancehall'
+  | 'Rock'
+  | 'Seasonal'
+  | 'Soul-Jazz-Funk'
+  | 'UK Garage'
+  | 'Urban'
+  | 'World';
 
 export const SUPER_GENRES: SuperGenre[] = [
-  'House',
-  'Drum & Bass',
-  'UK Garage',
-  'Hip Hop',
-  'Urban',
-  'Pop',
-  'Rock',
-  'Jazz',
+  'Bass',
   'Blues',
-  'Country/Folk',
-  'Electronic',
+  'Books & Spoken',
   'Classical',
-  'Latin',
-  'Reggae/Dancehall',
-  'World',
+  'Comedy',
+  'Country',
+  'Dance',
   'Disco',
+  'Drum & Bass',
+  'Electronic',
+  'Folk',
+  'Hip Hop',
+  'House',
+  'Indie-Alternative',
+  'Jazz',
+  'Latin',
   'Metal',
-  'Other'
+  'Other',
+  'Pop',
+  'Reggae/Dancehall',
+  'Rock',
+  'Seasonal',
+  'Soul-Jazz-Funk',
+  'UK Garage',
+  'Urban',
+  'World'
 ];
 
 export interface GenreMapping {
