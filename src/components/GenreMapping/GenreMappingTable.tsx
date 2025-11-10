@@ -28,7 +28,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
   const [filterSuperGenre, setFilterSuperGenre] = useState<string>('all');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [editingRow, setEditingRow] = useState<string | null>(null);
-  const [sortColumn, setSortColumn] = useState<'spotify_genre' | 'super_genre'>('spotify_genre');
+  const [sortColumn, setSortColumn] = useState<'spotify_genre' | 'super_genre' | 'reviewed'>('spotify_genre');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [reviewedGenres, setReviewedGenres] = useState<Set<string>>(new Set());
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
@@ -61,6 +61,12 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
     }
     return matchesSearch && matchesFilter;
   }).sort((a, b) => {
+    if (sortColumn === 'reviewed') {
+      const aReviewed = reviewedGenres.has(a.spotify_genre) ? 1 : 0;
+      const bReviewed = reviewedGenres.has(b.spotify_genre) ? 1 : 0;
+      const comparison = aReviewed - bReviewed;
+      return sortDirection === 'asc' ? comparison : -comparison;
+    }
     const aValue = sortColumn === 'spotify_genre' ? a.spotify_genre : (a.super_genre || '');
     const bValue = sortColumn === 'spotify_genre' ? b.spotify_genre : (b.super_genre || '');
     const comparison = aValue.localeCompare(bValue);
@@ -94,7 +100,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
     }
   };
 
-  const toggleSort = (column: 'spotify_genre' | 'super_genre') => {
+  const toggleSort = (column: 'spotify_genre' | 'super_genre' | 'reviewed') => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -187,7 +193,12 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
                 </Button>
               </TableHead>
               <TableHead>Source</TableHead>
-              <TableHead className="w-12">Reviewed</TableHead>
+              <TableHead className="w-12">
+                <Button variant="ghost" size="sm" onClick={() => toggleSort('reviewed')} className="font-semibold -ml-3">
+                  Reviewed
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
               <TableHead className="w-24">Actions</TableHead>
             </TableRow>
           </TableHeader>
