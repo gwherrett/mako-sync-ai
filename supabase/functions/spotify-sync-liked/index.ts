@@ -173,6 +173,8 @@ serve(async (req) => {
     let hasMore = true
     let allChunkTracks: any[] = []
     let newTracksCount = 0
+    let consecutiveEmptyBatches = 0
+    const MAX_EMPTY_BATCHES = 3 // Check 3 batches (150 tracks) before giving up on incremental sync
 
     while (hasMore) {
       const url = `https://api.spotify.com/v1/me/tracks?limit=50&offset=${currentOffset}`
@@ -206,11 +208,18 @@ serve(async (req) => {
       // For incremental sync, filter out tracks already synced
       let newItems = data.items
       if (!isFullSync && lastSyncTime) {
+        const lastSyncDate = new Date(lastSyncTime)
         newItems = data.items.filter((item: any) => {
-          const addedAt = new Date(item.added_at).toISOString()
-          return addedAt > lastSyncTime
+          const addedAt = new Date(item.added_at)
+          // Use >= to be more inclusive and catch edge cases
+          return addedAt >= lastSyncDate
         })
-        console.log(`Filtered ${data.items.length} tracks to ${newItems.length} new tracks`)
+        console.log(`Filtered ${data.items.length} tracks to ${newItems.length} new tracks (comparing to ${lastSyncTime})`)
+        
+        // Log first few items for debugging
+        if (data.items.length > 0) {
+          console.log(`First track added_at: ${data.items[0].added_at}, Last sync: ${lastSyncTime}`)
+        }
       }
       
       allChunkTracks = allChunkTracks.concat(newItems)
@@ -319,11 +328,22 @@ serve(async (req) => {
         allChunkTracks = []
       }
       
-      // For incremental sync, stop early if no new tracks found
-      if (!isFullSync && lastSyncTime && newItems.length === 0) {
-        console.log('No more new tracks found, stopping incremental sync')
-        hasMore = false
-        break
+      // For incremental sync, check if we should stop after multiple empty batches
+      // This handles cases where Spotify API order might not be perfect
+      if (!isFullSync && lastSyncTime) {
+        if (newItems.length === 0) {
+          consecutiveEmptyBatches++
+          console.log(`Empty batch ${consecutiveEmptyBatches}/${MAX_EMPTY_BATCHES}, continuing...`)
+          
+          if (consecutiveEmptyBatches >= MAX_EMPTY_BATCHES) {
+            console.log(`No new tracks found in ${MAX_EMPTY_BATCHES} consecutive batches (${MAX_EMPTY_BATCHES * 50} tracks checked), stopping incremental sync`)
+            hasMore = false
+            break
+          }
+        } else {
+          // Reset counter if we found new tracks
+          consecutiveEmptyBatches = 0
+        }
       }
 
       // Break if we've processed everything
