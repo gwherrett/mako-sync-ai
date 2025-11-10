@@ -529,7 +529,6 @@ export type Database = {
         | "Bass"
         | "Blues"
         | "Books & Spoken"
-        | "Comedy"
         | "Country"
         | "Dance"
         | "Disco"
@@ -684,7 +683,6 @@ export const Constants = {
         "Bass",
         "Blues",
         "Books & Spoken",
-        "Comedy",
         "Country",
         "Dance",
         "Disco",

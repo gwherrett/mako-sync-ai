@@ -2,7 +2,6 @@ export type SuperGenre =
   | 'Bass'
   | 'Blues'
   | 'Books & Spoken'
-  | 'Comedy'
   | 'Country'
   | 'Dance'
   | 'Disco'
@@ -30,7 +29,6 @@ export const SUPER_GENRES: SuperGenre[] = [
   'Bass',
   'Blues',
   'Books & Spoken',
-  'Comedy',
   'Country',
   'Dance',
   'Disco',
