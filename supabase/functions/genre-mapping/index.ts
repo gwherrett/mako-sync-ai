@@ -149,6 +149,8 @@ serve(async (req) => {
           user_id: user.id,
           spotify_genre: cleanedGenre,
           super_genre,
+        }, {
+          onConflict: 'user_id,spotify_genre'
         })
         .select()
         .single();
