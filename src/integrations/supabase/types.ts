@@ -529,7 +529,6 @@ export type Database = {
         | "Bass"
         | "Blues"
         | "Books & Spoken"
-        | "Classical"
         | "Comedy"
         | "Country"
         | "Dance"
@@ -543,6 +542,7 @@ export type Database = {
         | "Jazz"
         | "Latin"
         | "Metal"
+        | "Orchestral"
         | "Other"
         | "Pop"
         | "Reggae/Dancehall"
@@ -684,7 +684,6 @@ export const Constants = {
         "Bass",
         "Blues",
         "Books & Spoken",
-        "Classical",
         "Comedy",
         "Country",
         "Dance",
@@ -698,6 +697,7 @@ export const Constants = {
         "Jazz",
         "Latin",
         "Metal",
+        "Orchestral",
         "Other",
         "Pop",
         "Reggae/Dancehall",

@@ -2,7 +2,6 @@ export type SuperGenre =
   | 'Bass'
   | 'Blues'
   | 'Books & Spoken'
-  | 'Classical'
   | 'Comedy'
   | 'Country'
   | 'Dance'
@@ -16,6 +15,7 @@ export type SuperGenre =
   | 'Jazz'
   | 'Latin'
   | 'Metal'
+  | 'Orchestral'
   | 'Other'
   | 'Pop'
   | 'Reggae/Dancehall'
@@ -30,7 +30,6 @@ export const SUPER_GENRES: SuperGenre[] = [
   'Bass',
   'Blues',
   'Books & Spoken',
-  'Classical',
   'Comedy',
   'Country',
   'Dance',
@@ -44,6 +43,7 @@ export const SUPER_GENRES: SuperGenre[] = [
   'Jazz',
   'Latin',
   'Metal',
+  'Orchestral',
   'Other',
   'Pop',
   'Reggae/Dancehall',
