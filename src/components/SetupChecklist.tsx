@@ -188,7 +188,7 @@ export const SetupChecklist: React.FC = () => {
                           title="Clear all songs and re-sync from scratch"
                           className="text-xs"
                         >
-                          Force Full
+                          Full Sync
                         </Button>
                       )}
                     </>
