@@ -209,17 +209,33 @@ serve(async (req) => {
       let newItems = data.items
       if (!isFullSync && lastSyncTime) {
         const lastSyncDate = new Date(lastSyncTime)
+        
+        // Debug: Log what we're comparing
+        console.log(`\n=== INCREMENTAL SYNC DEBUG ===`)
+        console.log(`Last sync timestamp: ${lastSyncTime}`)
+        console.log(`Last sync as Date: ${lastSyncDate.toISOString()}`)
+        console.log(`Fetched ${data.items.length} tracks from Spotify`)
+        
+        // Log first 3 tracks for debugging
+        if (data.items.length > 0) {
+          console.log(`\nFirst 3 tracks from Spotify:`)
+          data.items.slice(0, 3).forEach((item: any, idx: number) => {
+            const trackAddedAt = new Date(item.added_at)
+            const isNewer = trackAddedAt >= lastSyncDate
+            console.log(`  ${idx + 1}. "${item.track.name}" by ${item.track.artists[0].name}`)
+            console.log(`     added_at: ${item.added_at}`)
+            console.log(`     as Date: ${trackAddedAt.toISOString()}`)
+            console.log(`     >= lastSync? ${isNewer}`)
+          })
+        }
+        
         newItems = data.items.filter((item: any) => {
           const addedAt = new Date(item.added_at)
-          // Use >= to be more inclusive and catch edge cases
           return addedAt >= lastSyncDate
         })
-        console.log(`Filtered ${data.items.length} tracks to ${newItems.length} new tracks (comparing to ${lastSyncTime})`)
         
-        // Log first few items for debugging
-        if (data.items.length > 0) {
-          console.log(`First track added_at: ${data.items[0].added_at}, Last sync: ${lastSyncTime}`)
-        }
+        console.log(`Filtered result: ${newItems.length} new tracks`)
+        console.log(`=== END DEBUG ===\n`)
       }
       
       allChunkTracks = allChunkTracks.concat(newItems)
