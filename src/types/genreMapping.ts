@@ -17,7 +17,7 @@ export type SuperGenre =
   | 'Orchestral'
   | 'Other'
   | 'Pop'
-  | 'Reggae/Dancehall'
+  | 'Reggae-Dancehall'
   | 'Rock'
   | 'Seasonal'
   | 'Soul-Funk'
@@ -44,7 +44,7 @@ export const SUPER_GENRES: SuperGenre[] = [
   'Orchestral',
   'Other',
   'Pop',
-  'Reggae/Dancehall',
+  'Reggae-Dancehall',
   'Rock',
   'Seasonal',
   'Soul-Funk',

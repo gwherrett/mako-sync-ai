@@ -552,6 +552,7 @@ export type Database = {
         | "Urban"
         | "World"
         | "Soul-Funk"
+        | "Reggae-Dancehall"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -707,6 +708,7 @@ export const Constants = {
         "Urban",
         "World",
         "Soul-Funk",
+        "Reggae-Dancehall",
       ],
     },
   },
