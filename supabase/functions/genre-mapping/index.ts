@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,6 +10,33 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+// Validation schemas
+const VALID_SUPER_GENRES = [
+  'Bass', 'Blues', 'Books & Spoken', 'Country', 'Dance', 'Disco',
+  'Drum & Bass', 'Electronic', 'Folk', 'Hip Hop', 'House',
+  'Indie-Alternative', 'Jazz', 'Latin', 'Metal', 'Orchestral',
+  'Other', 'Pop', 'Reggae-Dancehall', 'Rock', 'Seasonal',
+  'Soul-Funk', 'UK Garage', 'Urban', 'World'
+] as const;
+
+const genreMappingSchema = z.object({
+  spotify_genre: z.string()
+    .trim()
+    .min(1, 'Genre name required')
+    .max(100, 'Genre name too long')
+    .regex(/^[a-zA-Z0-9\s\-&'.,()!]+$/, 'Invalid characters in genre name'),
+  super_genre: z.enum(VALID_SUPER_GENRES, { 
+    errorMap: () => ({ message: 'Invalid super genre' }) 
+  })
+});
+
+const deleteSchema = z.object({
+  spotify_genre: z.string()
+    .trim()
+    .min(1, 'Genre name required')
+    .max(100, 'Genre name too long')
+});
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -99,11 +127,26 @@ serve(async (req) => {
 
     // POST /override - upsert user override
     if (req.method === 'POST') {
-      const { spotify_genre, super_genre } = await req.json();
-
-      if (!spotify_genre || !super_genre) {
-        throw new Error('spotify_genre and super_genre are required');
+      const rawBody = await req.json();
+      
+      // Validate input
+      const validationResult = genreMappingSchema.safeParse(rawBody);
+      
+      if (!validationResult.success) {
+        console.error('Validation failed:', validationResult.error.issues);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid input', 
+            details: validationResult.error.issues 
+          }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
       }
+      
+      const { spotify_genre, super_genre } = validationResult.data;
 
       // Normalize and clean the spotify_genre to handle UTF characters and whitespace
       const cleanedGenre = String(spotify_genre)
@@ -167,11 +210,26 @@ serve(async (req) => {
 
     // DELETE /override - remove user override
     if (req.method === 'DELETE') {
-      const { spotify_genre } = await req.json();
+      const rawBody = await req.json();
       
-      if (!spotify_genre) {
-        throw new Error('spotify_genre is required in request body');
+      // Validate input
+      const validationResult = deleteSchema.safeParse(rawBody);
+      
+      if (!validationResult.success) {
+        console.error('Validation failed:', validationResult.error.issues);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid input', 
+            details: validationResult.error.issues 
+          }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
       }
+      
+      const { spotify_genre } = validationResult.data;
 
       // Normalize the genre for deletion to match how it was stored
       const cleanedGenre = String(spotify_genre)

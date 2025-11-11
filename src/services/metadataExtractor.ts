@@ -2,6 +2,7 @@ import { parseBlob } from 'music-metadata-browser';
 import { Buffer } from 'buffer';
 import { generateFileHash } from '@/utils/fileHash';
 import { NormalizationService } from './normalization.service';
+import { z } from 'zod';
 
 /**
  * Extracts year from various value formats
@@ -47,6 +48,28 @@ const extractYearFromString = (dateStr: string): number | null => {
 if (typeof window !== 'undefined') {
   window.Buffer = Buffer;
 }
+
+// Validation schema for MP3 metadata to prevent malicious data
+const metadataSchema = z.object({
+  title: z.string().max(500).nullable(),
+  artist: z.string().max(500).nullable(),
+  album: z.string().max(500).nullable(),
+  genre: z.string().max(200).nullable(),
+  year: z.number().int().min(1900).max(new Date().getFullYear() + 1).nullable(),
+  bitrate: z.number().int().min(0).max(10000).nullable(),
+  bpm: z.number().min(0).max(500).nullable(),
+  key: z.string().max(50).nullable(),
+  normalized_title: z.string().max(500),
+  normalized_artist: z.string().max(500),
+  core_title: z.string().max(500),
+  primary_artist: z.string().max(500),
+  featured_artists: z.array(z.string().max(500)).max(50),
+  mix: z.string().max(200).nullable(),
+  file_path: z.string().max(1000),
+  file_size: z.number().int().min(0).max(10737418240), // 10GB max
+  hash: z.string().max(128).nullable(),
+  last_modified: z.string(),
+});
 
 export interface ScannedTrack {
   file_path: string;
@@ -290,7 +313,16 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       }
     });
 
-    return trackData;
+    // Validate the extracted metadata before returning
+    const validationResult = metadataSchema.safeParse(trackData);
+    
+    if (!validationResult.success) {
+      console.error(`❌ Metadata validation failed for ${file.name}:`, validationResult.error.issues);
+      throw new Error(`Invalid metadata in ${file.name}: ${validationResult.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(', ')}`);
+    }
+    
+    console.log(`✅ Metadata validation passed for: ${file.name}`);
+    return validationResult.data as ScannedTrack;
   } catch (error) {
     console.error(`❌ Failed to extract metadata from ${file.name}:`, error);
     
@@ -299,7 +331,7 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
     const normalized = normalizationService.processMetadata(null, null);
     
     // Return track with all metadata fields as null (no filename fallback)
-    return {
+    const errorTrackData = {
       file_path: file.name,
       title: null,
       artist: null,
@@ -320,6 +352,15 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
       featured_artists: normalized.featuredArtists,
       mix: normalized.mix,
     };
+    
+    // Validate even error case data
+    const validationResult = metadataSchema.safeParse(errorTrackData);
+    if (!validationResult.success) {
+      console.error(`❌ Error case validation failed for ${file.name}:`, validationResult.error.issues);
+      throw new Error(`Failed to extract and validate metadata from ${file.name}`);
+    }
+    
+    return validationResult.data as ScannedTrack;
   }
 };
 
