@@ -7,24 +7,31 @@ const corsHeaders = {
 };
 
 const SUPER_GENRES = [
-  'House',
-  'Drum & Bass',
-  'UK Garage',
-  'Hip Hop',
-  'Urban',
-  'Pop',
-  'Rock',
-  'Jazz',
+  'Bass',
   'Blues',
-  'Country/Folk',
-  'Electronic',
-  'Classical',
-  'Latin',
-  'Reggae/Dancehall',
-  'World',
+  'Books & Spoken',
+  'Country',
+  'Dance',
   'Disco',
+  'Drum & Bass',
+  'Electronic',
+  'Folk',
+  'Hip Hop',
+  'House',
+  'Indie-Alternative',
+  'Jazz',
+  'Latin',
   'Metal',
-  'Other'
+  'Orchestral',
+  'Other',
+  'Pop',
+  'Reggae-Dancehall',
+  'Rock',
+  'Seasonal',
+  'Soul-Funk',
+  'UK Garage',
+  'Urban',
+  'World'
 ];
 
 serve(async (req) => {
