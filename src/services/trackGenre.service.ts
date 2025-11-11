@@ -144,4 +144,63 @@ export class TrackGenreService {
 
     return count || 0;
   }
+
+  /**
+   * Get tracks without genre grouped by artist
+   */
+  static async getTracksGroupedByArtist(): Promise<Map<string, TrackWithoutGenre[]>> {
+    const tracks = await this.getTracksWithoutGenre();
+    
+    const grouped = new Map<string, TrackWithoutGenre[]>();
+    tracks.forEach(track => {
+      if (!grouped.has(track.artist)) {
+        grouped.set(track.artist, []);
+      }
+      grouped.get(track.artist)!.push(track);
+    });
+
+    return grouped;
+  }
+
+  /**
+   * Get AI suggestion for an artist (applies to all their tracks)
+   */
+  static async suggestGenreForArtist(
+    artist: string,
+    sampleTracks: Array<{ title: string; album?: string | null }>,
+    trackCount: number
+  ): Promise<GenreSuggestion> {
+    const libraryContext = await this.buildLibraryContext(artist);
+
+    const { data, error } = await supabase.functions.invoke('ai-track-genre-suggest', {
+      body: {
+        artist,
+        sampleTracks,
+        trackCount,
+        libraryContext
+      }
+    });
+
+    if (error) {
+      console.error('Error getting AI suggestion for artist:', error);
+      throw error;
+    }
+
+    return data as GenreSuggestion;
+  }
+
+  /**
+   * Assign genre to multiple tracks at once
+   */
+  static async assignGenreToMultipleTracks(trackIds: string[], superGenre: SuperGenre): Promise<void> {
+    const { error } = await supabase
+      .from('spotify_liked')
+      .update({ super_genre: superGenre })
+      .in('id', trackIds);
+
+    if (error) {
+      console.error('Error assigning genre to multiple tracks:', error);
+      throw error;
+    }
+  }
 }

@@ -1,0 +1,462 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Sparkles, Check, X, Loader2, Music } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useToast } from '@/hooks/use-toast';
+import { TrackGenreService } from '@/services/trackGenre.service';
+import { SUPER_GENRES, type SuperGenre } from '@/types/genreMapping';
+
+interface Track {
+  id: string;
+  title: string;
+  artist: string;
+  album: string | null;
+  spotify_id: string;
+}
+
+interface ArtistGroup {
+  artist: string;
+  tracks: Track[];
+  trackCount: number;
+  suggestion?: {
+    suggestedGenre: SuperGenre;
+    confidence: number;
+    reasoning: string;
+  } | null;
+  isProcessing?: boolean;
+  decision?: 'approved' | 'rejected' | 'manual' | null;
+  manualGenre?: SuperGenre | '';
+}
+
+const ARTISTS_PER_BATCH = 10;
+
+export const ArtistGroupedProcessor = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const [artistGroups, setArtistGroups] = useState<ArtistGroup[]>([]);
+  const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProcessingBatch, setIsProcessingBatch] = useState(false);
+  const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
+  const [totalTracksAssigned, setTotalTracksAssigned] = useState(0);
+
+  useEffect(() => {
+    loadArtistGroups();
+  }, []);
+
+  const loadArtistGroups = async () => {
+    try {
+      setIsLoading(true);
+      const groupedMap = await TrackGenreService.getTracksGroupedByArtist();
+      
+      const groups: ArtistGroup[] = Array.from(groupedMap.entries())
+        .map(([artist, tracks]) => ({
+          artist,
+          tracks,
+          trackCount: tracks.length,
+          decision: null
+        }))
+        .sort((a, b) => a.artist.localeCompare(b.artist));
+      
+      setArtistGroups(groups);
+      if (groups.length > 0) {
+        setSelectedArtist(groups[0].artist);
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error loading artists',
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const processBatchWithAI = async () => {
+    setIsProcessingBatch(true);
+    
+    const startIdx = currentBatchIndex * ARTISTS_PER_BATCH;
+    const endIdx = startIdx + ARTISTS_PER_BATCH;
+    const batchArtists = artistGroups.slice(startIdx, endIdx);
+    
+    const promises = batchArtists.map(async (group) => {
+      const groupIndex = artistGroups.findIndex(g => g.artist === group.artist);
+      
+      try {
+        setArtistGroups(prev => {
+          const updated = [...prev];
+          updated[groupIndex] = { ...updated[groupIndex], isProcessing: true };
+          return updated;
+        });
+
+        const sampleTracks = group.tracks.slice(0, 10).map(t => ({
+          title: t.title,
+          album: t.album
+        }));
+
+        const result = await TrackGenreService.suggestGenreForArtist(
+          group.artist,
+          sampleTracks,
+          group.trackCount
+        );
+        
+        setArtistGroups(prev => {
+          const updated = [...prev];
+          updated[groupIndex] = { 
+            ...updated[groupIndex], 
+            suggestion: result, 
+            isProcessing: false 
+          };
+          return updated;
+        });
+      } catch (error) {
+        console.error('Error processing artist:', error);
+        setArtistGroups(prev => {
+          const updated = [...prev];
+          updated[groupIndex] = { 
+            ...updated[groupIndex], 
+            suggestion: null, 
+            isProcessing: false 
+          };
+          return updated;
+        });
+      }
+    });
+
+    await Promise.all(promises);
+    setIsProcessingBatch(false);
+    
+    toast({
+      title: 'Batch processed',
+      description: `AI suggestions generated for ${batchArtists.length} artists`
+    });
+  };
+
+  const handleApprove = async (artist: string) => {
+    const group = artistGroups.find(g => g.artist === artist);
+    if (!group?.suggestion) return;
+
+    try {
+      const trackIds = group.tracks.map(t => t.id);
+      await TrackGenreService.assignGenreToMultipleTracks(trackIds, group.suggestion.suggestedGenre);
+      
+      setArtistGroups(prev => 
+        prev.map(g => g.artist === artist ? { ...g, decision: 'approved' as const } : g)
+      );
+      setTotalTracksAssigned(prev => prev + group.trackCount);
+      
+      toast({
+        title: 'Genre assigned',
+        description: `${group.suggestion.suggestedGenre} → ${group.trackCount} tracks by ${artist}`
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  const handleReject = (artist: string) => {
+    setArtistGroups(prev => 
+      prev.map(g => g.artist === artist ? { ...g, decision: 'rejected' as const, suggestion: null } : g)
+    );
+  };
+
+  const handleManualAssign = async (artist: string) => {
+    const group = artistGroups.find(g => g.artist === artist);
+    if (!group?.manualGenre) return;
+
+    try {
+      const trackIds = group.tracks.map(t => t.id);
+      await TrackGenreService.assignGenreToMultipleTracks(trackIds, group.manualGenre);
+      
+      setArtistGroups(prev => 
+        prev.map(g => g.artist === artist ? { ...g, decision: 'manual' as const } : g)
+      );
+      setTotalTracksAssigned(prev => prev + group.trackCount);
+      
+      toast({
+        title: 'Genre assigned',
+        description: `${group.manualGenre} → ${group.trackCount} tracks by ${artist}`
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  const selectedGroup = artistGroups.find(g => g.artist === selectedArtist);
+  const totalBatches = Math.ceil(artistGroups.length / ARTISTS_PER_BATCH);
+  const batchStart = currentBatchIndex * ARTISTS_PER_BATCH;
+  const batchEnd = Math.min((currentBatchIndex + 1) * ARTISTS_PER_BATCH, artistGroups.length);
+  const totalTracks = artistGroups.reduce((sum, g) => sum + g.trackCount, 0);
+  const processedArtists = artistGroups.filter(g => g.decision === 'approved' || g.decision === 'manual').length;
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="text-center">Loading artists...</div>
+      </div>
+    );
+  }
+
+  if (artistGroups.length === 0) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl font-bold">No Artists to Process</h1>
+          <p className="text-muted-foreground">All tracks have been assigned genres!</p>
+          <Button onClick={() => navigate('/genre-mapping')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Genre Mapping
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto py-8 max-w-7xl space-y-6">
+      <div className="flex items-center justify-between">
+        <Button variant="outline" size="sm" onClick={() => navigate('/genre-mapping')}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-muted-foreground">
+            Batch {currentBatchIndex + 1} of {totalBatches} • Artists {batchStart + 1}-{batchEnd} of {artistGroups.length}
+          </div>
+          <Button 
+            onClick={processBatchWithAI} 
+            disabled={isProcessingBatch}
+          >
+            {isProcessingBatch ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Process Next {Math.min(ARTISTS_PER_BATCH, artistGroups.length - batchStart)} Artists
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-6">
+        {/* Left Panel - Artist List */}
+        <Card className="col-span-4">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Artists ({artistGroups.length})</span>
+              <div className="text-xs font-normal text-muted-foreground">
+                {totalTracks} tracks
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-[600px]">
+              <div className="space-y-1 p-4">
+                {artistGroups.map((group) => (
+                  <button
+                    key={group.artist}
+                    onClick={() => setSelectedArtist(group.artist)}
+                    className={`w-full text-left p-3 rounded-lg transition-colors ${
+                      selectedArtist === group.artist
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-muted'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <Music className="w-4 h-4 flex-shrink-0" />
+                        <span className="font-medium truncate">{group.artist}</span>
+                      </div>
+                      <Badge variant="secondary" className="ml-2 flex-shrink-0">
+                        {group.trackCount}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      {group.isProcessing && (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      )}
+                      {group.decision === 'approved' && (
+                        <Badge variant="default" className="text-xs">
+                          <Check className="w-3 h-3 mr-1" />
+                          Approved
+                        </Badge>
+                      )}
+                      {group.decision === 'manual' && (
+                        <Badge variant="secondary" className="text-xs">
+                          <Check className="w-3 h-3 mr-1" />
+                          Manual
+                        </Badge>
+                      )}
+                      {group.suggestion && !group.decision && (
+                        <Badge variant="outline" className="text-xs">
+                          {group.suggestion.suggestedGenre}
+                        </Badge>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {/* Right Panel - Artist Details */}
+        <Card className="col-span-8">
+          <CardHeader>
+            <CardTitle>
+              {selectedGroup ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span>{selectedGroup.artist}</span>
+                    <Badge variant="secondary">{selectedGroup.trackCount} tracks</Badge>
+                  </div>
+                  
+                  {selectedGroup.suggestion && (
+                    <div className="bg-muted p-4 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          <span className="font-semibold text-lg">{selectedGroup.suggestion.suggestedGenre}</span>
+                          <Badge variant="secondary">
+                            {selectedGroup.suggestion.confidence}% confidence
+                          </Badge>
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedGroup.suggestion.reasoning}
+                      </p>
+                      
+                      {!selectedGroup.decision && (
+                        <div className="flex gap-2 pt-2">
+                          <Button 
+                            onClick={() => handleApprove(selectedGroup.artist)}
+                            className="flex-1"
+                          >
+                            <Check className="w-4 h-4 mr-2" />
+                            Apply to All {selectedGroup.trackCount} Tracks
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            onClick={() => handleReject(selectedGroup.artist)}
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedGroup.decision === 'rejected' && (
+                    <div className="bg-muted p-4 rounded-lg space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Select 
+                          value={selectedGroup.manualGenre || ''} 
+                          onValueChange={(value) => {
+                            setArtistGroups(prev => 
+                              prev.map(g => g.artist === selectedGroup.artist 
+                                ? { ...g, manualGenre: value as SuperGenre } 
+                                : g
+                              )
+                            );
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select genre..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[...SUPER_GENRES].sort().map(genre => (
+                              <SelectItem key={genre} value={genre}>
+                                {genre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button 
+                          onClick={() => handleManualAssign(selectedGroup.artist)}
+                          disabled={!selectedGroup.manualGenre}
+                        >
+                          Assign to All {selectedGroup.trackCount} Tracks
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                'Select an artist'
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {selectedGroup && (
+              <ScrollArea className="h-[500px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Track</TableHead>
+                      <TableHead>Album</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedGroup.tracks.map((track) => (
+                      <TableRow key={track.id}>
+                        <TableCell className="font-medium">{track.title}</TableCell>
+                        <TableCell className="text-muted-foreground">{track.album || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Button
+          variant="outline"
+          onClick={() => setCurrentBatchIndex(prev => Math.max(0, prev - 1))}
+          disabled={currentBatchIndex === 0}
+        >
+          ← Previous Batch
+        </Button>
+        
+        <div className="text-center space-y-1">
+          <div className="text-sm text-muted-foreground">
+            Progress: {processedArtists} of {artistGroups.length} artists
+          </div>
+          <div className="text-sm font-medium">
+            {totalTracksAssigned} tracks assigned
+          </div>
+        </div>
+
+        <Button
+          variant="outline"
+          onClick={() => setCurrentBatchIndex(prev => Math.min(totalBatches - 1, prev + 1))}
+          disabled={currentBatchIndex >= totalBatches - 1}
+        >
+          Next Batch →
+        </Button>
+      </div>
+    </div>
+  );
+};

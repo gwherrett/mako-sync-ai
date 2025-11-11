@@ -40,9 +40,19 @@ serve(async (req) => {
   }
 
   try {
-    const { title, artist, album, libraryContext } = await req.json();
+    const body = await req.json();
+    const { title, artist, album, libraryContext, sampleTracks, trackCount } = body;
     
-    console.log('AI Track Genre Suggest - Input:', { title, artist, album });
+    // Artist-level mode vs track-level mode
+    const isArtistMode = sampleTracks && trackCount;
+    
+    console.log('AI Track Genre Suggest - Input:', { 
+      mode: isArtistMode ? 'artist' : 'track',
+      artist, 
+      title, 
+      trackCount,
+      sampleTracksCount: sampleTracks?.length 
+    });
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -73,7 +83,7 @@ serve(async (req) => {
     const systemPrompt = `You are a music genre classification expert. Your task is to suggest ONE Common Genre from this list:
 ${SUPER_GENRES.join(', ')}
 
-Analyze the track information and user's library patterns to make a personalized, accurate suggestion.
+Analyze the ${isArtistMode ? 'artist' : 'track'} information and user's library patterns to make a personalized, accurate suggestion.
 
 You must respond with a JSON object in this exact format:
 {
@@ -82,10 +92,20 @@ You must respond with a JSON object in this exact format:
   "reasoning": "brief explanation of why this genre fits, considering the user's library patterns"
 }`;
 
-    const userPrompt = `Track: "${title}"
+    let userPrompt = '';
+    if (isArtistMode) {
+      const tracksList = sampleTracks.slice(0, 10).map((t: any) => `  - "${t.title}"${t.album ? ` (${t.album})` : ''}`).join('\n');
+      userPrompt = `Artist: ${artist}
+Sample tracks (${sampleTracks.length} of ${trackCount} total):
+${tracksList}${contextMessage}
+
+Based on this artist's music and the user's library, which ONE Common Genre best represents ${artist}? This will be applied to all ${trackCount} tracks by this artist.`;
+    } else {
+      userPrompt = `Track: "${title}"
 Artist: ${artist}${album ? `\nAlbum: ${album}` : ''}${contextMessage}
 
 Based on this information, which Common Genre best fits this track?`;
+    }
 
     console.log('Calling Lovable AI...');
 
