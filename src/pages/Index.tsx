@@ -53,7 +53,6 @@ const Index = () => {
   const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
   const [selectedLocalTrack, setSelectedLocalTrack] = useState<LocalTrack | null>(null);
   const [isDashboardCollapsed, setIsDashboardCollapsed] = useState(false);
-  const spotifyWindowRef = React.useRef<Window | null>(null);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black">
@@ -139,13 +138,10 @@ const Index = () => {
                     <button 
                       className="text-expos-blue hover:text-expos-blue/80 transition-colors"
                       onClick={() => {
-                        const url = `https://open.spotify.com/track/${selectedTrack.spotify_id}`;
-                        if (spotifyWindowRef.current && !spotifyWindowRef.current.closed) {
-                          spotifyWindowRef.current.location.href = url;
-                          spotifyWindowRef.current.focus();
-                        } else {
-                          spotifyWindowRef.current = window.open(url, '_blank');
-                        }
+                        window.open(
+                          `https://open.spotify.com/track/${selectedTrack.spotify_id}`, 
+                          'spotify-track'
+                        );
                       }}
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
