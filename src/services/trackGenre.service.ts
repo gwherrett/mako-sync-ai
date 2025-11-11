@@ -12,7 +12,7 @@ interface TrackWithoutGenre {
 interface LibraryContext {
   sameArtistTracks: Array<{
     title: string;
-    super_genre: SuperGenre | null;
+    super_genre: string | null;
   }>;
   libraryPatterns: string;
 }
