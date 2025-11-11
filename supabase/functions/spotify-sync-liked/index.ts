@@ -175,6 +175,7 @@ serve(async (req) => {
     let newTracksCount = 0
     let consecutiveEmptyBatches = 0
     const MAX_EMPTY_BATCHES = 3 // Check 3 batches (150 tracks) before giving up on incremental sync
+    const allSpotifyIds = new Set<string>() // Track all Spotify IDs from this sync for deletion detection
 
     while (hasMore) {
       const url = `https://api.spotify.com/v1/me/tracks?limit=50&offset=${currentOffset}`
@@ -204,6 +205,15 @@ serve(async (req) => {
       }
 
       const data = await response.json()
+      
+      // Track all Spotify IDs for deletion detection (only during full sync)
+      if (isFullSync) {
+        data.items.forEach((item: any) => {
+          if (item.track?.id) {
+            allSpotifyIds.add(item.track.id)
+          }
+        })
+      }
       
       // For incremental sync, filter out tracks already synced
       let newItems = data.items
@@ -366,6 +376,53 @@ serve(async (req) => {
       if (!hasMore) break
     }
 
+    // Deletion detection: Remove tracks that are no longer in Spotify (only for full sync)
+    let deletedTracksCount = 0
+    if (isFullSync && allSpotifyIds.size > 0) {
+      console.log(`🔍 Checking for deleted tracks (full sync with ${allSpotifyIds.size} Spotify tracks)`)
+      
+      // Get all user's tracks from database
+      const { data: dbTracks, error: fetchError } = await supabaseClient
+        .from('spotify_liked')
+        .select('id, spotify_id, title, artist')
+        .eq('user_id', user.id)
+      
+      if (fetchError) {
+        console.error('Error fetching database tracks for deletion check:', fetchError)
+      } else if (dbTracks) {
+        // Find tracks in DB that are NOT in Spotify anymore
+        const tracksToDelete = dbTracks.filter(track => !allSpotifyIds.has(track.spotify_id))
+        
+        if (tracksToDelete.length > 0) {
+          console.log(`🗑️  Found ${tracksToDelete.length} tracks to delete:`)
+          tracksToDelete.slice(0, 5).forEach(track => {
+            console.log(`   - "${track.title}" by ${track.artist}`)
+          })
+          if (tracksToDelete.length > 5) {
+            console.log(`   ... and ${tracksToDelete.length - 5} more`)
+          }
+          
+          // Delete tracks that are no longer in Spotify
+          const idsToDelete = tracksToDelete.map(t => t.id)
+          const { error: deleteError } = await supabaseClient
+            .from('spotify_liked')
+            .delete()
+            .in('id', idsToDelete)
+          
+          if (deleteError) {
+            console.error('Error deleting removed tracks:', deleteError)
+          } else {
+            deletedTracksCount = tracksToDelete.length
+            console.log(`✅ Successfully deleted ${deletedTracksCount} tracks that were unliked in Spotify`)
+          }
+        } else {
+          console.log(`✅ No tracks to delete - database is in sync with Spotify`)
+        }
+      }
+    } else if (!isFullSync) {
+      console.log(`⏭️  Skipping deletion detection (incremental sync - only checks new tracks)`)
+    }
+
     // Mark sync as completed with timestamp
     await supabaseClient
       .from('sync_progress')
@@ -379,9 +436,15 @@ serve(async (req) => {
       .eq('sync_id', syncId)
 
     const syncType = isFullSync ? 'Full' : 'Incremental'
-    const message = isFullSync 
-      ? `Full sync complete: ${currentOffset} tracks synced`
-      : `Incremental sync complete: ${newTracksCount} new tracks added`
+    const baseMessage = isFullSync 
+      ? `${currentOffset} tracks synced`
+      : `${newTracksCount} new tracks added`
+    
+    const deletionMessage = deletedTracksCount > 0 
+      ? `, ${deletedTracksCount} removed`
+      : ''
+    
+    const message = `${syncType} sync complete: ${baseMessage}${deletionMessage}`
     
     console.log(`🎉 ${message}`)
 
@@ -392,6 +455,7 @@ serve(async (req) => {
         total_songs: totalTracks,
         processed_songs: currentOffset,
         new_tracks_added: newTracksCount,
+        deleted_tracks: deletedTracksCount,
         sync_type: syncType,
         sync_id: syncId
       }),
