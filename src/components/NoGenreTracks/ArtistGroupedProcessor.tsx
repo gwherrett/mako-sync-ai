@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { TrackGenreService } from '@/services/trackGenre.service';
 import { SUPER_GENRES, type SuperGenre } from '@/types/genreMapping';
@@ -245,6 +246,10 @@ export const ArtistGroupedProcessor = () => {
     );
   }
 
+  const progressPercentage = artistGroups.length > 0 
+    ? Math.round((processedArtists / artistGroups.length) * 100) 
+    : 0;
+
   return (
     <div className="container mx-auto py-8 max-w-7xl space-y-6">
       <div className="flex items-center justify-between">
@@ -274,6 +279,26 @@ export const ArtistGroupedProcessor = () => {
           </Button>
         </div>
       </div>
+
+      {/* Progress Card */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold">Review Progress</h3>
+                <p className="text-sm text-muted-foreground">
+                  {processedArtists} of {artistGroups.length} artists completed • {totalTracksAssigned} tracks assigned
+                </p>
+              </div>
+              <div className="text-3xl font-bold text-primary">
+                {progressPercentage}%
+              </div>
+            </div>
+            <Progress value={progressPercentage} className="h-3" />
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-12 gap-6">
         {/* Left Panel - Artist List */}
