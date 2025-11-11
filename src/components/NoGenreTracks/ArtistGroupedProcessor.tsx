@@ -50,6 +50,21 @@ export const ArtistGroupedProcessor = () => {
     loadArtistGroups();
   }, []);
 
+  const sortArtistGroups = (groups: ArtistGroup[]): ArtistGroup[] => {
+    return [...groups].sort((a, b) => {
+      // Unprocessed artists (no decision) come first
+      const aProcessed = a.decision === 'approved' || a.decision === 'manual';
+      const bProcessed = b.decision === 'approved' || b.decision === 'manual';
+      
+      if (aProcessed !== bProcessed) {
+        return aProcessed ? 1 : -1; // Processed go to bottom
+      }
+      
+      // Within each group, sort alphabetically
+      return a.artist.localeCompare(b.artist);
+    });
+  };
+
   const loadArtistGroups = async () => {
     try {
       setIsLoading(true);
@@ -61,12 +76,13 @@ export const ArtistGroupedProcessor = () => {
           tracks,
           trackCount: tracks.length,
           decision: null
-        }))
-        .sort((a, b) => a.artist.localeCompare(b.artist));
+        }));
       
-      setArtistGroups(groups);
-      if (groups.length > 0) {
-        setSelectedArtist(groups[0].artist);
+      const sorted = sortArtistGroups(groups);
+      setArtistGroups(sorted);
+      
+      if (sorted.length > 0) {
+        setSelectedArtist(sorted[0].artist);
       }
     } catch (error) {
       toast({
@@ -147,9 +163,10 @@ export const ArtistGroupedProcessor = () => {
       const trackIds = group.tracks.map(t => t.id);
       await TrackGenreService.assignGenreToMultipleTracks(trackIds, group.suggestion.suggestedGenre);
       
-      setArtistGroups(prev => 
-        prev.map(g => g.artist === artist ? { ...g, decision: 'approved' as const } : g)
-      );
+      setArtistGroups(prev => {
+        const updated = prev.map(g => g.artist === artist ? { ...g, decision: 'approved' as const } : g);
+        return sortArtistGroups(updated);
+      });
       setTotalTracksAssigned(prev => prev + group.trackCount);
       
       toast({
@@ -179,9 +196,10 @@ export const ArtistGroupedProcessor = () => {
       const trackIds = group.tracks.map(t => t.id);
       await TrackGenreService.assignGenreToMultipleTracks(trackIds, group.manualGenre);
       
-      setArtistGroups(prev => 
-        prev.map(g => g.artist === artist ? { ...g, decision: 'manual' as const } : g)
-      );
+      setArtistGroups(prev => {
+        const updated = prev.map(g => g.artist === artist ? { ...g, decision: 'manual' as const } : g);
+        return sortArtistGroups(updated);
+      });
       setTotalTracksAssigned(prev => prev + group.trackCount);
       
       toast({
