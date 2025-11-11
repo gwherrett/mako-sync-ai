@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Database, Shuffle } from 'lucide-react';
+import { Settings, Database, Shuffle, Trash2 } from 'lucide-react';
 import LibraryHeader from '@/components/LibraryHeader';
 import { StatsOverview } from '@/components/StatsOverview';
 import { SetupChecklist } from '@/components/SetupChecklist';
@@ -12,6 +12,9 @@ import FileUploadScanner from '@/components/FileUploadScanner';
 import SyncAnalysis from '@/components/SyncAnalysis';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface SpotifyTrack {
   id: string;
@@ -53,6 +56,47 @@ const Index = () => {
   const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
   const [selectedLocalTrack, setSelectedLocalTrack] = useState<LocalTrack | null>(null);
   const [isDashboardCollapsed, setIsDashboardCollapsed] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const { toast } = useToast();
+
+  const deleteAllLocalFiles = async () => {
+    setIsDeleting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to delete files",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('local_mp3s')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "All local file metadata has been deleted",
+      });
+      
+      setRefreshTrigger(prev => prev + 1);
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete local files",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black">
@@ -196,10 +240,38 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="local" className="space-y-8">
-            <FileUploadScanner />
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex-1">
+                <FileUploadScanner />
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" className="ml-4">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete All Local Files
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete All Local Files?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete all local file metadata from the database. 
+                      This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={deleteAllLocalFiles} disabled={isDeleting}>
+                      {isDeleting ? 'Deleting...' : 'Delete All'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
             <LocalTracksTable 
               onTrackSelect={setSelectedLocalTrack} 
               selectedTrack={selectedLocalTrack}
+              refreshTrigger={refreshTrigger}
             />
             {selectedLocalTrack && (
               <div className="bg-expos-dark-elevated/30 rounded-lg border border-expos-blue/20 p-6">
