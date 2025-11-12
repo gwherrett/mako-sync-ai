@@ -26,5 +26,8 @@ port = 54323
 [functions.ai-track-genre-suggest]
 verify_jwt = true
 
+[functions.spotify-sync-liked]
+verify_jwt = true
+
 [functions.spotify-resync-tracks]
 verify_jwt = true
