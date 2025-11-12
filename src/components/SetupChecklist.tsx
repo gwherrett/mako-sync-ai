@@ -119,7 +119,7 @@ export const SetupChecklist: React.FC = () => {
       case 'warning':
         return (
           <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-400 border-yellow-500/30">
-            {item.count} Unmapped
+            {item.count} Tracks Unmapped
           </Badge>
         );
       default:
