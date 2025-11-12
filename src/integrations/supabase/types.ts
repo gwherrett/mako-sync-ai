@@ -507,6 +507,24 @@ export type Database = {
       }
     }
     Functions: {
+      get_distinct_local_albums: {
+        Args: { user_uuid: string }
+        Returns: {
+          album: string
+        }[]
+      }
+      get_distinct_local_artists: {
+        Args: { user_uuid: string }
+        Returns: {
+          artist: string
+        }[]
+      }
+      get_distinct_local_genres: {
+        Args: { user_uuid: string }
+        Returns: {
+          genre: string
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
