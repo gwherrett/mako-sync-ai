@@ -224,10 +224,22 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
 
   const fetchFilterOptions = async () => {
     try {
-      // Get unique values for filters
-      const { data } = await supabase
+      console.log('🔄 Fetching filter options...');
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      // Get unique values for filters with explicit user filter
+      const { data, error } = await supabase
         .from('local_mp3s')
-        .select('artist, album, genre, file_path');
+        .select('artist, album, genre, file_path')
+        .eq('user_id', user.id);
+      
+      if (error) {
+        console.error('❌ Error fetching filter options:', error);
+        return;
+      }
       
       if (data) {
         const uniqueArtists = [...new Set(data.map(item => item.artist).filter(Boolean))].sort();
@@ -238,20 +250,22 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
           return ext;
         }).filter(Boolean))].sort();
         
-        setArtists(uniqueArtists);
-        setAlbums(uniqueAlbums);
-        setGenres(uniqueGenres);
-        setFileFormats(uniqueFormats);
-        
         console.log('🗂️ Filter options loaded:', {
           artists: uniqueArtists.length,
           albums: uniqueAlbums.length,
           genres: uniqueGenres.length,
           formats: uniqueFormats.length
         });
+        
+        console.log('🎵 Unique genres found:', uniqueGenres);
+        
+        setArtists(uniqueArtists);
+        setAlbums(uniqueAlbums);
+        setGenres(uniqueGenres);
+        setFileFormats(uniqueFormats);
       }
     } catch (error) {
-      console.error('Error fetching filter options:', error);
+      console.error('💥 Error fetching filter options:', error);
     }
   };
 
