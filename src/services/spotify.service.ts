@@ -150,8 +150,6 @@ export class SpotifyService {
         return { success: false, error: 'Please log in to sync liked songs' };
       }
 
-      console.log('🔵 Starting sync request...', { forceFullSync });
-
       const response = await supabase.functions.invoke('spotify-sync-liked', {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -161,37 +159,14 @@ export class SpotifyService {
         }
       });
 
-      console.log('📦 Sync response received:', { 
-        hasError: !!response.error, 
-        hasData: !!response.data,
-        error: response.error,
-        data: response.data 
-      });
-
       if (response.error) {
-        console.error('❌ Edge function returned error:', response.error);
-        throw new Error(response.error.message || 'Sync request failed');
+        throw new Error(response.error.message);
       }
 
-      if (!response.data) {
-        console.error('❌ No data in response');
-        throw new Error('No data received from sync');
-      }
-
-      console.log('✅ Sync completed successfully:', response.data.message);
       return { success: true, message: response.data.message };
     } catch (error: any) {
-      console.error('❌ Sync error caught:', error);
-      
-      // Provide more helpful error messages
-      let errorMessage = error.message;
-      if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-        errorMessage = 'Network error - please check your connection and try again';
-      } else if (error.message?.includes('timeout')) {
-        errorMessage = 'Request timed out - the sync may still be running. Check again in a moment.';
-      }
-      
-      return { success: false, error: errorMessage };
+      console.error('Sync error:', error);
+      return { success: false, error: error.message };
     }
   }
 }
