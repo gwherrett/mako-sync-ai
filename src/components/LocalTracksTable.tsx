@@ -230,41 +230,49 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
-      // Fetch all tracks with a high limit to avoid pagination issues
-      const { data, error } = await supabase
+      // Use database functions to efficiently get distinct values
+      const [genresResult, artistsResult, albumsResult] = await Promise.all([
+        supabase.rpc('get_distinct_local_genres', { user_uuid: user.id }),
+        supabase.rpc('get_distinct_local_artists', { user_uuid: user.id }),
+        supabase.rpc('get_distinct_local_albums', { user_uuid: user.id })
+      ]);
+      
+      console.log('📊 RPC results:', {
+        genres: genresResult,
+        artists: artistsResult,
+        albums: albumsResult
+      });
+      
+      // Extract the genre strings from the returned objects
+      const uniqueGenres = (genresResult.data || []).map((row: any) => row.genre).filter(Boolean).sort();
+      const uniqueArtists = (artistsResult.data || []).map((row: any) => row.artist).filter(Boolean).sort();
+      const uniqueAlbums = (albumsResult.data || []).map((row: any) => row.album).filter(Boolean).sort();
+      
+      // Get file formats from a limited query
+      const { data: formatsData } = await supabase
         .from('local_mp3s')
-        .select('artist, album, genre, file_path')
+        .select('file_path')
         .eq('user_id', user.id)
-        .limit(10000); // Increase limit to handle large libraries
+        .limit(1000);
+        
+      const uniqueFormats = [...new Set((formatsData || []).map(item => {
+        const ext = item.file_path.split('.').pop()?.toLowerCase();
+        return ext;
+      }).filter(Boolean))].sort();
       
-      if (error) {
-        console.error('❌ Error fetching filter options:', error);
-        return;
-      }
+      console.log('🗂️ Filter options loaded:', {
+        artists: uniqueArtists.length,
+        albums: uniqueAlbums.length,
+        genres: uniqueGenres.length,
+        formats: uniqueFormats.length
+      });
       
-      if (data) {
-        const uniqueArtists = [...new Set(data.map(item => item.artist).filter(Boolean))].sort();
-        const uniqueAlbums = [...new Set(data.map(item => item.album).filter(Boolean))].sort();
-        const uniqueGenres = [...new Set(data.map(item => item.genre).filter(Boolean))].sort();
-        const uniqueFormats = [...new Set(data.map(item => {
-          const ext = item.file_path.split('.').pop()?.toLowerCase();
-          return ext;
-        }).filter(Boolean))].sort();
-        
-        console.log('🗂️ Filter options loaded:', {
-          artists: uniqueArtists.length,
-          albums: uniqueAlbums.length,
-          genres: uniqueGenres.length,
-          formats: uniqueFormats.length
-        });
-        
-        console.log('🎵 Unique genres found:', uniqueGenres);
-        
-        setArtists(uniqueArtists);
-        setAlbums(uniqueAlbums);
-        setGenres(uniqueGenres);
-        setFileFormats(uniqueFormats);
-      }
+      console.log('🎵 Unique genres found:', uniqueGenres);
+      
+      setArtists(uniqueArtists);
+      setAlbums(uniqueAlbums);
+      setGenres(uniqueGenres);
+      setFileFormats(uniqueFormats);
     } catch (error) {
       console.error('💥 Error fetching filter options:', error);
     }
