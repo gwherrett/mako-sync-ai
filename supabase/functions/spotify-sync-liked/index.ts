@@ -124,9 +124,13 @@ serve(async (req) => {
           .maybeSingle()
         
         if (lastSync?.last_sync_completed_at) {
-          lastSyncTime = lastSync.last_sync_completed_at
+          // Subtract 60 seconds from last sync time to catch any edge cases
+          // This prevents missing tracks added right at the sync boundary
+          const lastSyncDate = new Date(lastSync.last_sync_completed_at)
+          lastSyncDate.setSeconds(lastSyncDate.getSeconds() - 60)
+          lastSyncTime = lastSyncDate.toISOString()
           isFullSync = false
-          console.log(`🔄 Incremental sync mode - fetching songs added after ${lastSyncTime}`)
+          console.log(`🔄 Incremental sync mode - fetching songs added after ${lastSyncTime} (60s buffer)`)
         } else {
           isFullSync = true
           console.log('🆕 First sync - will sync all songs')
