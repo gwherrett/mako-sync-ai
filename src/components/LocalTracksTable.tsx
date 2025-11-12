@@ -82,6 +82,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
   
   // Filter options
   const [artists, setArtists] = useState<string[]>([]);
+  const [allArtists, setAllArtists] = useState<string[]>([]); // Store all artists
   const [albums, setAlbums] = useState<string[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
   const [fileFormats, setFileFormats] = useState<string[]>([]);
@@ -91,8 +92,41 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
 
   useEffect(() => {
     fetchTracks();
-    fetchFilterOptions();
   }, [currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger]);
+
+  useEffect(() => {
+    fetchFilterOptions();
+  }, [refreshTrigger]); // Only re-fetch filter options when refreshTrigger changes
+
+  // Filter artists based on selected genre
+  useEffect(() => {
+    if (selectedGenre && allArtists.length > 0) {
+      // Fetch artists for the selected genre
+      const fetchGenreArtists = async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
+          const { data } = await supabase
+            .from('local_mp3s')
+            .select('artist')
+            .eq('user_id', user.id)
+            .eq('genre', selectedGenre);
+
+          if (data) {
+            const genreArtists = [...new Set(data.map(item => item.artist).filter(Boolean))].sort();
+            setArtists(genreArtists);
+          }
+        } catch (error) {
+          console.error('Error fetching genre artists:', error);
+        }
+      };
+      fetchGenreArtists();
+    } else {
+      // Show all artists when no genre is selected
+      setArtists(allArtists);
+    }
+  }, [selectedGenre, allArtists]);
 
   // Debounced search
   useEffect(() => {
@@ -269,7 +303,8 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
       
       console.log('🎵 Unique genres found:', uniqueGenres);
       
-      setArtists(uniqueArtists);
+      setAllArtists(uniqueArtists); // Store all artists
+      setArtists(uniqueArtists); // Initially show all artists
       setAlbums(uniqueAlbums);
       setGenres(uniqueGenres);
       setFileFormats(uniqueFormats);
