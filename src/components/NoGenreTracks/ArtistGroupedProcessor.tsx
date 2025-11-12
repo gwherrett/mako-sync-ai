@@ -34,8 +34,6 @@ interface ArtistGroup {
   manualGenre?: SuperGenre | '';
 }
 
-const ARTISTS_PER_BATCH = 10;
-
 export const ArtistGroupedProcessor = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -44,7 +42,6 @@ export const ArtistGroupedProcessor = () => {
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
-  const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
   const [totalTracksAssigned, setTotalTracksAssigned] = useState(0);
 
   useEffect(() => {
@@ -96,63 +93,79 @@ export const ArtistGroupedProcessor = () => {
     }
   };
 
+  const processSingleArtist = async (artistName: string) => {
+    const groupIndex = artistGroups.findIndex(g => g.artist === artistName);
+    if (groupIndex === -1) return;
+    
+    const group = artistGroups[groupIndex];
+    
+    try {
+      setArtistGroups(prev => {
+        const updated = [...prev];
+        updated[groupIndex] = { ...updated[groupIndex], isProcessing: true };
+        return updated;
+      });
+
+      const sampleTracks = group.tracks.slice(0, 10).map(t => ({
+        title: t.title,
+        album: t.album
+      }));
+
+      const result = await TrackGenreService.suggestGenreForArtist(
+        group.artist,
+        sampleTracks,
+        group.trackCount
+      );
+      
+      setArtistGroups(prev => {
+        const updated = [...prev];
+        updated[groupIndex] = { 
+          ...updated[groupIndex], 
+          suggestion: result, 
+          isProcessing: false 
+        };
+        return updated;
+      });
+
+      toast({
+        title: 'AI suggestion generated',
+        description: `${result.suggestedGenre} suggested for ${artistName}`
+      });
+    } catch (error) {
+      console.error('Error processing artist:', error);
+      setArtistGroups(prev => {
+        const updated = [...prev];
+        updated[groupIndex] = { 
+          ...updated[groupIndex], 
+          suggestion: null, 
+          isProcessing: false 
+        };
+        return updated;
+      });
+      
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to generate AI suggestion'
+      });
+    }
+  };
+
   const processBatchWithAI = async () => {
     setIsProcessingBatch(true);
     
-    const startIdx = currentBatchIndex * ARTISTS_PER_BATCH;
-    const endIdx = startIdx + ARTISTS_PER_BATCH;
-    const batchArtists = artistGroups.slice(startIdx, endIdx);
+    // Process all unprocessed artists (those without a decision)
+    const unprocessedArtists = artistGroups.filter(g => !g.decision && !g.suggestion);
+    const artistsToProcess = unprocessedArtists.slice(0, 10);
     
-    const promises = batchArtists.map(async (group) => {
-      const groupIndex = artistGroups.findIndex(g => g.artist === group.artist);
-      
-      try {
-        setArtistGroups(prev => {
-          const updated = [...prev];
-          updated[groupIndex] = { ...updated[groupIndex], isProcessing: true };
-          return updated;
-        });
-
-        const sampleTracks = group.tracks.slice(0, 10).map(t => ({
-          title: t.title,
-          album: t.album
-        }));
-
-        const result = await TrackGenreService.suggestGenreForArtist(
-          group.artist,
-          sampleTracks,
-          group.trackCount
-        );
-        
-        setArtistGroups(prev => {
-          const updated = [...prev];
-          updated[groupIndex] = { 
-            ...updated[groupIndex], 
-            suggestion: result, 
-            isProcessing: false 
-          };
-          return updated;
-        });
-      } catch (error) {
-        console.error('Error processing artist:', error);
-        setArtistGroups(prev => {
-          const updated = [...prev];
-          updated[groupIndex] = { 
-            ...updated[groupIndex], 
-            suggestion: null, 
-            isProcessing: false 
-          };
-          return updated;
-        });
-      }
-    });
-
+    const promises = artistsToProcess.map(group => processSingleArtist(group.artist));
     await Promise.all(promises);
+    
     setIsProcessingBatch(false);
     
     toast({
       title: 'Batch processed',
-      description: `AI suggestions generated for ${batchArtists.length} artists`
+      description: `AI suggestions generated for ${artistsToProcess.length} artists`
     });
   };
 
@@ -217,11 +230,9 @@ export const ArtistGroupedProcessor = () => {
   };
 
   const selectedGroup = artistGroups.find(g => g.artist === selectedArtist);
-  const totalBatches = Math.ceil(artistGroups.length / ARTISTS_PER_BATCH);
-  const batchStart = currentBatchIndex * ARTISTS_PER_BATCH;
-  const batchEnd = Math.min((currentBatchIndex + 1) * ARTISTS_PER_BATCH, artistGroups.length);
   const totalTracks = artistGroups.reduce((sum, g) => sum + g.trackCount, 0);
   const processedArtists = artistGroups.filter(g => g.decision === 'approved' || g.decision === 'manual').length;
+  const unprocessedCount = artistGroups.filter(g => !g.decision && !g.suggestion).length;
 
   if (isLoading) {
     return (
@@ -257,10 +268,7 @@ export const ArtistGroupedProcessor = () => {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </Button>
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-muted-foreground">
-            Batch {currentBatchIndex + 1} of {totalBatches} • Artists {batchStart + 1}-{batchEnd} of {artistGroups.length}
-          </div>
+        {unprocessedCount > 0 && (
           <Button 
             onClick={processBatchWithAI} 
             disabled={isProcessingBatch}
@@ -273,11 +281,11 @@ export const ArtistGroupedProcessor = () => {
             ) : (
               <>
                 <Sparkles className="w-4 h-4 mr-2" />
-                Process Next {Math.min(ARTISTS_PER_BATCH, artistGroups.length - batchStart)} Artists
+                Process Next {Math.min(10, unprocessedCount)} Artists
               </>
             )}
           </Button>
-        </div>
+        )}
       </div>
 
       {/* Progress Card */}
@@ -315,47 +323,66 @@ export const ArtistGroupedProcessor = () => {
             <ScrollArea className="h-[600px]">
               <div className="space-y-1 p-4">
                 {artistGroups.map((group) => (
-                  <button
+                  <div
                     key={group.artist}
-                    onClick={() => setSelectedArtist(group.artist)}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${
+                    className={`rounded-lg transition-colors ${
                       selectedArtist === group.artist
                         ? 'bg-primary text-primary-foreground'
                         : 'hover:bg-muted'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <Music className="w-4 h-4 flex-shrink-0" />
-                        <span className="font-medium truncate">{group.artist}</span>
+                    <button
+                      onClick={() => setSelectedArtist(group.artist)}
+                      className="w-full text-left p-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Music className="w-4 h-4 flex-shrink-0" />
+                          <span className="font-medium truncate">{group.artist}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {!group.suggestion && !group.decision && !group.isProcessing && (
+                            <Button
+                              size="sm"
+                              variant={selectedArtist === group.artist ? "secondary" : "outline"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                processSingleArtist(group.artist);
+                              }}
+                              className="h-7 w-7 p-0"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                            </Button>
+                          )}
+                          <Badge variant="secondary">
+                            {group.trackCount}
+                          </Badge>
+                        </div>
                       </div>
-                      <Badge variant="secondary" className="ml-2 flex-shrink-0">
-                        {group.trackCount}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      {group.isProcessing && (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      )}
-                      {group.decision === 'approved' && (
-                        <Badge variant="default" className="text-xs">
-                          <Check className="w-3 h-3 mr-1" />
-                          Approved
-                        </Badge>
-                      )}
-                      {group.decision === 'manual' && (
-                        <Badge variant="secondary" className="text-xs">
-                          <Check className="w-3 h-3 mr-1" />
-                          Manual
-                        </Badge>
-                      )}
-                      {group.suggestion && !group.decision && (
-                        <Badge variant="outline" className="text-xs">
-                          {group.suggestion.suggestedGenre}
-                        </Badge>
-                      )}
-                    </div>
-                  </button>
+                      <div className="flex items-center gap-2 mt-1">
+                        {group.isProcessing && (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        )}
+                        {group.decision === 'approved' && (
+                          <Badge variant="default" className="text-xs">
+                            <Check className="w-3 h-3 mr-1" />
+                            Approved
+                          </Badge>
+                        )}
+                        {group.decision === 'manual' && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Check className="w-3 h-3 mr-1" />
+                            Manual
+                          </Badge>
+                        )}
+                        {group.suggestion && !group.decision && (
+                          <Badge variant="outline" className="text-xs">
+                            {group.suggestion.suggestedGenre}
+                          </Badge>
+                        )}
+                      </div>
+                    </button>
+                  </div>
                 ))}
               </div>
             </ScrollArea>
@@ -474,31 +501,13 @@ export const ArtistGroupedProcessor = () => {
         </Card>
       </div>
 
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          onClick={() => setCurrentBatchIndex(prev => Math.max(0, prev - 1))}
-          disabled={currentBatchIndex === 0}
-        >
-          ← Previous Batch
-        </Button>
-        
-        <div className="text-center space-y-1">
-          <div className="text-sm text-muted-foreground">
-            Progress: {processedArtists} of {artistGroups.length} artists
-          </div>
-          <div className="text-sm font-medium">
-            {totalTracksAssigned} tracks assigned
-          </div>
+      <div className="text-center space-y-1 p-4">
+        <div className="text-sm text-muted-foreground">
+          Progress: {processedArtists} of {artistGroups.length} artists completed
         </div>
-
-        <Button
-          variant="outline"
-          onClick={() => setCurrentBatchIndex(prev => Math.min(totalBatches - 1, prev + 1))}
-          disabled={currentBatchIndex >= totalBatches - 1}
-        >
-          Next Batch →
-        </Button>
+        <div className="text-sm font-medium">
+          {totalTracksAssigned} tracks assigned
+        </div>
       </div>
     </div>
   );
