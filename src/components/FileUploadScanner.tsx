@@ -17,8 +17,12 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-const FileUploadScanner = () => {
-  const { isScanning, scanLocalFiles, scanProgress } = useLocalScanner();
+interface FileUploadScannerProps {
+  onScanComplete?: () => void;
+}
+
+const FileUploadScanner = ({ onScanComplete }: FileUploadScannerProps) => {
+  const { isScanning, scanLocalFiles, scanProgress } = useLocalScanner(onScanComplete);
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -46,6 +50,11 @@ const FileUploadScanner = () => {
         title: "Success",
         description: "All local file metadata has been deleted",
       });
+      
+      // Trigger refresh of filter options
+      if (onScanComplete) {
+        onScanComplete();
+      }
     } catch (error: any) {
       console.error('Delete error:', error);
       toast({

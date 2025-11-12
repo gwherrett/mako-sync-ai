@@ -197,7 +197,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="local" className="space-y-8">
-            <FileUploadScanner />
+            <FileUploadScanner onScanComplete={() => setRefreshTrigger(prev => prev + 1)} />
             <LocalTracksTable 
               onTrackSelect={setSelectedLocalTrack} 
               selectedTrack={selectedLocalTrack}
