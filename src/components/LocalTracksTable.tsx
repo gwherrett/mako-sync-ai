@@ -230,11 +230,12 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
-      // Get unique values for filters with explicit user filter
+      // Fetch all tracks with a high limit to avoid pagination issues
       const { data, error } = await supabase
         .from('local_mp3s')
         .select('artist, album, genre, file_path')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .limit(10000); // Increase limit to handle large libraries
       
       if (error) {
         console.error('❌ Error fetching filter options:', error);
