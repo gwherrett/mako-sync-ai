@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Progress } from '@/components/ui/progress';
+import { toast } from '@/hooks/use-toast';
 
 const SpotifySyncButton = () => {
   const { isConnected, isLoading, isSyncing, connectSpotify, syncLikedSongs } = useSpotifyAuth();
@@ -45,12 +46,33 @@ const SpotifySyncButton = () => {
         },
         (payload: any) => {
           if (payload.new?.status === 'in_progress') {
-            setSyncProgress({
+            const progress = {
               tracks_processed: payload.new.tracks_processed,
               total_tracks: payload.new.total_tracks
-            });
-          } else if (payload.new?.status === 'completed' || payload.new?.status === 'failed') {
+            };
+            setSyncProgress(progress);
+            
+            // Show toast with progress
+            if (progress.total_tracks) {
+              const percentage = Math.round((progress.tracks_processed / progress.total_tracks) * 100);
+              toast({
+                title: "Syncing in progress",
+                description: `${progress.tracks_processed} / ${progress.total_tracks} tracks (${percentage}%)`,
+              });
+            }
+          } else if (payload.new?.status === 'completed') {
             setSyncProgress(null);
+            toast({
+              title: "Sync completed",
+              description: "All tracks have been synced successfully",
+            });
+          } else if (payload.new?.status === 'failed') {
+            setSyncProgress(null);
+            toast({
+              title: "Sync failed",
+              description: "An error occurred during sync",
+              variant: "destructive",
+            });
           }
         }
       )
