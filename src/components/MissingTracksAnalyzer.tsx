@@ -120,24 +120,43 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
   };
 
   const exportToCSV = () => {
-    if (missingTracks.length === 0) return;
+    if (artistGroups.length === 0) return;
 
-    const csvContent = [
-      ['Artist', 'Title', 'Album', 'Spotify Genre', 'Common Genre'].join(','),
-      ...missingTracks.map(track => [
-        `"${track.spotifyTrack.artist}"`,
-        `"${track.spotifyTrack.title}"`,
-        `"${track.spotifyTrack.album || ''}"`,
-        `"${track.spotifyTrack.genre || ''}"`,
-        `"${track.spotifyTrack.super_genre || ''}"`,
-      ].join(','))
-    ].join('\n');
+    const rows: string[] = [
+      ['Artist', 'Track Count', 'Track Title', 'Album', 'Spotify Genre', 'Common Genre'].join(',')
+    ];
 
+    // Export grouped by artist
+    artistGroups.forEach(group => {
+      // First row for artist shows artist name and track count
+      rows.push([
+        `"${group.artist}"`,
+        group.tracks.length.toString(),
+        `"${group.tracks[0].spotifyTrack.title}"`,
+        `"${group.tracks[0].spotifyTrack.album || ''}"`,
+        `"${group.tracks[0].spotifyTrack.genre || ''}"`,
+        `"${group.tracks[0].spotifyTrack.super_genre || ''}"`,
+      ].join(','));
+
+      // Remaining tracks for this artist (skip first track, already added)
+      group.tracks.slice(1).forEach(track => {
+        rows.push([
+          '""', // Empty artist cell for grouped rows
+          '""', // Empty count cell for grouped rows
+          `"${track.spotifyTrack.title}"`,
+          `"${track.spotifyTrack.album || ''}"`,
+          `"${track.spotifyTrack.genre || ''}"`,
+          `"${track.spotifyTrack.super_genre || ''}"`,
+        ].join(','));
+      });
+    });
+
+    const csvContent = rows.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `missing-tracks-${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `missing-tracks-by-artist-${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
