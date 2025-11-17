@@ -171,7 +171,7 @@ serve(async (req) => {
     let hasMore = true
     let allChunkTracks: any[] = []
     let newTracksCount = 0
-    let foundOlderTrack = false // Track if we've found a track older than our last sync
+    let olderTracksCount = 0 // Count tracks older than last sync to determine when to stop
     const allSpotifyIds = new Set<string>() // Track all Spotify IDs from this sync for deletion detection
 
     while (hasMore) {
@@ -242,12 +242,13 @@ serve(async (req) => {
           const addedAt = new Date(item.added_at)
           const isNewer = addedAt > lastSyncDate
           
-          // If we find a track that's older, mark it so we can stop after this batch
-          if (!isNewer && !foundOlderTrack) {
-            foundOlderTrack = true
-            console.log(`\n📍 Found track older than last sync: "${item.track.name}"`)
-            console.log(`   added_at: ${item.added_at} <= ${lastSyncTime}`)
-            console.log(`   Stopping after this batch.\n`)
+          // Count tracks that are older/equal to determine when to stop
+          if (!isNewer) {
+            olderTracksCount++
+            if (olderTracksCount <= 5) {
+              console.log(`📍 Found track ${olderTracksCount} older/equal to last sync: "${item.track.name}"`)
+              console.log(`   added_at: ${item.added_at} <= ${lastSyncTime}`)
+            }
           }
           
           return isNewer
@@ -363,10 +364,10 @@ serve(async (req) => {
         allChunkTracks = []
       }
       
-      // For incremental sync, stop when we've found a track older than our last synced track
-      // This means we've processed all new tracks
-      if (!isFullSync && lastSyncTime && foundOlderTrack) {
-        console.log(`✅ Reached tracks older than last sync - all new tracks have been processed`)
+      // For incremental sync, stop when we've found enough tracks older than our last synced track
+      // This means we've processed all new tracks (stop after finding 50 older tracks to be safe)
+      if (!isFullSync && lastSyncTime && olderTracksCount >= 50) {
+        console.log(`✅ Reached 50+ tracks older than last sync - all new tracks have been processed`)
         hasMore = false
         break
       }
