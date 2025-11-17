@@ -111,20 +111,18 @@ serve(async (req) => {
       totalTracks = existingSync.total_tracks
       isFullSync = existingSync.is_full_sync ?? false
     } else {
-      // Check for last successful sync to determine if incremental is possible
+      // Check for last track added_at timestamp to determine if incremental is possible
       if (!forceFullSync) {
-        const { data: lastSync } = await supabaseClient
-          .from('sync_progress')
-          .select('last_sync_completed_at')
+        const { data: lastTrack } = await supabaseClient
+          .from('spotify_liked')
+          .select('added_at')
           .eq('user_id', user.id)
-          .eq('status', 'completed')
-          .not('last_sync_completed_at', 'is', null)
-          .order('last_sync_completed_at', { ascending: false })
+          .order('added_at', { ascending: false })
           .limit(1)
           .maybeSingle()
         
-        if (lastSync?.last_sync_completed_at) {
-          lastSyncTime = lastSync.last_sync_completed_at
+        if (lastTrack?.added_at) {
+          lastSyncTime = lastTrack.added_at
           isFullSync = false
           console.log(`🔄 Incremental sync mode - fetching songs added after ${lastSyncTime}`)
         } else {
@@ -173,8 +171,7 @@ serve(async (req) => {
     let hasMore = true
     let allChunkTracks: any[] = []
     let newTracksCount = 0
-    let consecutiveEmptyBatches = 0
-    const MAX_EMPTY_BATCHES = 3 // Check 3 batches (150 tracks) before giving up on incremental sync
+    let foundOlderTrack = false // Track if we've found a track older than our last sync
     const allSpotifyIds = new Set<string>() // Track all Spotify IDs from this sync for deletion detection
 
     while (hasMore) {
@@ -215,15 +212,15 @@ serve(async (req) => {
         })
       }
       
-      // For incremental sync, filter out tracks already synced
+      // For incremental sync, filter out tracks already synced and check if we've gone past our last track
       let newItems = data.items
       if (!isFullSync && lastSyncTime) {
         const lastSyncDate = new Date(lastSyncTime)
         
         // Debug: Log what we're comparing
         console.log(`\n=== INCREMENTAL SYNC DEBUG ===`)
-        console.log(`Last sync timestamp: ${lastSyncTime}`)
-        console.log(`Last sync as Date: ${lastSyncDate.toISOString()}`)
+        console.log(`Last track timestamp: ${lastSyncTime}`)
+        console.log(`Last track as Date: ${lastSyncDate.toISOString()}`)
         console.log(`Fetched ${data.items.length} tracks from Spotify`)
         
         // Log first 3 tracks for debugging
@@ -231,17 +228,29 @@ serve(async (req) => {
           console.log(`\nFirst 3 tracks from Spotify:`)
           data.items.slice(0, 3).forEach((item: any, idx: number) => {
             const trackAddedAt = new Date(item.added_at)
-            const isNewer = trackAddedAt >= lastSyncDate
+            const isNewer = trackAddedAt > lastSyncDate
             console.log(`  ${idx + 1}. "${item.track.name}" by ${item.track.artists[0].name}`)
             console.log(`     added_at: ${item.added_at}`)
             console.log(`     as Date: ${trackAddedAt.toISOString()}`)
-            console.log(`     >= lastSync? ${isNewer}`)
+            console.log(`     > lastTrack? ${isNewer}`)
           })
         }
         
+        // Filter for tracks newer than our last synced track
+        // Note: Using > (not >=) to avoid duplicate of the last track
         newItems = data.items.filter((item: any) => {
           const addedAt = new Date(item.added_at)
-          return addedAt >= lastSyncDate
+          const isNewer = addedAt > lastSyncDate
+          
+          // If we find a track that's older, mark it so we can stop after this batch
+          if (!isNewer && !foundOlderTrack) {
+            foundOlderTrack = true
+            console.log(`\n📍 Found track older than last sync: "${item.track.name}"`)
+            console.log(`   added_at: ${item.added_at} <= ${lastSyncTime}`)
+            console.log(`   Stopping after this batch.\n`)
+          }
+          
+          return isNewer
         })
         
         console.log(`Filtered result: ${newItems.length} new tracks`)
@@ -354,22 +363,12 @@ serve(async (req) => {
         allChunkTracks = []
       }
       
-      // For incremental sync, check if we should stop after multiple empty batches
-      // This handles cases where Spotify API order might not be perfect
-      if (!isFullSync && lastSyncTime) {
-        if (newItems.length === 0) {
-          consecutiveEmptyBatches++
-          console.log(`Empty batch ${consecutiveEmptyBatches}/${MAX_EMPTY_BATCHES}, continuing...`)
-          
-          if (consecutiveEmptyBatches >= MAX_EMPTY_BATCHES) {
-            console.log(`No new tracks found in ${MAX_EMPTY_BATCHES} consecutive batches (${MAX_EMPTY_BATCHES * 50} tracks checked), stopping incremental sync`)
-            hasMore = false
-            break
-          }
-        } else {
-          // Reset counter if we found new tracks
-          consecutiveEmptyBatches = 0
-        }
+      // For incremental sync, stop when we've found a track older than our last synced track
+      // This means we've processed all new tracks
+      if (!isFullSync && lastSyncTime && foundOlderTrack) {
+        console.log(`✅ Reached tracks older than last sync - all new tracks have been processed`)
+        hasMore = false
+        break
       }
 
       // Break if we've processed everything
