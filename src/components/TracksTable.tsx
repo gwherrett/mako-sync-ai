@@ -4,6 +4,7 @@ import { TrackFilters, FilterConfig, FilterState, FilterOptions, FilterCallbacks
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { format } from 'date-fns';
 import {
   Table,
   TableBody,
@@ -265,7 +266,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     setCurrentPage(1);
   };
 
-  const handleSort = (field: 'year' | 'artist') => {
+  const handleSort = (field: 'added_at' | 'year' | 'artist') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -413,6 +414,17 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                       )}
                     </div>
                   </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('added_at')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Added to Spotify
+                      {sortField === 'added_at' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -464,6 +476,13 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                     </TableCell>
                     <TableCell>
                       {track.year || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      {track.added_at ? (
+                        <span className="text-sm">{format(new Date(track.added_at), 'MMM d, yyyy')}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {track.spotify_id ? (
