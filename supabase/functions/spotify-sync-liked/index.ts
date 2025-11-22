@@ -152,6 +152,26 @@ serve(async (req) => {
       syncId = newSync.sync_id
       console.log(`🆕 Starting new sync with ID: ${syncId}`)
 
+      // Cache manually assigned genres BEFORE deletion (for full sync)
+      let manualGenreMap = new Map<string, string>()
+      if (isFullSync) {
+        console.log('💾 Caching manually assigned genres before full sync deletion...')
+        const { data: manualGenres } = await supabaseClient
+          .from('spotify_liked')
+          .select('spotify_id, super_genre')
+          .eq('user_id', user.id)
+          .not('super_genre', 'is', null)
+        
+        if (manualGenres) {
+          manualGenres.forEach(track => {
+            if (track.super_genre) {
+              manualGenreMap.set(track.spotify_id, track.super_genre)
+            }
+          })
+          console.log(`💾 Cached ${manualGenreMap.size} manually assigned genres`)
+        }
+      }
+
       // Clear existing songs only for full sync
       if (isFullSync) {
         console.log('🗑️ Clearing existing songs for full sync...')
@@ -173,6 +193,11 @@ serve(async (req) => {
     let newTracksCount = 0
     let olderTracksCount = 0 // Count tracks older than last sync to determine when to stop
     const allSpotifyIds = new Set<string>() // Track all Spotify IDs from this sync for deletion detection
+    
+    // Initialize manual genre map for incremental sync (will be empty, but needs to exist)
+    if (!isFullSync || typeof manualGenreMap === 'undefined') {
+      manualGenreMap = new Map<string, string>()
+    }
 
     while (hasMore) {
       const url = `https://api.spotify.com/v1/me/tracks?limit=50&offset=${currentOffset}`
@@ -301,26 +326,35 @@ serve(async (req) => {
         const songsToInsert = processSongsData(allChunkTracks, user.id, artistGenreMap, new Map(), genreMapping)
         newTracksCount += songsToInsert.length
 
-        // Get existing tracks with manually assigned super_genre to preserve them
-        const spotifyIds = songsToInsert.map(s => s.spotify_id)
-        const { data: existingTracks } = await supabaseClient
-          .from('spotify_liked')
-          .select('spotify_id, super_genre')
-          .eq('user_id', user.id)
-          .in('spotify_id', spotifyIds)
-          .not('super_genre', 'is', null)
+        // For incremental sync, fetch existing tracks with manual genres from DB
+        // For full sync, use the cached map from before deletion
+        if (!isFullSync) {
+          const spotifyIds = songsToInsert.map(s => s.spotify_id)
+          const { data: existingTracks } = await supabaseClient
+            .from('spotify_liked')
+            .select('spotify_id, super_genre')
+            .eq('user_id', user.id)
+            .in('spotify_id', spotifyIds)
+            .not('super_genre', 'is', null)
+          
+          // Add to manual genre map
+          if (existingTracks) {
+            existingTracks.forEach(track => {
+              if (track.super_genre) {
+                manualGenreMap.set(track.spotify_id, track.super_genre)
+              }
+            })
+          }
+        }
         
-        // Create a set of spotify_ids that have manually assigned genres
-        const tracksWithManualGenres = new Set(
-          (existingTracks || []).map(t => t.spotify_id)
-        )
-        
-        // For tracks with manual genres, preserve the super_genre by removing it from upsert data
+        // Use the cached/fetched manual genre map to preserve super_genre assignments
         const songsToUpsert = songsToInsert.map(song => {
-          if (tracksWithManualGenres.has(song.spotify_id)) {
-            // Remove super_genre from update to preserve manual assignment
-            const { super_genre, ...songWithoutSuperGenre } = song
-            return songWithoutSuperGenre
+          if (manualGenreMap.has(song.spotify_id)) {
+            // Use the cached manual genre assignment instead of the auto-mapped one
+            return {
+              ...song,
+              super_genre: manualGenreMap.get(song.spotify_id)
+            }
           }
           return song
         })
