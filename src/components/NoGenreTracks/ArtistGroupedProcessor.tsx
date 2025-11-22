@@ -344,7 +344,7 @@ export const ArtistGroupedProcessor = () => {
                           <Badge variant="secondary">
                             {group.trackCount}
                           </Badge>
-                          {!group.suggestion && !group.decision && !group.isProcessing && (
+                          {group.decision !== 'approved' && group.decision !== 'manual' && (
                             <Button
                               size="sm"
                               variant={selectedArtist === group.artist ? "secondary" : "outline"}
@@ -352,9 +352,14 @@ export const ArtistGroupedProcessor = () => {
                                 e.stopPropagation();
                                 processSingleArtist(group.artist);
                               }}
+                              disabled={group.isProcessing}
                               className="h-7 w-7 p-0"
                             >
-                              <Sparkles className="w-3 h-3" />
+                              {group.isProcessing ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-3 h-3" />
+                              )}
                             </Button>
                           )}
                         </div>
