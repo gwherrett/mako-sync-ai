@@ -156,19 +156,26 @@ serve(async (req) => {
       // Cache manually assigned genres BEFORE deletion (for full sync)
       if (isFullSync) {
         console.log('💾 Caching manually assigned genres before full sync deletion...')
-        const { data: manualGenres } = await supabaseClient
+        const { data: manualGenres, error: cacheError } = await supabaseAdmin
           .from('spotify_liked')
           .select('spotify_id, super_genre')
           .eq('user_id', user.id)
           .not('super_genre', 'is', null)
         
-        if (manualGenres) {
+        if (cacheError) {
+          console.error('❌ Failed to cache genres:', cacheError)
+          throw new Error(`Failed to cache existing genres: ${cacheError.message}`)
+        }
+        
+        if (manualGenres && manualGenres.length > 0) {
           manualGenres.forEach(track => {
             if (track.super_genre) {
               manualGenreMap.set(track.spotify_id, track.super_genre)
             }
           })
-          console.log(`💾 Cached ${manualGenreMap.size} manually assigned genres`)
+          console.log(`💾 Successfully cached ${manualGenreMap.size} genre assignments`)
+        } else {
+          console.log('⚠️ No existing genres found to cache')
         }
       }
 
@@ -353,6 +360,11 @@ serve(async (req) => {
           }
           return song
         })
+        
+        const restoredCount = songsToUpsert.filter(s => manualGenreMap.has(s.spotify_id)).length
+        if (restoredCount > 0) {
+          console.log(`🎨 Restored ${restoredCount} cached genre assignments in this batch`)
+        }
 
         const { error: insertError } = await supabaseAdmin
           .from('spotify_liked')
