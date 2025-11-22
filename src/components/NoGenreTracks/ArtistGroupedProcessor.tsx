@@ -341,6 +341,9 @@ export const ArtistGroupedProcessor = () => {
                           <span className="font-medium truncate">{group.artist}</span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
+                          <Badge variant="secondary">
+                            {group.trackCount}
+                          </Badge>
                           {!group.suggestion && !group.decision && !group.isProcessing && (
                             <Button
                               size="sm"
@@ -354,9 +357,6 @@ export const ArtistGroupedProcessor = () => {
                               <Sparkles className="w-3 h-3" />
                             </Button>
                           )}
-                          <Badge variant="secondary">
-                            {group.trackCount}
-                          </Badge>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
