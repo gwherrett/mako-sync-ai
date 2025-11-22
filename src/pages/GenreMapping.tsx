@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { GenreMappingTable } from '@/components/GenreMapping/GenreMappingTable';
 import { useGenreMapping } from '@/hooks/useGenreMapping';
 import { GenreMappingService } from '@/services/genreMapping.service';
+import { supabase } from '@/integrations/supabase/client';
 import { Link, useLocation } from 'react-router-dom';
 export const GenreMapping = () => {
   const location = useLocation();
@@ -20,7 +21,7 @@ export const GenreMapping = () => {
     exportToCSV
   } = useGenreMapping();
 
-  // Fetch count on mount and whenever we navigate to this page
+  // Fetch count on mount and set up realtime updates
   useEffect(() => {
     const fetchNoGenreCount = async () => {
       try {
@@ -35,7 +36,28 @@ export const GenreMapping = () => {
     };
 
     fetchNoGenreCount();
-  }, [location.pathname]); // Refetch when navigating to this page
+
+    // Set up realtime subscription for live updates
+    const channel = supabase
+      .channel('genre-mapping-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'spotify_liked'
+        },
+        () => {
+          // Refetch count when spotify_liked table changes
+          fetchNoGenreCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []); // Only run once on mount
   if (error) {
     return <div className="container mx-auto py-8">
         <div className="text-center">
