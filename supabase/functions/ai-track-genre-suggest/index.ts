@@ -85,6 +85,11 @@ ${SUPER_GENRES.join(', ')}
 
 Analyze the ${isArtistMode ? 'artist' : 'track'} information and user's library patterns to make a personalized, accurate suggestion.
 
+IMPORTANT GENRE RULES:
+- For R&B, Contemporary R&B, and similar urban soul music: Always use "Urban" instead of "Soul-Funk"
+- Soul-Funk should be reserved for classic funk and vintage soul from the 60s-80s
+- Urban covers modern R&B, contemporary soul, and urban contemporary styles
+
 You must respond with a JSON object in this exact format:
 {
   "suggestedGenre": "one of the genres from the list",
