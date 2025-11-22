@@ -103,6 +103,7 @@ serve(async (req) => {
     let totalTracks: number | null = null
     let lastSyncTime: string | null = null
     let isFullSync = forceFullSync
+    let manualGenreMap = new Map<string, string>() // Declare at function scope
 
     if (existingSync) {
       console.log(`📝 Resuming sync from offset ${existingSync.last_offset}`)
@@ -153,7 +154,6 @@ serve(async (req) => {
       console.log(`🆕 Starting new sync with ID: ${syncId}`)
 
       // Cache manually assigned genres BEFORE deletion (for full sync)
-      let manualGenreMap = new Map<string, string>()
       if (isFullSync) {
         console.log('💾 Caching manually assigned genres before full sync deletion...')
         const { data: manualGenres } = await supabaseClient
@@ -193,11 +193,6 @@ serve(async (req) => {
     let newTracksCount = 0
     let olderTracksCount = 0 // Count tracks older than last sync to determine when to stop
     const allSpotifyIds = new Set<string>() // Track all Spotify IDs from this sync for deletion detection
-    
-    // Initialize manual genre map for incremental sync (will be empty, but needs to exist)
-    if (!isFullSync || typeof manualGenreMap === 'undefined') {
-      manualGenreMap = new Map<string, string>()
-    }
 
     while (hasMore) {
       const url = `https://api.spotify.com/v1/me/tracks?limit=50&offset=${currentOffset}`
