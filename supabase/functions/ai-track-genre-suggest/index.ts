@@ -89,6 +89,7 @@ IMPORTANT GENRE RULES:
 - For R&B, Contemporary R&B, and similar urban soul music: Always use "Urban" instead of "Soul-Funk"
 - Soul-Funk should be reserved for classic funk and vintage soul from the 60s-80s
 - Urban covers modern R&B, contemporary soul, and urban contemporary styles
+- For tracks with alternative or indie feel: Use "Indie-Alternative" as the genre classification
 
 You must respond with a JSON object in this exact format:
 {
