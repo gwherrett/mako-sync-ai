@@ -402,7 +402,24 @@ export const ArtistGroupedProcessor = () => {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span>{selectedGroup.artist}</span>
-                    <Badge variant="secondary">{selectedGroup.trackCount} tracks</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{selectedGroup.trackCount} tracks</Badge>
+                      {selectedGroup.decision !== 'approved' && selectedGroup.decision !== 'manual' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => processSingleArtist(selectedGroup.artist)}
+                          disabled={selectedGroup.isProcessing}
+                          className="h-7 w-7 p-0"
+                        >
+                          {selectedGroup.isProcessing ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-3 h-3" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   
                   {selectedGroup.suggestion && (
