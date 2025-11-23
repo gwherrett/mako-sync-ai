@@ -7,6 +7,7 @@ interface TrackWithoutGenre {
   artist: string;
   album: string | null;
   spotify_id: string;
+  year: number | null;
 }
 
 interface LibraryContext {
@@ -30,7 +31,7 @@ export class TrackGenreService {
   static async getTracksWithoutGenre(): Promise<TrackWithoutGenre[]> {
     const { data, error } = await supabase
       .from('spotify_liked')
-      .select('id, title, artist, album, spotify_id')
+      .select('id, title, artist, album, spotify_id, year')
       .is('genre', null)
       .is('super_genre', null)
       .order('artist', { ascending: true })
@@ -55,7 +56,7 @@ export class TrackGenreService {
       .eq('artist', artist)
       .not('super_genre', 'is', null);
 
-    // Get overall library patterns
+    // Get overall library patterns - show which genres exist (not counts)
     const { data: genreStats } = await supabase
       .from('spotify_liked')
       .select('super_genre')
@@ -63,19 +64,15 @@ export class TrackGenreService {
 
     let libraryPatterns = '';
     if (genreStats && genreStats.length > 0) {
-      const genreCounts: Record<string, number> = {};
+      const uniqueGenres = new Set<string>();
       genreStats.forEach(track => {
         if (track.super_genre) {
-          genreCounts[track.super_genre] = (genreCounts[track.super_genre] || 0) + 1;
+          uniqueGenres.add(track.super_genre);
         }
       });
       
-      const topGenres = Object.entries(genreCounts)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 5)
-        .map(([genre, count]) => `${genre} (${count})`);
-      
-      libraryPatterns = `User's library has ${genreStats.length} tracks with genres. Top genres: ${topGenres.join(', ')}`;
+      const genreList = Array.from(uniqueGenres).sort().join(', ');
+      libraryPatterns = `User's library has ${genreStats.length} tracks with genres. Genres present in library: ${genreList}`;
     }
 
     return {
@@ -91,7 +88,8 @@ export class TrackGenreService {
     trackId: string,
     title: string,
     artist: string,
-    album?: string | null
+    album?: string | null,
+    year?: number | null
   ): Promise<GenreSuggestion> {
     const libraryContext = await this.buildLibraryContext(artist);
 
@@ -100,6 +98,7 @@ export class TrackGenreService {
         title,
         artist,
         album: album || undefined,
+        year: year || undefined,
         libraryContext
       }
     });
@@ -167,7 +166,7 @@ export class TrackGenreService {
    */
   static async suggestGenreForArtist(
     artist: string,
-    sampleTracks: Array<{ title: string; album?: string | null }>,
+    sampleTracks: Array<{ title: string; album?: string | null; year?: number | null }>,
     trackCount: number
   ): Promise<GenreSuggestion> {
     const libraryContext = await this.buildLibraryContext(artist);
