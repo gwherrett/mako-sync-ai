@@ -41,7 +41,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { title, artist, album, libraryContext, sampleTracks, trackCount } = body;
+    const { title, artist, album, libraryContext, sampleTracks, trackCount, year } = body;
     
     // Artist-level mode vs track-level mode
     const isArtistMode = sampleTracks && trackCount;
@@ -65,14 +65,17 @@ serve(async (req) => {
       if (libraryContext.sameArtistTracks?.length > 0) {
         contextMessage += `\n\nUser's library context for ${artist}:\n`;
         contextMessage += `- Has ${libraryContext.sameArtistTracks.length} other tracks by this artist\n`;
-        const genreCounts: Record<string, number> = {};
+        
+        // Show which genres exist (not counts) - strongly emphasize consistency
+        const existingGenres = new Set<string>();
         libraryContext.sameArtistTracks.forEach((track: any) => {
           if (track.super_genre) {
-            genreCounts[track.super_genre] = (genreCounts[track.super_genre] || 0) + 1;
+            existingGenres.add(track.super_genre);
           }
         });
-        if (Object.keys(genreCounts).length > 0) {
-          contextMessage += `- Genre distribution: ${Object.entries(genreCounts).map(([g, c]) => `${g} (${c})`).join(', ')}\n`;
+        if (existingGenres.size > 0) {
+          contextMessage += `- This artist's existing tracks are in: ${Array.from(existingGenres).join(', ')}\n`;
+          contextMessage += `- IMPORTANT: Strongly prefer consistency with existing genres for this artist\n`;
         }
       }
       if (libraryContext.libraryPatterns) {
@@ -86,10 +89,42 @@ ${SUPER_GENRES.join(', ')}
 Analyze the ${isArtistMode ? 'artist' : 'track'} information and user's library patterns to make a personalized, accurate suggestion.
 
 IMPORTANT GENRE RULES:
+
+TIME PERIOD RULES:
+- Pre-1970 soul → Soul-Funk
+- R&B released ≤ 1990 → Soul-Funk
+- R&B released > 1990 → Urban
+- 80s synth pop → Pop (not Electronic)
+
+GENRE-SPECIFIC RULES:
 - For R&B, Contemporary R&B, and similar urban soul music: Always use "Urban" instead of "Soul-Funk"
 - Soul-Funk should be reserved for classic funk and vintage soul from the 60s-80s
 - Urban covers modern R&B, contemporary soul, and urban contemporary styles
-- For tracks with alternative or indie feel: Use "Indie-Alternative" as the genre classification
+- For disco with electronic elements → House (not Disco)
+- For boom bap hip hop → Hip Hop (not Urban)
+- For tracks with alternative or indie feel → Indie-Alternative
+
+TRACK/ALBUM TITLE PATTERNS:
+- Tracks with "Remix" in title → try to preserve the original track's genre
+- Tracks with "Dub Remix" or "dub mix" → map to original track's genre (if unknown, use AI judgment)
+- Live albums → reference studio version genre if known
+
+ARTIST-BASED HINTS:
+- Artists with "DJ" prefix → likely Dance/House/Electronic
+- Classical composers → Orchestral
+
+REGIONAL PATTERNS:
+- UK drill → Hip Hop
+- Afrobeats → World (not Hip Hop)
+
+PRIORITY GENRES:
+- House is extremely important - be precise with House classifications
+- When in doubt between House and similar genres (Dance, Electronic, Disco), favor House if it fits
+
+USER'S COLLECTION CONTEXT:
+- Use the user's existing artist genre mappings as strong signals
+- If the user has other tracks by this artist, strongly prefer consistency with those genres
+- DO NOT use relative genre counts as a signal - only use which genres exist
 
 You must respond with a JSON object in this exact format:
 {
@@ -100,7 +135,7 @@ You must respond with a JSON object in this exact format:
 
     let userPrompt = '';
     if (isArtistMode) {
-      const tracksList = sampleTracks.slice(0, 10).map((t: any) => `  - "${t.title}"${t.album ? ` (${t.album})` : ''}`).join('\n');
+      const tracksList = sampleTracks.slice(0, 10).map((t: any) => `  - "${t.title}"${t.album ? ` (${t.album})` : ''}${t.year ? ` [${t.year}]` : ''}`).join('\n');
       userPrompt = `Artist: ${artist}
 Sample tracks (${sampleTracks.length} of ${trackCount} total):
 ${tracksList}${contextMessage}
@@ -108,7 +143,7 @@ ${tracksList}${contextMessage}
 Based on this artist's music and the user's library, which ONE Common Genre best represents ${artist}? This will be applied to all ${trackCount} tracks by this artist.`;
     } else {
       userPrompt = `Track: "${title}"
-Artist: ${artist}${album ? `\nAlbum: ${album}` : ''}${contextMessage}
+Artist: ${artist}${album ? `\nAlbum: ${album}` : ''}${year ? `\nRelease Year: ${year}` : ''}${contextMessage}
 
 Based on this information, which Common Genre best fits this track?`;
     }

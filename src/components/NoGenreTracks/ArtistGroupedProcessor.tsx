@@ -18,6 +18,7 @@ interface Track {
   artist: string;
   album: string | null;
   spotify_id: string;
+  year: number | null;
 }
 
 interface ArtistGroup {
@@ -108,7 +109,8 @@ export const ArtistGroupedProcessor = () => {
 
       const sampleTracks = group.tracks.slice(0, 10).map(t => ({
         title: t.title,
-        album: t.album
+        album: t.album,
+        year: t.year
       }));
 
       const result = await TrackGenreService.suggestGenreForArtist(

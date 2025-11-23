@@ -16,6 +16,7 @@ interface Track {
   artist: string;
   album: string | null;
   spotify_id: string;
+  year: number | null;
 }
 
 interface TrackWithSuggestion extends Track {
@@ -91,7 +92,8 @@ export const NoGenreTracksProcessor = () => {
           track.id,
           track.title,
           track.artist,
-          track.album
+          track.album,
+          track.year
         );
         
         setBatchTracks(prev => {
