@@ -111,6 +111,18 @@ serve(async (req) => {
       startOffset = existingSync.last_offset
       totalTracks = existingSync.total_tracks
       isFullSync = existingSync.is_full_sync ?? false
+      
+      // PHASE 2: Load cached genres from database when resuming
+      if (existingSync.cached_genres) {
+        const cachedGenresObj = existingSync.cached_genres as Record<string, string>
+        manualGenreMap = new Map(Object.entries(cachedGenresObj))
+        console.log(`✅ RESUME: Loaded ${manualGenreMap.size} cached genre assignments from database`)
+        // PHASE 1: Log sample IDs for verification
+        const sampleIds = Array.from(manualGenreMap.keys()).slice(0, 3)
+        console.log(`📋 Sample cached spotify_ids:`, sampleIds)
+      } else {
+        console.log(`⚠️  RESUME: No cached genres found in database (cached_genres is empty)`)
+      }
     } else {
       // Check for last track added_at timestamp to determine if incremental is possible
       if (!forceFullSync) {
@@ -155,7 +167,7 @@ serve(async (req) => {
 
       // Cache manually assigned genres BEFORE deletion (for full sync)
       if (isFullSync) {
-        console.log('💾 Caching manually assigned genres before full sync deletion...')
+        console.log('💾 PHASE 1: Caching manually assigned genres before full sync deletion...')
         const { data: manualGenres, error: cacheError } = await supabaseAdmin
           .from('spotify_liked')
           .select('spotify_id, super_genre')
@@ -173,9 +185,29 @@ serve(async (req) => {
               manualGenreMap.set(track.spotify_id, track.super_genre)
             }
           })
-          console.log(`💾 Successfully cached ${manualGenreMap.size} genre assignments`)
+          console.log(`✅ PHASE 1: Successfully cached ${manualGenreMap.size} genre assignments`)
+          
+          // PHASE 1: Log sample data for verification
+          const sampleTracks = manualGenres.slice(0, 3)
+          console.log(`📋 PHASE 1: Sample cached tracks:`)
+          sampleTracks.forEach((track, idx) => {
+            console.log(`   ${idx + 1}. spotify_id: ${track.spotify_id} -> super_genre: ${track.super_genre}`)
+          })
+          
+          // PHASE 2: Save cached genres to database for resume support
+          const cachedGenresObj = Object.fromEntries(manualGenreMap)
+          const { error: updateError } = await supabaseClient
+            .from('sync_progress')
+            .update({ cached_genres: cachedGenresObj })
+            .eq('sync_id', syncId)
+          
+          if (updateError) {
+            console.error('⚠️  PHASE 2: Failed to save cached genres to database:', updateError)
+          } else {
+            console.log(`✅ PHASE 2: Saved ${manualGenreMap.size} cached genres to database for resume support`)
+          }
         } else {
-          console.log('⚠️ No existing genres found to cache')
+          console.log('⚠️  PHASE 1: No existing genres found to cache (all tracks have null super_genre)')
         }
       }
 
@@ -361,9 +393,20 @@ serve(async (req) => {
           return song
         })
         
+        // PHASE 1: Enhanced logging for genre restoration
         const restoredCount = songsToUpsert.filter(s => manualGenreMap.has(s.spotify_id)).length
         if (restoredCount > 0) {
-          console.log(`🎨 Restored ${restoredCount} cached genre assignments in this batch`)
+          console.log(`✅ PHASE 1: Restored ${restoredCount} cached genre assignments in this batch`)
+          // Log sample restorations
+          const restoredSamples = songsToUpsert
+            .filter(s => manualGenreMap.has(s.spotify_id))
+            .slice(0, 3)
+          console.log(`📋 PHASE 1: Sample restored tracks:`)
+          restoredSamples.forEach((track, idx) => {
+            console.log(`   ${idx + 1}. "${track.title}" by ${track.artist} -> ${track.super_genre}`)
+          })
+        } else if (manualGenreMap.size > 0) {
+          console.log(`⚠️  PHASE 1: Cache has ${manualGenreMap.size} genres, but 0 restored in this batch`)
         }
 
         const { error: insertError } = await supabaseAdmin
@@ -464,6 +507,45 @@ serve(async (req) => {
       console.log(`⏭️  Skipping deletion detection (incremental sync - only checks new tracks)`)
     }
 
+    // PHASE 1: Post-sync verification - check if genres were properly restored
+    let verificationWarnings: string[] = []
+    if (isFullSync && manualGenreMap.size > 0) {
+      console.log(`\n🔍 PHASE 1: POST-SYNC VERIFICATION`)
+      console.log(`Expected ${manualGenreMap.size} tracks to have genres restored`)
+      
+      // Query tracks that should have genres but don't
+      const spotifyIdsToCheck = Array.from(manualGenreMap.keys())
+      const { data: verifyTracks, error: verifyError } = await supabaseClient
+        .from('spotify_liked')
+        .select('spotify_id, super_genre, title, artist')
+        .eq('user_id', user.id)
+        .in('spotify_id', spotifyIdsToCheck)
+      
+      if (verifyError) {
+        console.error('⚠️  Verification query failed:', verifyError)
+        verificationWarnings.push('Failed to verify genre restoration')
+      } else if (verifyTracks) {
+        const missingGenres = verifyTracks.filter(t => !t.super_genre)
+        const hasGenres = verifyTracks.filter(t => t.super_genre)
+        
+        console.log(`✅ Verification: ${hasGenres.length}/${manualGenreMap.size} genres successfully restored`)
+        
+        if (missingGenres.length > 0) {
+          console.error(`❌ VERIFICATION FAILED: ${missingGenres.length} tracks lost their genre assignments!`)
+          console.log(`Missing genre tracks (first 5):`)
+          missingGenres.slice(0, 5).forEach((track, idx) => {
+            const expectedGenre = manualGenreMap.get(track.spotify_id)
+            console.log(`   ${idx + 1}. "${track.title}" by ${track.artist}`)
+            console.log(`      spotify_id: ${track.spotify_id}`)
+            console.log(`      Expected: ${expectedGenre}, Got: null`)
+          })
+          verificationWarnings.push(`${missingGenres.length} tracks lost genre assignments`)
+        } else {
+          console.log(`🎉 All cached genres successfully restored!`)
+        }
+      }
+    }
+
     // Mark sync as completed with timestamp
     await supabaseClient
       .from('sync_progress')
@@ -498,7 +580,9 @@ serve(async (req) => {
         new_tracks_added: newTracksCount,
         deleted_tracks: deletedTracksCount,
         sync_type: syncType,
-        sync_id: syncId
+        sync_id: syncId,
+        genres_cached: manualGenreMap.size,
+        verification_warnings: verificationWarnings.length > 0 ? verificationWarnings : undefined
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

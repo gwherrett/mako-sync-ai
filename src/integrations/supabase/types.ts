@@ -375,6 +375,7 @@ export type Database = {
       sync_progress: {
         Row: {
           artists_processed: number
+          cached_genres: Json | null
           created_at: string
           error_message: string | null
           id: string
@@ -392,6 +393,7 @@ export type Database = {
         }
         Insert: {
           artists_processed?: number
+          cached_genres?: Json | null
           created_at?: string
           error_message?: string | null
           id?: string
@@ -409,6 +411,7 @@ export type Database = {
         }
         Update: {
           artists_processed?: number
+          cached_genres?: Json | null
           created_at?: string
           error_message?: string | null
           id?: string
