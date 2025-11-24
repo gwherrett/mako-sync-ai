@@ -513,36 +513,50 @@ serve(async (req) => {
       console.log(`\n🔍 PHASE 1: POST-SYNC VERIFICATION`)
       console.log(`Expected ${manualGenreMap.size} tracks to have genres restored`)
       
-      // Query tracks that should have genres but don't
+      // Query tracks in batches (PostgREST has a limit on IN clause size)
       const spotifyIdsToCheck = Array.from(manualGenreMap.keys())
-      const { data: verifyTracks, error: verifyError } = await supabaseClient
-        .from('spotify_liked')
-        .select('spotify_id, super_genre, title, artist')
-        .eq('user_id', user.id)
-        .in('spotify_id', spotifyIdsToCheck)
+      const BATCH_SIZE = 100
+      let allVerifyTracks: any[] = []
       
-      if (verifyError) {
-        console.error('⚠️  Verification query failed:', verifyError)
-        verificationWarnings.push('Failed to verify genre restoration')
-      } else if (verifyTracks) {
-        const missingGenres = verifyTracks.filter(t => !t.super_genre)
-        const hasGenres = verifyTracks.filter(t => t.super_genre)
+      for (let i = 0; i < spotifyIdsToCheck.length; i += BATCH_SIZE) {
+        const batch = spotifyIdsToCheck.slice(i, i + BATCH_SIZE)
+        const { data: batchTracks, error: batchError } = await supabaseClient
+          .from('spotify_liked')
+          .select('spotify_id, super_genre, title, artist')
+          .eq('user_id', user.id)
+          .in('spotify_id', batch)
         
-        console.log(`✅ Verification: ${hasGenres.length}/${manualGenreMap.size} genres successfully restored`)
-        
-        if (missingGenres.length > 0) {
-          console.error(`❌ VERIFICATION FAILED: ${missingGenres.length} tracks lost their genre assignments!`)
-          console.log(`Missing genre tracks (first 5):`)
-          missingGenres.slice(0, 5).forEach((track, idx) => {
-            const expectedGenre = manualGenreMap.get(track.spotify_id)
-            console.log(`   ${idx + 1}. "${track.title}" by ${track.artist}`)
-            console.log(`      spotify_id: ${track.spotify_id}`)
-            console.log(`      Expected: ${expectedGenre}, Got: null`)
-          })
-          verificationWarnings.push(`${missingGenres.length} tracks lost genre assignments`)
-        } else {
-          console.log(`🎉 All cached genres successfully restored!`)
+        if (batchError) {
+          console.error(`⚠️  Verification batch ${i / BATCH_SIZE + 1} failed:`, batchError)
+        } else if (batchTracks) {
+          allVerifyTracks = allVerifyTracks.concat(batchTracks)
         }
+      }
+      
+      const foundSpotifyIds = new Set(allVerifyTracks.map(t => t.spotify_id))
+      const notFoundCount = spotifyIdsToCheck.length - allVerifyTracks.length
+      
+      if (notFoundCount > 0) {
+        console.log(`⚠️  ${notFoundCount} cached tracks not found in Spotify (likely unliked)`)
+      }
+      
+      const missingGenres = allVerifyTracks.filter(t => !t.super_genre)
+      const hasGenres = allVerifyTracks.filter(t => t.super_genre)
+      
+      console.log(`✅ Verification: ${hasGenres.length}/${allVerifyTracks.length} genres successfully restored`)
+      
+      if (missingGenres.length > 0) {
+        console.error(`❌ VERIFICATION FAILED: ${missingGenres.length} tracks lost their genre assignments!`)
+        console.log(`Missing genre tracks (first 5):`)
+        missingGenres.slice(0, 5).forEach((track, idx) => {
+          const expectedGenre = manualGenreMap.get(track.spotify_id)
+          console.log(`   ${idx + 1}. "${track.title}" by ${track.artist}`)
+          console.log(`      spotify_id: ${track.spotify_id}`)
+          console.log(`      Expected: ${expectedGenre}, Got: null`)
+        })
+        verificationWarnings.push(`${missingGenres.length} tracks lost genre assignments`)
+      } else {
+        console.log(`🎉 All found tracks have their genres restored!`)
       }
     }
 
