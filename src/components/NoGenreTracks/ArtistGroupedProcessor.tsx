@@ -526,19 +526,7 @@ export const ArtistGroupedProcessor = () => {
                             {track.title}
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <a
-                              href={`https://open.spotify.com/track/${track.spotify_id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:text-primary/80 transition-colors"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                            {track.album || '-'}
-                          </div>
-                        </TableCell>
+                        <TableCell className="text-muted-foreground">{track.album || '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
