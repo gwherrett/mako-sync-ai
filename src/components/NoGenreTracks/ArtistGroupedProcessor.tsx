@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Sparkles, Check, X, Loader2, Music } from 'lucide-react';
+import { ArrowLeft, Sparkles, Check, X, Loader2, Music, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -513,7 +513,19 @@ export const ArtistGroupedProcessor = () => {
                   <TableBody>
                     {selectedGroup.tracks.map((track) => (
                       <TableRow key={track.id}>
-                        <TableCell className="font-medium">{track.title}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`https://open.spotify.com/track/${track.spotify_id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:text-primary/80 transition-colors"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                            {track.title}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{track.album || '-'}</TableCell>
                       </TableRow>
                     ))}
