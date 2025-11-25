@@ -51,6 +51,7 @@ const SyncAnalysis = () => {
   const [currentTrackName, setCurrentTrackName] = useState('');
   const [matchingStartTime, setMatchingStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [matchingPhase, setMatchingPhase] = useState<'normalizing' | 'matching' | ''>('');
   
   const { toast } = useToast();
 
@@ -125,9 +126,11 @@ const SyncAnalysis = () => {
       console.log(`🎯 Starting enhanced batch track matching${genreText}...`);
       
       // Normalize first
+      setMatchingPhase('normalizing');
       setMatchingProgress(10);
       await normalizeAllTracks();
       
+      setMatchingPhase('matching');
       setMatchingProgress(30);
       
       // Perform matching with progress callback
@@ -182,6 +185,7 @@ const SyncAnalysis = () => {
       setCurrentTrackName('');
       setMatchingStartTime(null);
       setElapsedTime(0);
+      setMatchingPhase('');
     }
   };
 
@@ -340,8 +344,15 @@ const SyncAnalysis = () => {
           {/* Enhanced Progress Display */}
           {isMatching && (
             <div className="mt-6 space-y-3 animate-fade-in">
-              {/* Current Track */}
-              {currentTrackName && (
+              {/* Current Phase & Track Status */}
+              {matchingPhase === 'normalizing' && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Music2 className="h-4 w-4 text-expos-blue animate-pulse" />
+                  <span className="text-muted-foreground">Phase:</span>
+                  <span className="font-medium text-foreground">Normalizing track metadata...</span>
+                </div>
+              )}
+              {matchingPhase === 'matching' && currentTrackName && (
                 <div className="flex items-center gap-2 text-sm">
                   <Music2 className="h-4 w-4 text-expos-blue animate-pulse" />
                   <span className="text-muted-foreground">Processing:</span>
