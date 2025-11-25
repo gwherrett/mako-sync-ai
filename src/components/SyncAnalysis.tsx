@@ -31,6 +31,17 @@ const SyncAnalysis = () => {
     loadData();
   }, []);
   return <div className="space-y-6">
+      {/* Header Card with Soulseek info */}
+      <Card className="border-border/50 bg-card/50">
+        <CardHeader>
+          <CardTitle>Library Sync Analysis</CardTitle>
+          <CardDescription>
+            Find tracks in your Spotify collection that are missing from your local files. 
+            Once identified, you can download them from Soulseek (slsk) or other sources to complete your library.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+      
       {/* Missing Tracks Analyzer as main content */}
       <MissingTracksAnalyzer selectedGenre={selectedGenre} setSelectedGenre={setSelectedGenre} superGenres={superGenres} />
     </div>;
