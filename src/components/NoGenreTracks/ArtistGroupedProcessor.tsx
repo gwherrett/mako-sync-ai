@@ -181,7 +181,15 @@ export const ArtistGroupedProcessor = () => {
       
       setArtistGroups(prev => {
         const updated = prev.map(g => g.artist === artist ? { ...g, decision: 'approved' as const } : g);
-        return sortArtistGroups(updated);
+        const sorted = sortArtistGroups(updated);
+        
+        // Auto-select next unprocessed artist
+        const nextArtist = sorted.find(g => !g.decision);
+        if (nextArtist) {
+          setSelectedArtist(nextArtist.artist);
+        }
+        
+        return sorted;
       });
       setTotalTracksAssigned(prev => prev + group.trackCount);
       
@@ -214,7 +222,15 @@ export const ArtistGroupedProcessor = () => {
       
       setArtistGroups(prev => {
         const updated = prev.map(g => g.artist === artist ? { ...g, decision: 'manual' as const } : g);
-        return sortArtistGroups(updated);
+        const sorted = sortArtistGroups(updated);
+        
+        // Auto-select next unprocessed artist
+        const nextArtist = sorted.find(g => !g.decision);
+        if (nextArtist) {
+          setSelectedArtist(nextArtist.artist);
+        }
+        
+        return sorted;
       });
       setTotalTracksAssigned(prev => prev + group.trackCount);
       
