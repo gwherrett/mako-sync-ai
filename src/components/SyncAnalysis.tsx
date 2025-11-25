@@ -5,7 +5,6 @@ import { Filter } from 'lucide-react';
 import MissingTracksAnalyzer from '@/components/MissingTracksAnalyzer';
 import { TrackMatchingService } from '@/services/trackMatching.service';
 import { supabase } from '@/integrations/supabase/client';
-
 const SyncAnalysis = () => {
   const [user, setUser] = useState<any>(null);
   const [superGenres, setSuperGenres] = useState<string[]>([]);
@@ -14,9 +13,12 @@ const SyncAnalysis = () => {
   // Get user and load super genres on mount
   useEffect(() => {
     const loadData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: {
+          user
+        }
+      } = await supabase.auth.getUser();
       setUser(user);
-      
       if (user) {
         try {
           const genres = await TrackMatchingService.fetchSuperGenres(user.id);
@@ -26,20 +28,12 @@ const SyncAnalysis = () => {
         }
       }
     };
-    
     loadData();
   }, []);
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* Header Card */}
       <Card className="border-expos-blue/20 bg-expos-dark-elevated/50">
-        <CardHeader>
-          <CardTitle>Library Sync Analysis</CardTitle>
-          <CardDescription>
-            Find tracks in your Spotify collection that are missing from your local files.
-          </CardDescription>
-        </CardHeader>
+        
         <CardContent>
           {/* Genre Filter */}
           <div className="flex items-center gap-3">
@@ -53,11 +47,9 @@ const SyncAnalysis = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Genres</SelectItem>
-                {superGenres.map((genre) => (
-                  <SelectItem key={genre} value={genre}>
+                {superGenres.map(genre => <SelectItem key={genre} value={genre}>
                     {genre}
-                  </SelectItem>
-                ))}
+                  </SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -65,13 +57,7 @@ const SyncAnalysis = () => {
       </Card>
       
       {/* Missing Tracks Analyzer as main content */}
-      <MissingTracksAnalyzer 
-        selectedGenre={selectedGenre}
-        setSelectedGenre={setSelectedGenre}
-        superGenres={superGenres}
-      />
-    </div>
-  );
+      <MissingTracksAnalyzer selectedGenre={selectedGenre} setSelectedGenre={setSelectedGenre} superGenres={superGenres} />
+    </div>;
 };
-
 export default SyncAnalysis;
