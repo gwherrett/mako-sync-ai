@@ -44,6 +44,14 @@ const SyncAnalysis = () => {
   const [loadingArtists, setLoadingArtists] = useState(false);
   const [artistSourceFilter, setArtistSourceFilter] = useState<'all' | 'Spotify' | 'Local'>('all');
   const [artistSortOrder, setArtistSortOrder] = useState<'asc' | 'desc'>('asc');
+  
+  // Progress tracking state
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const [totalTracksCount, setTotalTracksCount] = useState(0);
+  const [currentTrackName, setCurrentTrackName] = useState('');
+  const [matchingStartTime, setMatchingStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  
   const { toast } = useToast();
 
   // Get user and load super genres on mount
@@ -99,6 +107,18 @@ const SyncAnalysis = () => {
 
     setIsMatching(true);
     setMatchingProgress(0);
+    setCurrentTrackIndex(0);
+    setTotalTracksCount(0);
+    setCurrentTrackName('');
+    setElapsedTime(0);
+
+    const startTime = Date.now();
+    setMatchingStartTime(startTime);
+    
+    // Start timer for elapsed time
+    const timerInterval = setInterval(() => {
+      setElapsedTime(Date.now() - startTime);
+    }, 1000);
 
     try {
       const genreText = selectedGenre === 'all' ? '' : ` (${selectedGenre} filter)`;
@@ -110,10 +130,18 @@ const SyncAnalysis = () => {
       
       setMatchingProgress(30);
       
-      // Perform matching
+      // Perform matching with progress callback
       const matchResults = await enhancedTrackMatchingService.performBatchMatching(
         user.id,
-        selectedGenre === "all" ? undefined : selectedGenre
+        selectedGenre === "all" ? undefined : selectedGenre,
+        (current, total, trackName) => {
+          setCurrentTrackIndex(current);
+          setTotalTracksCount(total);
+          setCurrentTrackName(trackName);
+          // Calculate progress from 30-70% range
+          const matchingProgressPercent = Math.round(30 + ((current / total) * 40));
+          setMatchingProgress(matchingProgressPercent);
+        }
       );
 
       setMatches(matchResults);
@@ -146,8 +174,14 @@ const SyncAnalysis = () => {
         variant: "destructive",
       });
     } finally {
+      clearInterval(timerInterval);
       setIsMatching(false);
       setMatchingProgress(0);
+      setCurrentTrackIndex(0);
+      setTotalTracksCount(0);
+      setCurrentTrackName('');
+      setMatchingStartTime(null);
+      setElapsedTime(0);
     }
   };
 
@@ -303,14 +337,76 @@ const SyncAnalysis = () => {
             </Button>
           </div>
 
-          {/* Progress Bar */}
+          {/* Enhanced Progress Display */}
           {isMatching && (
-            <div className="mt-6 animate-fade-in">
-              <div className="flex justify-between text-sm text-muted-foreground mb-2">
-                <span className="font-medium">Processing tracks...</span>
-                <span className="font-semibold text-expos-blue">{matchingProgress}%</span>
+            <div className="mt-6 space-y-3 animate-fade-in">
+              {/* Current Track */}
+              {currentTrackName && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Music2 className="h-4 w-4 text-expos-blue animate-pulse" />
+                  <span className="text-muted-foreground">Processing:</span>
+                  <span className="font-medium text-foreground truncate">{currentTrackName}</span>
+                </div>
+              )}
+              
+              {/* Progress Stats Row */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+                {/* Track Progress */}
+                {totalTracksCount > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-expos-blue" />
+                    <span className="text-muted-foreground">Track</span>
+                    <span className="font-semibold text-foreground">
+                      {currentTrackIndex} / {totalTracksCount}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Elapsed Time */}
+                {elapsedTime > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Elapsed:</span>
+                    <span className="font-semibold text-expos-blue">
+                      {Math.floor(elapsedTime / 60000)}:{String(Math.floor((elapsedTime % 60000) / 1000)).padStart(2, '0')}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Estimated Time Remaining */}
+                {currentTrackIndex > 0 && totalTracksCount > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Est. remaining:</span>
+                    <span className="font-semibold text-foreground">
+                      {(() => {
+                        const avgTimePerTrack = elapsedTime / currentTrackIndex;
+                        const remainingTracks = totalTracksCount - currentTrackIndex;
+                        const estimatedRemaining = avgTimePerTrack * remainingTracks;
+                        return `~${Math.floor(estimatedRemaining / 60000)}:${String(Math.floor((estimatedRemaining % 60000) / 1000)).padStart(2, '0')}`;
+                      })()}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Processing Rate */}
+                {currentTrackIndex > 0 && elapsedTime > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-yellow-500" />
+                    <span className="text-muted-foreground">Rate:</span>
+                    <span className="font-semibold text-foreground">
+                      {((currentTrackIndex / elapsedTime) * 1000).toFixed(1)} tracks/sec
+                    </span>
+                  </div>
+                )}
               </div>
-              <Progress value={matchingProgress} className="h-2" />
+              
+              {/* Progress Bar */}
+              <div>
+                <div className="flex justify-between text-sm text-muted-foreground mb-2">
+                  <span className="font-medium">Overall Progress</span>
+                  <span className="font-semibold text-expos-blue">{matchingProgress}%</span>
+                </div>
+                <Progress value={matchingProgress} className="h-2" />
+              </div>
             </div>
           )}
         </CardContent>

@@ -322,7 +322,11 @@ export class EnhancedTrackMatchingService {
   /**
    * Perform batch matching with enhanced scoring
    */
-  async performBatchMatching(userId: string, superGenreFilter?: string): Promise<TrackMatch[]> {
+  async performBatchMatching(
+    userId: string, 
+    superGenreFilter?: string,
+    onProgress?: (current: number, total: number, currentTrack: string) => void
+  ): Promise<TrackMatch[]> {
     // Fetch all tracks
     const { data: localTracks, error: localError } = await supabase
       .from('local_mp3s')
@@ -356,6 +360,12 @@ export class EnhancedTrackMatchingService {
     
     for (let i = 0; i < (localTracks || []).length; i++) {
       const localTrack = localTracks![i];
+      
+      // Call progress callback
+      if (onProgress) {
+        const trackName = `${localTrack.title || 'Unknown'} by ${localTrack.artist || 'Unknown'}`;
+        onProgress(i + 1, totalTracks, trackName);
+      }
       
       // Log progress every 10 tracks
       if (i % 10 === 0) {
