@@ -31,12 +31,6 @@ const SyncAnalysis = () => {
     loadData();
   }, []);
   return <div className="space-y-6">
-      {/* Header Card */}
-      <Card className="border-expos-blue/20 bg-expos-dark-elevated/50">
-        
-        
-      </Card>
-      
       {/* Missing Tracks Analyzer as main content */}
       <MissingTracksAnalyzer selectedGenre={selectedGenre} setSelectedGenre={setSelectedGenre} superGenres={superGenres} />
     </div>;
