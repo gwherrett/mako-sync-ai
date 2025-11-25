@@ -34,26 +34,7 @@ const SyncAnalysis = () => {
       {/* Header Card */}
       <Card className="border-expos-blue/20 bg-expos-dark-elevated/50">
         
-        <CardContent>
-          {/* Genre Filter */}
-          <div className="flex items-center gap-3">
-            <Filter className="h-5 w-5 text-expos-blue" />
-            <span className="text-sm font-medium text-foreground whitespace-nowrap">
-              Filter by Genre:
-            </span>
-            <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-              <SelectTrigger className="w-[180px] border-expos-blue/30 bg-expos-dark/50">
-                <SelectValue placeholder="Select genre" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Genres</SelectItem>
-                {superGenres.map(genre => <SelectItem key={genre} value={genre}>
-                    {genre}
-                  </SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
+        
       </Card>
       
       {/* Missing Tracks Analyzer as main content */}
