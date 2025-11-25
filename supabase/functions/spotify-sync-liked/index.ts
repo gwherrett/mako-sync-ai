@@ -168,27 +168,45 @@ serve(async (req) => {
       // Cache manually assigned genres BEFORE deletion (for full sync)
       if (isFullSync) {
         console.log('💾 PHASE 1: Caching manually assigned genres before full sync deletion...')
-        const { data: manualGenres, error: cacheError } = await supabaseAdmin
-          .from('spotify_liked')
-          .select('spotify_id, super_genre')
-          .eq('user_id', user.id)
-          .not('super_genre', 'is', null)
         
-        if (cacheError) {
-          console.error('❌ Failed to cache genres:', cacheError)
-          throw new Error(`Failed to cache existing genres: ${cacheError.message}`)
+        // Fetch ALL genres with pagination (Supabase default limit is 1000)
+        let allManualGenres: {spotify_id: string, super_genre: string}[] = []
+        let offset = 0
+        const PAGE_SIZE = 1000
+        
+        while (true) {
+          const { data: page, error: pageError } = await supabaseAdmin
+            .from('spotify_liked')
+            .select('spotify_id, super_genre')
+            .eq('user_id', user.id)
+            .not('super_genre', 'is', null)
+            .range(offset, offset + PAGE_SIZE - 1)
+            .order('spotify_id')
+          
+          if (pageError) {
+            console.error('❌ Failed to cache genres:', pageError)
+            throw new Error(`Failed to cache existing genres: ${pageError.message}`)
+          }
+          
+          if (!page || page.length === 0) break
+          
+          allManualGenres = allManualGenres.concat(page)
+          console.log(`📄 Fetched page at offset ${offset}: ${page.length} genres (total: ${allManualGenres.length})`)
+          
+          offset += PAGE_SIZE
+          if (page.length < PAGE_SIZE) break // Last page
         }
         
-        if (manualGenres && manualGenres.length > 0) {
-          manualGenres.forEach(track => {
+        if (allManualGenres.length > 0) {
+          allManualGenres.forEach(track => {
             if (track.super_genre) {
               manualGenreMap.set(track.spotify_id, track.super_genre)
             }
           })
-          console.log(`✅ PHASE 1: Successfully cached ${manualGenreMap.size} genre assignments`)
+          console.log(`✅ PHASE 1: Successfully cached ${manualGenreMap.size} genre assignments (across ${Math.ceil(allManualGenres.length / PAGE_SIZE)} pages)`)
           
           // PHASE 1: Log sample data for verification
-          const sampleTracks = manualGenres.slice(0, 3)
+          const sampleTracks = allManualGenres.slice(0, 3)
           console.log(`📋 PHASE 1: Sample cached tracks:`)
           sampleTracks.forEach((track, idx) => {
             console.log(`   ${idx + 1}. spotify_id: ${track.spotify_id} -> super_genre: ${track.super_genre}`)
