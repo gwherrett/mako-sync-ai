@@ -1,15 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Sparkles, Check, X, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Sparkles, Check, X, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
 import { TrackGenreService } from '@/services/trackGenre.service';
 import { SUPER_GENRES, type SuperGenre } from '@/types/genreMapping';
+import { cn } from '@/lib/utils';
 
 interface TrackRow {
   id: string;
@@ -421,18 +423,7 @@ function SuperGenreCell({ track, onAccept, onReject, onManualSelect }: SuperGenr
 
   // Manual selection mode
   if (track.showManualSelect) {
-    return (
-      <Select onValueChange={(value) => onManualSelect(value as SuperGenre)}>
-        <SelectTrigger className="w-[180px] h-8">
-          <SelectValue placeholder="Select genre..." />
-        </SelectTrigger>
-        <SelectContent>
-          {SUPER_GENRES.map(genre => (
-            <SelectItem key={genre} value={genre}>{genre}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    );
+    return <GenreCombobox onSelect={onManualSelect} />;
   }
 
   // Has assigned genre
@@ -442,4 +433,50 @@ function SuperGenreCell({ track, onAccept, onReject, onManualSelect }: SuperGenr
 
   // Unassigned
   return <span className="text-muted-foreground">—</span>;
+}
+
+interface GenreComboboxProps {
+  onSelect: (genre: SuperGenre) => void;
+}
+
+function GenreCombobox({ onSelect }: GenreComboboxProps) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-[180px] h-8 justify-between text-sm"
+        >
+          Select genre...
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search genres..." />
+          <CommandList>
+            <CommandEmpty>No genre found.</CommandEmpty>
+            <CommandGroup>
+              {SUPER_GENRES.map((genre) => (
+                <CommandItem
+                  key={genre}
+                  value={genre}
+                  onSelect={() => {
+                    onSelect(genre);
+                    setOpen(false);
+                  }}
+                >
+                  {genre}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
