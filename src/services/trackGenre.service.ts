@@ -10,6 +10,10 @@ interface TrackWithoutGenre {
   year: number | null;
 }
 
+interface TrackWithGenre extends TrackWithoutGenre {
+  super_genre: string | null;
+}
+
 interface LibraryContext {
   sameArtistTracks: Array<{
     title: string;
@@ -26,7 +30,7 @@ interface GenreSuggestion {
 
 export class TrackGenreService {
   /**
-   * Get all tracks that have no Spotify genre assigned
+   * Get all tracks that have no Spotify genre assigned (but may have super_genre)
    */
   static async getTracksWithoutGenre(): Promise<TrackWithoutGenre[]> {
     const { data, error } = await supabase
@@ -39,6 +43,25 @@ export class TrackGenreService {
 
     if (error) {
       console.error('Error fetching tracks without genre:', error);
+      throw error;
+    }
+
+    return data || [];
+  }
+
+  /**
+   * Get ALL tracks where Spotify didn't provide genre (includes those with super_genre assigned)
+   */
+  static async getAllTracksWithoutSpotifyGenre(): Promise<TrackWithGenre[]> {
+    const { data, error } = await supabase
+      .from('spotify_liked')
+      .select('id, title, artist, album, spotify_id, year, super_genre')
+      .is('genre', null)
+      .order('artist', { ascending: true })
+      .order('title', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching all tracks without Spotify genre:', error);
       throw error;
     }
 
