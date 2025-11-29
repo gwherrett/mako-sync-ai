@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Sparkles, Check, X, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Sparkles, Check, X, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronsUpDown, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -51,6 +51,33 @@ export function TrackLevelProcessor() {
   const progressPercent = tracks.length > 0 
     ? Math.round((assignedCount / tracks.length) * 100) 
     : 0;
+
+  const exportToCsv = () => {
+    const headers = ['Artist', 'Album', 'Track', 'Year', 'Super Genre', 'Spotify ID'];
+    const rows = sortedTracks.map(track => [
+      track.artist,
+      track.album || '',
+      track.title,
+      track.year?.toString() || '',
+      track.currentSuperGenre || '',
+      track.spotify_id
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `track-genres-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    toast({ title: 'Exported', description: `${sortedTracks.length} tracks exported to CSV` });
+  };
 
   useEffect(() => {
     loadTracks();
@@ -277,14 +304,24 @@ export function TrackLevelProcessor() {
             <p className="text-muted-foreground">Assign super genres to tracks without Spotify genre data</p>
           </div>
         </div>
-        <Button 
-          onClick={processNextBatch} 
-          disabled={isBatchProcessing}
-          className="gap-2"
-        >
-          <Sparkles className="h-4 w-4" />
-          {isBatchProcessing ? 'Processing...' : 'Process Next 10'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline"
+            onClick={exportToCsv}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+          <Button 
+            onClick={processNextBatch} 
+            disabled={isBatchProcessing}
+            className="gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            {isBatchProcessing ? 'Processing...' : 'Process Next 10'}
+          </Button>
+        </div>
       </div>
 
       {/* Progress Card */}
