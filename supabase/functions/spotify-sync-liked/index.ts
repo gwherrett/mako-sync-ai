@@ -478,6 +478,86 @@ serve(async (req) => {
       if (!hasMore) break
     }
 
+    // Process any remaining tracks that didn't reach CHUNK_SIZE
+    if (allChunkTracks.length > 0) {
+      console.log(`🔄 Processing final batch of ${allChunkTracks.length} remaining tracks`)
+
+      // Extract artist IDs and fetch genres
+      const artistIds = extractUniqueArtistIds(allChunkTracks)
+      console.log(`Found ${artistIds.length} unique artists for final batch`)
+
+      const artistGenreMap = await getArtistGenresWithCache(accessToken, artistIds, supabaseClient)
+
+      // Fetch genre mapping
+      const { data: genreMappingData } = await supabaseClient
+        .from('v_effective_spotify_genre_map')
+        .select('spotify_genre, super_genre')
+
+      const genreMapping = new Map<string, string>()
+      if (genreMappingData) {
+        genreMappingData.forEach(item => {
+          if (item.spotify_genre && item.super_genre) {
+            genreMapping.set(item.spotify_genre, item.super_genre)
+          }
+        })
+      }
+
+      // Process songs data
+      const songsToInsert = processSongsData(allChunkTracks, user.id, artistGenreMap, new Map(), genreMapping)
+      
+      // For incremental sync, fetch existing tracks with manual genres from DB
+      if (!isFullSync) {
+        const spotifyIds = songsToInsert.map(s => s.spotify_id)
+        const { data: existingTracks } = await supabaseClient
+          .from('spotify_liked')
+          .select('spotify_id, super_genre')
+          .eq('user_id', user.id)
+          .in('spotify_id', spotifyIds)
+          .not('super_genre', 'is', null)
+        
+        if (existingTracks) {
+          existingTracks.forEach(track => {
+            if (track.super_genre) {
+              manualGenreMap.set(track.spotify_id, track.super_genre)
+            }
+          })
+        }
+      }
+      
+      // Preserve manual genre assignments
+      const songsToUpsert = songsToInsert.map(song => {
+        if (manualGenreMap.has(song.spotify_id)) {
+          return { ...song, super_genre: manualGenreMap.get(song.spotify_id) }
+        }
+        return song
+      })
+
+      // Insert/upsert the final batch
+      const { error: insertError } = await supabaseAdmin
+        .from('spotify_liked')
+        .upsert(songsToUpsert, {
+          onConflict: 'user_id,spotify_id',
+          ignoreDuplicates: false
+        })
+
+      if (insertError) {
+        console.error('Insert error for final batch:', insertError)
+        throw new Error(`Failed to insert final batch: ${insertError.message}`)
+      }
+
+      newTracksCount += songsToUpsert.length
+      console.log(`✅ Processed final batch of ${songsToUpsert.length} tracks`)
+
+      // Update final progress
+      await supabaseClient
+        .from('sync_progress')
+        .update({
+          tracks_processed: currentOffset,
+          new_tracks_added: newTracksCount
+        })
+        .eq('sync_id', syncId)
+    }
+
     // Deletion detection: Remove tracks that are no longer in Spotify (only for full sync)
     let deletedTracksCount = 0
     if (isFullSync && allSpotifyIds.size > 0) {
