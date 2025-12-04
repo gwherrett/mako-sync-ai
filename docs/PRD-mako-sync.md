@@ -581,22 +581,22 @@ interface GenreOverride {
 
 ### **7.2 Reliability**
 
-* **NFR-5:** Sync operations SHALL be resumable after interruption
-* **NFR-6:** Manual genre assignments SHALL persist through full syncs
-* **NFR-7:** Spotify token refresh SHALL happen automatically before expiry
+* **NFR-8:** Sync operations SHALL be resumable after interruption
+* **NFR-9:** Manual genre assignments SHALL persist through full syncs
+* **NFR-10:** Spotify token refresh SHALL happen automatically before expiry
 
 ### **7.3 Security**
 
-* **NFR-8:** All Spotify tokens SHALL be stored in Supabase Vault
-* **NFR-9:** All user data SHALL be protected by Row Level Security
-* **NFR-10:** No sensitive data SHALL be logged to console in production
-* **NFR-11:** All API calls SHALL use HTTPS
+* **NFR-11:** All Spotify tokens SHALL be stored in Supabase Vault
+* **NFR-12:** All user data SHALL be protected by Row Level Security
+* **NFR-13:** No sensitive data SHALL be logged to console in production
+* **NFR-14:** All API calls SHALL use HTTPS
 
 ### **7.4 Usability**
 
-* **NFR-12:** New users SHALL complete first sync within 5 minutes
-* **NFR-13:** All actions SHALL provide visual feedback within 200ms
-* **NFR-14:** Error messages SHALL be user-friendly, not technical
+* **NFR-15:** New users SHALL complete first sync within 5 minutes
+* **NFR-16:** All actions SHALL provide visual feedback within 200ms
+* **NFR-17:** Error messages SHALL be user-friendly, not technical
 
 ### **7.5 Browser Support**
 
@@ -607,10 +607,10 @@ interface GenreOverride {
 
 ### **7.6 Data Retention**
 
-* **NFR-15:** User data SHALL be retained for 2 years from last activity
-* **NFR-16:** Users MAY delete their data at any time via account settings
-* **NFR-17:** Spotify tokens are refreshed automatically; stale connections (>90 days inactive) MAY be flagged for cleanup
-* **NFR-18:** Sync progress records older than 30 days SHALL be automatically purged
+* **NFR-18:** User data SHALL be retained for 2 years from last activity
+* **NFR-19:** Users MAY delete their data at any time via account settings
+* **NFR-20:** Spotify tokens are refreshed automatically; stale connections (>90 days inactive) MAY be flagged for cleanup
+* **NFR-21:** Sync progress records older than 30 days SHALL be automatically purged
 
 ---
 
