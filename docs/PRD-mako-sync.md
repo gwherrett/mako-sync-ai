@@ -221,7 +221,7 @@ As a DJ, I want my tracks automatically classified into super genres so I can or
   - Bass, Blues, Books & Spoken, Country, Dance, Disco
   - Drum & Bass, Electronic, Folk, Hip Hop, House
   - Indie-Alternative, Jazz, Latin, Metal, Orchestral
-  - Other/Unclassified, Pop, Reggae-Dancehall, Rock
+  - Unclassified, Pop, Reggae-Dancehall, Rock
   - Seasonal, Soul-Funk, UK Garage, Urban, World
 * **FR-4.3:** System SHALL allow users to override genre mappings per-user
 * **FR-4.4:** User overrides SHALL persist and apply to future syncs
@@ -251,14 +251,17 @@ As a user, I want AI to help classify tracks that don't have genre tags so I can
 **Acceptance Criteria:**
 
 * **FR-5.1:** System SHALL identify tracks with NULL Spotify genre AND NULL super_genre
-* **FR-5.2:** System SHALL provide track-level AI genre suggestion interface (individual tracks, not artist-level bulk)
+* **FR-5.2:** System SHALL provide **track-level** AI genre suggestion interface:
+  - Process individual tracks (NOT artist-level bulk processing)
+  - Display flat sortable table showing Artist, Album, Track, Super Genre
+  - AI trigger button per track for individual suggestions
 * **FR-5.3:** For each unclassified track, AI SHALL suggest super genre based on:
   - Track title and artist
   - Existing super_genre assignments for other tracks by the same artist in user's `spotify_liked` table
   - Year and other metadata
 * **FR-5.4:** AI SHALL query: `SELECT DISTINCT super_genre FROM spotify_liked WHERE primary_artist = ? AND super_genre IS NOT NULL` to find artist's existing genre mappings
 * **FR-5.5:** User SHALL be able to:
-  - Accept AI suggestion
+  - Accept AI suggestion (inline)
   - Reject and manually select different super genre
   - Skip track
 * **FR-5.6:** System SHALL provide "Process Next 10" batch button prioritizing unassigned tracks
