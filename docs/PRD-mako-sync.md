@@ -442,6 +442,25 @@ interface GenreOverride {
 - Parameters: track metadata
 - Returns: Suggested super genre with confidence
 
+**spotify-resync-tracks**
+- POST: Re-fetch metadata from Spotify for specific tracks
+- Auth: Bearer token required
+- Request body:
+  ```json
+  { "spotifyIds": ["id1", "id2", ...] }
+  ```
+- Response:
+  ```json
+  {
+    "message": "Resynced 2/3 tracks",
+    "results": [
+      { "spotifyId": "id1", "success": true, "title": "Track Name", "artist": "Artist" },
+      { "spotifyId": "id2", "success": false, "error": "HTTP 404" }
+    ]
+  }
+  ```
+- Use case: Update track metadata after Spotify corrects artist/title info
+
 ### **5.3 Frontend Technology Stack**
 
 **Required Technologies:**
@@ -544,7 +563,12 @@ interface GenreOverride {
 * **NFR-2:** Local file scanning SHALL process 1,000+ files per session
 * **NFR-3:** Table rendering SHALL remain responsive with 5,000+ rows (virtualization)
 * **NFR-4:** Page load time < 3 seconds on broadband connection
-* **NFR-5:** All Supabase queries that may return >1000 rows MUST specify explicit limit or use pagination (Supabase default is 1000 rows)
+* **NFR-5:** Supabase pagination requirements:
+  - Default query limit is 1000 rows (silent truncation if exceeded)
+  - All queries potentially returning >1000 rows MUST use explicit limit or pagination
+  - Pattern: Loop with `.range(offset, offset + PAGE_SIZE - 1)` until empty result
+  - Current implementation uses PAGE_SIZE = 1000 for genre caching
+  - spotify_liked queries use limit(50000) to handle large collections
 * **NFR-6:** Sync batch sizes:
   - Spotify API fetch: 50 tracks per request (Spotify's maximum per page)
   - Database processing: 500 tracks per chunk (CHUNK_SIZE)
@@ -580,6 +604,13 @@ interface GenreOverride {
 * Firefox: Last 2 versions
 * Safari: Last 2 versions
 * Edge: Last 2 versions
+
+### **7.6 Data Retention**
+
+* **NFR-15:** User data SHALL be retained for 2 years from last activity
+* **NFR-16:** Users MAY delete their data at any time via account settings
+* **NFR-17:** Spotify tokens are refreshed automatically; stale connections (>90 days inactive) MAY be flagged for cleanup
+* **NFR-18:** Sync progress records older than 30 days SHALL be automatically purged
 
 ---
 
