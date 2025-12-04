@@ -757,3 +757,29 @@ Required tables:
 * **Gap Analysis:** Comparison between Spotify and local library to find missing tracks
 * **Normalized:** Cleaned string (lowercase, no special chars) for matching
 * **Override:** User-specific genre mapping that supersedes base mapping
+
+### **12.3 Known Data Quality Findings**
+
+**Duplicate Tracks Analysis (December 2025):**
+
+Database analysis identified approximately 20 duplicate track pairs in `spotify_liked` table with identical `title` AND `artist` values. Total tracks: 4,987.
+
+**Example Duplicates:**
+| Title | Artist | Count |
+| :---- | :---- | :---- |
+| Texas Sun | Khruangbin, Leon Bridges | 2 |
+| Cherry-coloured Funk | Cocteau Twins | 2 |
+| God Only Knows - Remastered 1996 | The Beach Boys | 2 |
+| The Less I Know The Better | Tame Impala | 2 |
+| Rhymes Like Dimes | MF DOOM | 2 |
+| Life On Mars? - 2015 Remaster | David Bowie | 2 |
+| Bizarre Love Triangle | New Order | 2 |
+| Fela Kuti | GoldLink, Wale | 2 |
+
+**Root Cause:**
+Normalization fields (`normalized_title`, `normalized_artist`) are not populated during sync, preventing effective deduplication.
+
+**Future Considerations:**
+- Implement normalization during sync process
+- Add unique constraint on normalized fields
+- Create cleanup script for existing duplicates
