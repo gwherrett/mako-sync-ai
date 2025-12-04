@@ -147,15 +147,17 @@ As a DJ, I want to connect my Spotify account so that I can sync my liked songs.
 * **FR-2.6:** Sync SHALL fetch all liked songs from Spotify API
 * **FR-2.7:** System SHALL support incremental sync:
   - Only fetch tracks added after last sync `added_at` timestamp
-  - Remove tracks from local DB that have been removed from Spotify Liked Songs
   - Preserve manually assigned `super_genre` values during sync
-  - **TODO:** Current implementation only removes deleted tracks during full sync; incremental deletion detection requires fetching all Spotify IDs which negates incremental benefit
-* **FR-2.8:** System SHALL support full re-sync option (clears and re-fetches all, with deletion detection)
+  - **Note:** Incremental sync does NOT detect deleted tracks (use full sync for cleanup)
+* **FR-2.8:** System SHALL support full re-sync option:
+  - Clears and re-fetches all tracks
+  - Detects and removes tracks unliked from Spotify
+  - Recommended periodically (e.g., monthly) to clean up deleted tracks
 * **FR-2.9:** System SHALL display sync progress with:
   - Tracks fetched count
   - Tracks processed count
   - New tracks added count
-  - Tracks removed count (full sync only currently)
+  - Tracks removed count (full sync only)
   - Error messages if any
 * **FR-2.10:** System SHALL automatically refresh expired Spotify tokens (5 min before expiry)
 * **FR-2.11:** System SHALL allow disconnection of Spotify account
