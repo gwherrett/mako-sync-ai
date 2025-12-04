@@ -265,7 +265,9 @@ As a user, I want AI to help classify tracks that don't have genre tags so I can
   - Reject and manually select different super genre
   - Skip track
 * **FR-5.6:** System SHALL provide "Process Next 10" batch button prioritizing unassigned tracks
-* **FR-5.7:** Manual genre assignments SHALL persist through syncs (including interrupted/resumed)
+* **FR-5.7:** Manual assignments SHALL persist through all sync operations (including interrupted/resumed):
+  - Individual track `super_genre` assignments in `spotify_liked` table
+  - User genre mapping overrides in `spotify_genre_map_overrides` table
 * **FR-5.8:** System SHALL display count of unprocessed tracks
 * **FR-5.9:** AI suggestions SHALL NOT use library genre counts as signals
 * **FR-5.10:** AI suggestions SHALL emphasize genre consistency when user has other tracks by same artist
