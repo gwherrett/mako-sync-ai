@@ -1,0 +1,686 @@
+# **Product Requirements Document: mako-sync**
+
+**Document Version:** 1.0  
+**Last Updated:** December 4, 2025  
+**Product Owner:** [To be assigned]  
+**Engineering Lead:** [To be assigned]
+
+---
+
+## **1. Executive Summary**
+
+### **1.1 Product Vision**
+
+mako-sync is a web-based tool that bridges the gap between Spotify libraries and local music collections. It enables DJs and music collectors to identify missing tracks, classify their music into super genres, and maintain organized, synchronized music libraries across digital and physical formats.
+
+### **1.2 Business Objectives**
+
+* Help users identify gaps between their Spotify liked songs and local music files
+* Provide intelligent super genre classification for music organization
+* Enable DJs to quickly identify tracks they need to acquire for their local collection
+* Deliver a free, accessible tool for the music community
+
+### **1.3 Success Metrics**
+
+| Metric | Target | Measurement Method |
+| :---- | :---- | :---- |
+| Genre Classification Accuracy | >90% of tracks correctly mapped to super genres | User feedback and override rate |
+| Missing Tracks Identified | 100% of gaps accurately detected | Comparison validation testing |
+| User Engagement | Users complete full library sync | Sync completion tracking |
+| Return Usage | 70% return within 30 days to re-sync | User session tracking |
+
+---
+
+## **2. Product Scope**
+
+### **2.1 In Scope**
+
+* Web-based single-page application (SPA)
+* Spotify OAuth integration for liked songs sync
+* Local MP3 file metadata scanning via browser
+* Super genre classification system with AI assistance
+* Missing tracks analyzer (gap analysis)
+* User-specific genre mapping overrides
+* Responsive design (mobile, tablet, desktop)
+* Email/password authentication
+
+### **2.2 Out of Scope**
+
+* Other streaming services (Apple Music, Tidal, Amazon Music)
+* Playlist sync (only liked songs)
+* Auto-download or acquisition of missing tracks
+* Native mobile applications (iOS/Android)
+* Multi-user collaboration features
+* Offline mode or PWA capabilities
+* Payment processing or premium features
+* File transfer or cloud storage
+
+### **2.3 Future Considerations**
+
+* Playlist synchronization support
+* Additional streaming service integrations
+* Mobile app (PWA or native)
+* Export to DJ software formats (Rekordbox, Serato)
+* Batch metadata editing
+* Track recommendations based on library gaps
+
+---
+
+## **3. User Personas & Use Cases**
+
+### **3.1 Primary Persona: Professional/Hobbyist DJ**
+
+**Profile:**
+
+* Role: DJ who performs at venues, events, or streams
+* Goal: Maintain a comprehensive local music collection that matches their streaming favorites
+* Pain Points: 
+  - Tracks liked on Spotify during discovery sessions aren't in local collection
+  - Inconsistent genre tagging across different music sources
+  - Time-consuming manual comparison of libraries
+* Technical Proficiency: Medium to High
+
+**Primary Use Cases:**
+
+1. Sync Spotify liked songs to identify new tracks to acquire
+2. Classify music library by DJ-friendly super genres (House, Drum & Bass, etc.)
+3. Identify which tracks are missing from local collection
+4. Maintain consistent genre organization for DJ software integration
+
+### **3.2 Secondary Persona: Music Collector/Enthusiast**
+
+**Profile:**
+
+* Role: Music enthusiast who maintains both streaming and local libraries
+* Goal: Keep organized music collection with proper categorization
+* Pain Points:
+  - Disorganized local music files with inconsistent metadata
+  - No easy way to see what's in Spotify but not downloaded
+  - Manual genre tagging is tedious
+* Technical Proficiency: Low to Medium
+
+**Primary Use Cases:**
+
+1. Upload local music library for organization
+2. Connect Spotify to discover what's missing locally
+3. Use AI-assisted genre classification for better organization
+4. Track collection growth over time
+
+---
+
+## **4. Functional Requirements**
+
+### **4.1 Epic 1: User Authentication**
+
+**User Story:**  
+As a user, I want to create an account so that my data is saved and private.
+
+**Acceptance Criteria:**
+
+* **FR-1.1:** System SHALL provide email/password registration with:
+  - Email validation (format check)
+  - Password minimum 8 characters
+  - Email confirmation (optional, configurable)
+* **FR-1.2:** System SHALL provide login with email/password
+* **FR-1.3:** System SHALL provide password reset via email
+* **FR-1.4:** System SHALL redirect authenticated users to main dashboard
+* **FR-1.5:** System SHALL protect all user data with Row Level Security
+
+**Priority:** P0 (Critical)  
+**Dependencies:** Supabase Auth configured  
+**Estimated Effort:** 5 story points
+
+---
+
+### **4.2 Epic 2: Spotify Connection & Sync**
+
+**User Story:**  
+As a DJ, I want to connect my Spotify account so that I can sync my liked songs.
+
+**Acceptance Criteria:**
+
+* **FR-2.1:** System SHALL provide "Connect Spotify" button initiating OAuth flow
+* **FR-2.2:** OAuth popup SHALL request user-library-read scope
+* **FR-2.3:** System SHALL securely store Spotify tokens in Supabase Vault
+* **FR-2.4:** System SHALL display connected Spotify account info (display name, email)
+* **FR-2.5:** System SHALL provide "Sync Liked Songs" button
+* **FR-2.6:** Sync SHALL fetch all liked songs from Spotify API
+* **FR-2.7:** System SHALL support incremental sync (only new tracks since last sync)
+* **FR-2.8:** System SHALL support full re-sync option
+* **FR-2.9:** System SHALL display sync progress with:
+  - Tracks fetched count
+  - Tracks processed count
+  - New tracks added count
+  - Error messages if any
+* **FR-2.10:** System SHALL automatically refresh expired Spotify tokens
+* **FR-2.11:** System SHALL allow disconnection of Spotify account
+
+**Priority:** P0 (Critical)  
+**Dependencies:** Spotify Developer App credentials  
+**Estimated Effort:** 13 story points
+
+---
+
+### **4.3 Epic 3: Local Music Library Scanning**
+
+**User Story:**  
+As a music collector, I want to scan my local music files so that I can compare them with Spotify.
+
+**Acceptance Criteria:**
+
+* **FR-3.1:** System SHALL provide file upload interface for MP3 files
+* **FR-3.2:** System SHALL extract metadata from uploaded files:
+  - Title
+  - Artist
+  - Album
+  - Genre
+  - BPM
+  - Key
+  - Year
+  - File path
+  - Bitrate
+  - File size
+* **FR-3.3:** System SHALL parse artist field to extract:
+  - Primary artist
+  - Featured artists
+  - Normalized artist name
+* **FR-3.4:** System SHALL parse title field to extract:
+  - Core title (without mix info)
+  - Mix/remix information
+  - Normalized title
+* **FR-3.5:** System SHALL detect duplicate files via hash comparison
+* **FR-3.6:** System SHALL display scan progress with file count
+* **FR-3.7:** System SHALL store scanned tracks in user's local_mp3s table
+* **FR-3.8:** System SHALL provide table view of all local tracks with:
+  - Sorting by any column
+  - Filtering by genre, artist, album
+  - Search functionality
+
+**Priority:** P0 (Critical)  
+**Dependencies:** music-metadata-browser library  
+**Estimated Effort:** 13 story points
+
+---
+
+### **4.4 Epic 4: Super Genre Classification**
+
+**User Story:**  
+As a DJ, I want my tracks automatically classified into super genres so I can organize my library for sets.
+
+**Acceptance Criteria:**
+
+* **FR-4.1:** System SHALL map Spotify genre tags to super genres using base mapping table
+* **FR-4.2:** Super genres SHALL include:
+  - Bass, Blues, Books & Spoken, Country, Dance, Disco
+  - Drum & Bass, Electronic, Folk, Hip Hop, House
+  - Indie-Alternative, Jazz, Latin, Metal, Orchestral
+  - Other/Unclassified, Pop, Reggae-Dancehall, Rock
+  - Seasonal, Soul-Funk, UK Garage, Urban, World
+* **FR-4.3:** System SHALL allow users to override genre mappings per-user
+* **FR-4.4:** User overrides SHALL persist and apply to future syncs
+* **FR-4.5:** System SHALL display genre mapping table with:
+  - Spotify genre
+  - Current super genre assignment
+  - Override indicator if user-customized
+* **FR-4.6:** System SHALL provide filter/search in genre mapping table
+* **FR-4.7:** System SHALL apply genre rules:
+  - R&B ≤1990 → Soul-Funk
+  - R&B >1990 → Urban
+  - 80s synth pop → Pop (not Electronic)
+  - Boom bap hip hop → Hip Hop (not Urban)
+  - House is priority genre when in doubt
+
+**Priority:** P0 (Critical)  
+**Dependencies:** spotify_genre_map_base table populated  
+**Estimated Effort:** 13 story points
+
+---
+
+### **4.5 Epic 5: AI-Assisted Genre Suggestions**
+
+**User Story:**  
+As a user, I want AI to help classify tracks that don't have genre tags so I can complete my organization.
+
+**Acceptance Criteria:**
+
+* **FR-5.1:** System SHALL identify tracks with NULL Spotify genre AND NULL super_genre
+* **FR-5.2:** System SHALL provide track-level AI genre suggestion interface
+* **FR-5.3:** For each unclassified track, AI SHALL suggest super genre based on:
+  - Track title and artist
+  - Existing artist genre mappings in user's library
+  - Year and other metadata
+* **FR-5.4:** User SHALL be able to:
+  - Accept AI suggestion
+  - Reject and manually select different super genre
+  - Skip track
+* **FR-5.5:** System SHALL provide "Process Next 10" batch button
+* **FR-5.6:** Manual genre assignments SHALL persist through syncs
+* **FR-5.7:** System SHALL display count of unprocessed tracks
+* **FR-5.8:** AI suggestions SHALL NOT use library genre counts as signals
+
+**Priority:** P1 (High)  
+**Dependencies:** Lovable AI integration, tracks synced  
+**Estimated Effort:** 13 story points
+
+---
+
+### **4.6 Epic 6: Missing Tracks Analysis**
+
+**User Story:**  
+As a DJ, I want to see which Spotify tracks are missing from my local collection so I know what to acquire.
+
+**Acceptance Criteria:**
+
+* **FR-6.1:** System SHALL compare Spotify liked tracks against local_mp3s
+* **FR-6.2:** Comparison SHALL use normalized title and artist for matching
+* **FR-6.3:** System SHALL display missing tracks in table format with:
+  - Track title
+  - Artist
+  - Album
+  - Super genre
+  - Spotify link (opens in new tab)
+* **FR-6.4:** System SHALL provide super genre filter for missing tracks
+* **FR-6.5:** System SHALL allow sorting by any column
+* **FR-6.6:** System SHALL display total count of missing tracks
+* **FR-6.7:** System SHALL provide search within missing tracks
+* **FR-6.8:** Similarity matching SHALL use normalized strings and Levenshtein distance
+
+**Priority:** P0 (Critical)  
+**Dependencies:** Both Spotify sync and local scan completed  
+**Estimated Effort:** 8 story points
+
+---
+
+### **4.7 Epic 7: Dashboard & Statistics**
+
+**User Story:**  
+As a user, I want to see an overview of my library status so I can track my progress.
+
+**Acceptance Criteria:**
+
+* **FR-7.1:** Dashboard SHALL display:
+  - Total Spotify liked songs count
+  - Total local tracks count
+  - Missing tracks count
+  - Tracks without genre count
+* **FR-7.2:** Dashboard SHALL display super genre distribution chart
+* **FR-7.3:** Dashboard SHALL show last sync timestamp
+* **FR-7.4:** Dashboard SHALL provide quick actions:
+  - Sync Spotify
+  - Scan local files
+  - View missing tracks
+  - Process ungenred tracks
+
+**Priority:** P1 (High)  
+**Dependencies:** Data from all epics  
+**Estimated Effort:** 5 story points
+
+---
+
+## **5. Technical Requirements**
+
+### **5.1 Data Models**
+
+**Spotify Liked Track:**
+```typescript
+interface SpotifyLiked {
+  id: string;                    // UUID
+  user_id: string;               // Foreign key to auth.users
+  spotify_id: string;            // Spotify track ID
+  title: string;
+  artist: string;
+  album?: string;
+  genre?: string;                // Raw Spotify genre
+  super_genre?: SuperGenre;      // Mapped super genre
+  year?: number;
+  bpm?: number;
+  key?: string;
+  added_at?: string;             // When added to Spotify
+  normalized_title?: string;
+  normalized_artist?: string;
+  primary_artist?: string;
+  featured_artists?: string[];
+  mix?: string;
+  core_title?: string;
+}
+```
+
+**Local MP3:**
+```typescript
+interface LocalMP3 {
+  id: string;                    // UUID
+  user_id: string;
+  file_path: string;
+  title?: string;
+  artist?: string;
+  album?: string;
+  genre?: string;
+  year?: number;
+  bpm?: number;
+  key?: string;
+  bitrate?: number;
+  file_size?: number;
+  hash?: string;                 // For duplicate detection
+  normalized_title?: string;
+  normalized_artist?: string;
+  primary_artist?: string;
+  featured_artists?: string[];
+  mix?: string;
+  core_title?: string;
+}
+```
+
+**Genre Mapping:**
+```typescript
+interface GenreMapping {
+  spotify_genre: string;         // Primary key
+  super_genre: SuperGenre | null;
+  updated_at: string;
+}
+
+interface GenreOverride {
+  id: string;
+  user_id: string;
+  spotify_genre: string;
+  super_genre: SuperGenre;
+  updated_at: string;
+}
+```
+
+### **5.2 API Specifications (Edge Functions)**
+
+**spotify-auth**
+- GET: Initiate Spotify OAuth flow
+- Returns: Redirect URL for Spotify authorization
+
+**spotify-callback**
+- GET: Handle OAuth callback
+- Stores tokens securely in Vault
+- Creates/updates spotify_connections record
+
+**spotify-sync-liked**
+- POST: Sync user's liked songs
+- Parameters: forceFullSync (boolean)
+- Returns: Sync progress and results
+
+**genre-mapping**
+- GET: Retrieve effective genre mappings for user
+- PUT: Update user genre override
+
+**ai-track-genre-suggest**
+- POST: Get AI suggestion for track classification
+- Parameters: track metadata
+- Returns: Suggested super genre with confidence
+
+### **5.3 Frontend Technology Stack**
+
+**Required Technologies:**
+
+* **Framework:** React 18+ with TypeScript
+* **Build Tool:** Vite
+* **Styling:** Tailwind CSS with custom design system
+* **State Management:** TanStack React Query
+* **Routing:** React Router v6
+* **Form Management:** React Hook Form + Zod validation
+* **UI Components:** shadcn/ui (customized)
+* **Backend:** Supabase (Auth, Database, Edge Functions, Vault)
+* **Metadata Parsing:** music-metadata-browser
+
+### **5.4 Component Architecture**
+
+**Core Components:**
+
+1. **App.tsx** - Root component with routing
+2. **Index.tsx** - Main dashboard page
+3. **NewAuth.tsx** - Authentication page
+4. **GenreMapping.tsx** - Genre mapping management
+5. **SpotifyHeader.tsx** - Spotify connection status and controls
+6. **LibraryHeader.tsx** - Local library controls
+7. **TracksTable.tsx** - Spotify tracks display
+8. **LocalTracksTable.tsx** - Local files display
+9. **MissingTracksAnalyzer.tsx** - Gap analysis view
+10. **NoGenreTracksProcessor.tsx** - AI-assisted classification
+11. **GenreMappingTable.tsx** - Genre mapping editor
+
+---
+
+## **6. User Interface Requirements**
+
+### **6.1 Design System**
+
+**Color Palette (HSL-based semantic tokens):**
+
+* Primary: Brand color for CTAs and highlights
+* Secondary: Supporting UI elements
+* Muted: Disabled states, backgrounds
+* Accent: Important highlights
+* Destructive: Error states, delete actions
+* Background/Foreground: Base surface colors
+
+**Typography:**
+
+* Font Family: Custom display + refined body fonts
+* Distinct, non-default choices (avoid Inter, Poppins)
+* Proper hierarchy for headings and body
+
+**Themes:**
+
+* Dark mode primary (for DJ preference)
+* Light mode option
+
+### **6.2 Layout Specifications**
+
+**Desktop (≥1024px):**
+* Maximum content width: 1440px
+* Card-based dashboard layout
+* Side-by-side comparison views
+* Data tables with horizontal scroll
+
+**Tablet (768px - 1023px):**
+* Stacked card layout
+* Collapsible sections
+* Touch-friendly targets (44x44px minimum)
+
+**Mobile (<768px):**
+* Single column layout
+* Bottom navigation consideration
+* Simplified table views (key columns only)
+
+### **6.3 Key UI States**
+
+**Loading States:**
+* Skeleton loaders for tables
+* Progress indicators for sync operations
+* Spinner overlays for button actions
+
+**Empty States:**
+* No Spotify connection: Prompt to connect
+* No local files: Prompt to scan
+* No missing tracks: Success celebration
+* No ungenred tracks: Completion message
+
+**Error States:**
+* API errors: Toast with retry option
+* Sync failures: Detailed error message
+* Auth failures: Redirect to login
+
+---
+
+## **7. Non-Functional Requirements**
+
+### **7.1 Performance**
+
+* **NFR-1:** Sync operations SHALL handle 10,000+ liked songs
+* **NFR-2:** Local file scanning SHALL process 1,000+ files per session
+* **NFR-3:** Table rendering SHALL remain responsive with 5,000+ rows (virtualization)
+* **NFR-4:** Page load time < 3 seconds on broadband connection
+
+### **7.2 Reliability**
+
+* **NFR-5:** Sync operations SHALL be resumable after interruption
+* **NFR-6:** Manual genre assignments SHALL persist through full syncs
+* **NFR-7:** Spotify token refresh SHALL happen automatically before expiry
+
+### **7.3 Security**
+
+* **NFR-8:** All Spotify tokens SHALL be stored in Supabase Vault
+* **NFR-9:** All user data SHALL be protected by Row Level Security
+* **NFR-10:** No sensitive data SHALL be logged to console in production
+* **NFR-11:** All API calls SHALL use HTTPS
+
+### **7.4 Usability**
+
+* **NFR-12:** New users SHALL complete first sync within 5 minutes
+* **NFR-13:** All actions SHALL provide visual feedback within 200ms
+* **NFR-14:** Error messages SHALL be user-friendly, not technical
+
+### **7.5 Browser Support**
+
+* Chrome: Last 2 versions
+* Firefox: Last 2 versions
+* Safari: Last 2 versions
+* Edge: Last 2 versions
+
+---
+
+## **8. Testing Requirements**
+
+### **8.1 Manual Testing Checklist**
+
+**Authentication:**
+* [ ] User can register with email/password
+* [ ] User can login with existing account
+* [ ] User can reset password
+* [ ] Protected routes redirect to login
+
+**Spotify Integration:**
+* [ ] OAuth flow completes successfully
+* [ ] Tokens are stored securely
+* [ ] Incremental sync captures new tracks
+* [ ] Full sync replaces all tracks
+* [ ] Token refresh works automatically
+* [ ] Disconnect removes connection
+
+**Local Scanning:**
+* [ ] MP3 files are parsed correctly
+* [ ] Metadata is extracted accurately
+* [ ] Duplicates are detected
+* [ ] Large batches complete without timeout
+
+**Genre Mapping:**
+* [ ] Base mappings display correctly
+* [ ] User overrides are saved
+* [ ] Overrides apply to synced tracks
+* [ ] Manual assignments persist through sync
+
+**Missing Tracks:**
+* [ ] Comparison logic is accurate
+* [ ] Filtering by genre works
+* [ ] Spotify links open correctly
+* [ ] Search finds relevant tracks
+
+---
+
+## **9. Deployment Requirements**
+
+### **9.1 Hosting Environment**
+
+* **Frontend:** Lovable deployment (automatic)
+* **Backend:** Supabase (external project)
+* **Edge Functions:** Supabase Edge Functions
+
+### **9.2 Environment Variables**
+
+**Required Secrets:**
+* `SPOTIFY_CLIENT_ID` - Spotify app client ID
+* `SPOTIFY_CLIENT_SECRET` - Spotify app secret
+* `LOVABLE_API_KEY` - For AI genre suggestions
+* `SUPABASE_SERVICE_ROLE_KEY` - For admin operations
+
+### **9.3 Database Setup**
+
+Required tables:
+* `profiles` - User profiles
+* `spotify_connections` - OAuth tokens
+* `spotify_liked` - Synced Spotify tracks
+* `local_mp3s` - Scanned local files
+* `spotify_genre_map_base` - Global genre mappings
+* `spotify_genre_map_overrides` - User customizations
+* `sync_progress` - Sync state tracking
+
+---
+
+## **10. Risk Assessment & Mitigation**
+
+### **10.1 Technical Risks**
+
+| Risk | Probability | Impact | Mitigation |
+| :---- | :---- | :---- | :---- |
+| Spotify API rate limits | High | Medium | Implement batching, respect rate headers |
+| Large library sync timeout | Medium | High | Chunked processing, resumable syncs |
+| Browser memory limits (file scanning) | Medium | Medium | Process files in batches, clear memory |
+| Genre mapping inaccuracy | High | Medium | User overrides, AI assistance, feedback loop |
+
+### **10.2 User Experience Risks**
+
+| Risk | Probability | Impact | Mitigation |
+| :---- | :---- | :---- | :---- |
+| Complex onboarding | Medium | High | Setup checklist, guided flow |
+| Sync takes too long | High | Medium | Progress indicators, background processing |
+| Incorrect match results | Medium | High | Show confidence scores, allow manual review |
+
+---
+
+## **11. Success Criteria & Validation**
+
+### **11.1 Launch Criteria (Public Beta)**
+
+**Must Have:**
+* ✅ User authentication working
+* ✅ Spotify OAuth and sync functional
+* ✅ Local file scanning operational
+* ✅ Genre mapping with overrides working
+* ✅ Missing tracks analysis accurate
+* ✅ Responsive design on all devices
+
+**Should Have:**
+* ✅ AI-assisted genre suggestions
+* ✅ Resumable sync operations
+* ✅ Dashboard with statistics
+* ⭕ Comprehensive error handling
+
+**Nice to Have:**
+* ⭕ Dark/light theme toggle
+* ⭕ Export functionality
+* ⭕ Batch operations UI
+
+### **11.2 User Acceptance Criteria**
+
+* Users can complete full workflow (connect → sync → scan → analyze) in under 10 minutes
+* 90%+ of users can identify missing tracks without assistance
+* Genre classification requires <20% manual override rate
+
+---
+
+## **12. Appendix**
+
+### **12.1 Super Genre Definitions**
+
+| Super Genre | Description | Example Spotify Genres |
+| :---- | :---- | :---- |
+| House | Electronic dance music, 4/4 beat | deep house, tech house, progressive house |
+| Drum & Bass | Fast breakbeat electronic | jungle, liquid funk, neurofunk |
+| Hip Hop | Rap and hip hop | hip hop, trap, boom bap |
+| Pop | Popular/mainstream | pop, dance pop, indie pop |
+| Electronic | Broad electronic music | electro, synthwave, ambient |
+| Rock | Guitar-driven music | rock, indie rock, alternative |
+| Soul-Funk | Pre-1990 R&B, soul, funk | soul, funk, motown |
+| Urban | Post-1990 R&B | r&b, contemporary r&b |
+| Unclassified | Unknown or edge cases | (tracks without mapping) |
+
+### **12.2 Glossary**
+
+* **Super Genre:** High-level genre classification used by DJs (vs granular Spotify genres)
+* **Gap Analysis:** Comparison between Spotify and local library to find missing tracks
+* **Normalized:** Cleaned string (lowercase, no special chars) for matching
+* **Override:** User-specific genre mapping that supersedes base mapping
