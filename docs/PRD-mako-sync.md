@@ -149,12 +149,13 @@ As a DJ, I want to connect my Spotify account so that I can sync my liked songs.
   - Only fetch tracks added after last sync `added_at` timestamp
   - Remove tracks from local DB that have been removed from Spotify Liked Songs
   - Preserve manually assigned `super_genre` values during sync
-* **FR-2.8:** System SHALL support full re-sync option (clears and re-fetches all)
+  - **TODO:** Current implementation only removes deleted tracks during full sync; incremental deletion detection requires fetching all Spotify IDs which negates incremental benefit
+* **FR-2.8:** System SHALL support full re-sync option (clears and re-fetches all, with deletion detection)
 * **FR-2.9:** System SHALL display sync progress with:
   - Tracks fetched count
   - Tracks processed count
   - New tracks added count
-  - Tracks removed count
+  - Tracks removed count (full sync only currently)
   - Error messages if any
 * **FR-2.10:** System SHALL automatically refresh expired Spotify tokens (5 min before expiry)
 * **FR-2.11:** System SHALL allow disconnection of Spotify account
@@ -539,7 +540,15 @@ interface GenreOverride {
 * **NFR-3:** Table rendering SHALL remain responsive with 5,000+ rows (virtualization)
 * **NFR-4:** Page load time < 3 seconds on broadband connection
 * **NFR-5:** All Supabase queries that may return >1000 rows MUST specify explicit limit or use pagination (Supabase default is 1000 rows)
-* **NFR-6:** Sync operations SHALL process tracks in chunks of 50 to manage memory and API limits
+* **NFR-6:** Sync batch sizes:
+  - Spotify API fetch: 50 tracks per request (Spotify's maximum per page)
+  - Database processing: 500 tracks per chunk (CHUNK_SIZE)
+  - Artist genre batching: 50 artists per Spotify /artists API call
+* **NFR-7:** Spotify API rate limiting strategy:
+  - No explicit delay between requests (rely on natural processing time)
+  - Respect `Retry-After` header if 429 received
+  - For personal use with ~10k tracks: expect sync to complete in <5 minutes
+  - Spotify doesn't publish exact limits; ~1 req/sec sustained is safe
 
 ### **7.2 Reliability**
 
