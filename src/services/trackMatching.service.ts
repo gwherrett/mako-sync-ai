@@ -1,12 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
 
-interface TrackMatch {
-  localTrack: LocalTrack;
-  spotifyTrack: SpotifyTrack;
-  confidence: number;
-  algorithm: 'exact' | 'close' | 'fuzzy' | 'artist-only';
-}
-
 interface LocalTrack {
   id: string;
   title: string | null;
@@ -123,125 +116,6 @@ export class TrackMatchingService {
     return maxLength === 0 ? 100 : ((maxLength - distance) / maxLength) * 100;
   }
 
-  // Exact match algorithm using primary artists
-  private static exactMatch(local: LocalTrack, spotify: SpotifyTrack): number {
-    const localTitle = this.normalize(local.title);
-    const localAlbum = this.normalize(local.album);
-    
-    const spotifyTitle = this.normalize(spotify.title);
-    const spotifyAlbum = this.normalize(spotify.album);
-
-    const artistComparison = this.compareArtists(local.primary_artist, spotify.primary_artist);
-
-    if (localTitle === spotifyTitle && artistComparison.exactMatch) {
-      // Give a small bonus if albums also match, but don't require it
-      const albumMatch = localAlbum === spotifyAlbum;
-      const baseScore = 95; // High confidence for exact title + artist
-      const albumBonus = albumMatch ? 5 : 0; // Small bonus for matching album
-      
-      console.log(`🎯 Exact match found: "${local.title}" by "${artistComparison.normalizedLocal}"${albumMatch ? ' (album match bonus)' : ''}`);
-      return baseScore + albumBonus;
-    }
-    return 0;
-  }
-
-  // Close match algorithm using primary artists
-  private static closeMatch(local: LocalTrack, spotify: SpotifyTrack): number {
-    const localTitle = this.normalize(local.title);
-    const spotifyTitle = this.normalize(spotify.title);
-
-    const artistComparison = this.compareArtists(local.primary_artist, spotify.primary_artist);
-
-    if (localTitle === spotifyTitle && artistComparison.exactMatch) {
-      console.log(`🎯 Close match found: "${local.title}" by "${artistComparison.normalizedLocal}"`);
-      return 95;
-    }
-    return 0;
-  }
-
-  // Fuzzy match algorithm using primary artists
-  private static fuzzyMatch(local: LocalTrack, spotify: SpotifyTrack): number {
-    const localTitle = this.normalize(local.title);
-    const spotifyTitle = this.normalize(spotify.title);
-
-    const artistComparison = this.compareArtists(local.primary_artist, spotify.primary_artist);
-
-    if (!localTitle || !spotifyTitle || !artistComparison.normalizedLocal || !artistComparison.normalizedSpotify) {
-      return 0;
-    }
-
-    const titleSimilarity = this.calculateSimilarity(localTitle, spotifyTitle);
-    
-    // Use enhanced artist similarity - be much more lenient with artist matching
-    if (titleSimilarity >= 80 && artistComparison.similarity >= 50) {
-      const confidence = Math.min(titleSimilarity, artistComparison.similarity);
-      console.log(`🎯 Fuzzy match found: "${local.title}" by "${artistComparison.normalizedLocal}" (${confidence}% confidence)`);
-      return confidence;
-    }
-    
-    return 0;
-  }
-
-  // Artist-only match using primary artists
-  private static artistOnlyMatch(local: LocalTrack, spotify: SpotifyTrack): number {
-    const artistComparison = this.compareArtists(local.primary_artist, spotify.primary_artist);
-
-    // Exact artist match
-    if (artistComparison.exactMatch) {
-      console.log(`🎤 Artist-only exact match: "${artistComparison.normalizedLocal}"`);
-      return 50;
-    }
-
-    // High similarity artist match - be more accepting
-    if (artistComparison.similarity >= 60) {
-      console.log(`🎤 Artist-only similar match: "${artistComparison.normalizedLocal}" ~ "${artistComparison.normalizedSpotify}" (${artistComparison.similarity}%)`);
-      return Math.max(30, artistComparison.similarity * 0.4); // Scale down but keep reasonable confidence
-    }
-
-    return 0;
-  }
-
-  // Find best match for a local track
-  static findBestMatch(localTrack: LocalTrack, spotifyTracks: SpotifyTrack[]): TrackMatch | null {
-    let bestMatch: TrackMatch | null = null;
-
-    for (const spotifyTrack of spotifyTracks) {
-      // Try exact match first
-      let confidence = this.exactMatch(localTrack, spotifyTrack);
-      let algorithm: TrackMatch['algorithm'] = 'exact';
-
-      // Try close match if no exact match
-      if (confidence === 0) {
-        confidence = this.closeMatch(localTrack, spotifyTrack);
-        algorithm = 'close';
-      }
-
-      // Try fuzzy match if no close match
-      if (confidence === 0) {
-        confidence = this.fuzzyMatch(localTrack, spotifyTrack);
-        algorithm = 'fuzzy';
-      }
-
-      // Try artist-only match for identification
-      if (confidence === 0) {
-        confidence = this.artistOnlyMatch(localTrack, spotifyTrack);
-        algorithm = 'artist-only';
-      }
-
-      // Update best match if this is better
-      if (confidence > 0 && (!bestMatch || confidence > bestMatch.confidence)) {
-        bestMatch = {
-          localTrack,
-          spotifyTrack,
-          confidence,
-          algorithm
-        };
-      }
-    }
-
-    return bestMatch;
-  }
-
   // Fetch local tracks for user
   static async fetchLocalTracks(userId: string): Promise<LocalTrack[]> {
     const { data, error } = await supabase
@@ -289,15 +163,18 @@ export class TrackMatchingService {
     ]);
 
     const missingTracks: MissingTrack[] = [];
+    
+    // Create a set of normalized local track titles + artists for fast lookup
+    const localTracksSet = new Set(
+      localTracks.map(track => 
+        `${this.normalize(track.title)}_${this.normalizeArtist(track.primary_artist)}`
+      )
+    );
 
     for (const spotifyTrack of spotifyTracks) {
-      // Check if this Spotify track has a high-confidence match in local tracks
-      const hasMatch = localTracks.some(localTrack => {
-        const matchResult = this.findBestMatch(localTrack, [spotifyTrack]);
-        return matchResult && matchResult.confidence >= 80; // Only high confidence matches
-      });
-
-      if (!hasMatch) {
+      const spotifyKey = `${this.normalize(spotifyTrack.title)}_${this.normalizeArtist(spotifyTrack.primary_artist)}`;
+      
+      if (!localTracksSet.has(spotifyKey)) {
         missingTracks.push({
           spotifyTrack,
           reason: 'No matching local track found'
@@ -306,116 +183,6 @@ export class TrackMatchingService {
     }
 
     return missingTracks;
-  }
-
-  // Perform batch matching and save to database
-  static async performBatchMatching(userId: string, superGenreFilter?: string): Promise<{
-    matches: TrackMatch[];
-    processed: number;
-    saved: number;
-  }> {
-    const [localTracks, spotifyTracks] = await Promise.all([
-      this.fetchLocalTracks(userId),
-      this.fetchSpotifyTracks(userId, superGenreFilter)
-    ]);
-
-    const matches: TrackMatch[] = [];
-    let saved = 0;
-
-    for (const localTrack of localTracks) {
-      const bestMatch = this.findBestMatch(localTrack, spotifyTracks);
-      
-      if (bestMatch && bestMatch.confidence >= 30) { // More accepting save threshold
-        matches.push(bestMatch);
-
-        // Save to database
-        const { error } = await supabase
-          .from('track_matches')
-          .upsert({
-            mp3_id: localTrack.id,
-            spotify_track_id: bestMatch.spotifyTrack.id,
-            match_confidence: bestMatch.confidence,
-            match_method: bestMatch.algorithm,
-            is_confirmed: bestMatch.confidence >= 95
-          }, {
-            onConflict: 'mp3_id,spotify_track_id'
-          });
-
-        if (!error) {
-          saved++;
-        }
-      }
-    }
-
-    return {
-      matches,
-      processed: localTracks.length,
-      saved
-    };
-  }
-
-  // Find tracks by matching artist (for discovery)
-  static async findTracksByMatchingArtist(userId: string, superGenreFilter?: string): Promise<{
-    artistMatches: Array<{
-      artistName: string;
-      localTracks: LocalTrack[];
-      spotifyTracks: SpotifyTrack[];
-      similarity: number;
-    }>;
-  }> {
-    const [localTracks, spotifyTracks] = await Promise.all([
-      this.fetchLocalTracks(userId),
-      this.fetchSpotifyTracks(userId, superGenreFilter)
-    ]);
-
-    const artistMatches = new Map<string, {
-      artistName: string;
-      localTracks: LocalTrack[];
-      spotifyTracks: SpotifyTrack[];
-      similarity: number;
-    }>();
-
-    // Group local tracks by primary artist
-    const localArtists = new Map<string, LocalTrack[]>();
-    localTracks.forEach(track => {
-      const normalizedArtist = this.normalizeArtist(track.primary_artist);
-      if (normalizedArtist) {
-        if (!localArtists.has(normalizedArtist)) {
-          localArtists.set(normalizedArtist, []);
-        }
-        localArtists.get(normalizedArtist)!.push(track);
-      }
-    });
-
-    // Find matching artists in Spotify tracks
-    spotifyTracks.forEach(spotifyTrack => {
-      const spotifyArtistNormalized = this.normalizeArtist(spotifyTrack.primary_artist);
-      
-      for (const [localArtist, localTracksForArtist] of localArtists.entries()) {
-        const comparison = this.compareArtists(localArtist, spotifyArtistNormalized);
-        
-        // More lenient artist matching for discovery
-        if (comparison.similarity >= 60 || comparison.exactMatch) {
-          const key = comparison.exactMatch ? localArtist : `${localArtist}_${spotifyArtistNormalized}`;
-          
-          if (!artistMatches.has(key)) {
-            artistMatches.set(key, {
-              artistName: comparison.exactMatch ? localArtist : `${localArtist} ~ ${spotifyArtistNormalized}`,
-              localTracks: localTracksForArtist,
-              spotifyTracks: [],
-              similarity: comparison.similarity
-            });
-          }
-          
-          artistMatches.get(key)!.spotifyTracks.push(spotifyTrack);
-        }
-      }
-    });
-
-    return {
-      artistMatches: Array.from(artistMatches.values())
-        .sort((a, b) => b.similarity - a.similarity)
-    };
   }
 
   // Fetch available super genres for filtering
