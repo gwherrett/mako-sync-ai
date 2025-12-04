@@ -328,6 +328,21 @@ As a user, I want to see an overview of my library status so I can track my prog
 
 ## **5. Technical Requirements**
 
+### **5.0 Data Model Preservation (Critical Constraint)**
+
+**The existing database schema MUST be preserved and reused.** The current data model represents significant personal work in:
+
+* Genre mapping tables (`spotify_genre_map_base`, `spotify_genre_map_overrides`)
+* User's track genre assignments in `spotify_liked.super_genre` column
+* Normalized field parsing logic (primary_artist, core_title, featured_artists, mix)
+* Sync progress and resumability infrastructure
+
+**Any schema changes MUST:**
+1. Be additive only (no breaking changes to existing columns)
+2. Maintain backward compatibility with existing data
+3. Preserve all user-assigned genre mappings and overrides
+4. Not require data migration that could lose genre assignments
+
 ### **5.1 Data Models**
 
 **Spotify Liked Track:**
