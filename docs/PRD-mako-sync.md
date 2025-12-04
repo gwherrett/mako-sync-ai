@@ -145,14 +145,18 @@ As a DJ, I want to connect my Spotify account so that I can sync my liked songs.
 * **FR-2.4:** System SHALL display connected Spotify account info (display name, email)
 * **FR-2.5:** System SHALL provide "Sync Liked Songs" button
 * **FR-2.6:** Sync SHALL fetch all liked songs from Spotify API
-* **FR-2.7:** System SHALL support incremental sync (only new tracks since last sync)
-* **FR-2.8:** System SHALL support full re-sync option
+* **FR-2.7:** System SHALL support incremental sync:
+  - Only fetch tracks added after last sync `added_at` timestamp
+  - Remove tracks from local DB that have been removed from Spotify Liked Songs
+  - Preserve manually assigned `super_genre` values during sync
+* **FR-2.8:** System SHALL support full re-sync option (clears and re-fetches all)
 * **FR-2.9:** System SHALL display sync progress with:
   - Tracks fetched count
   - Tracks processed count
   - New tracks added count
+  - Tracks removed count
   - Error messages if any
-* **FR-2.10:** System SHALL automatically refresh expired Spotify tokens
+* **FR-2.10:** System SHALL automatically refresh expired Spotify tokens (5 min before expiry)
 * **FR-2.11:** System SHALL allow disconnection of Spotify account
 
 **Priority:** P0 (Critical)  
@@ -244,21 +248,23 @@ As a user, I want AI to help classify tracks that don't have genre tags so I can
 **Acceptance Criteria:**
 
 * **FR-5.1:** System SHALL identify tracks with NULL Spotify genre AND NULL super_genre
-* **FR-5.2:** System SHALL provide track-level AI genre suggestion interface
+* **FR-5.2:** System SHALL provide track-level AI genre suggestion interface (individual tracks, not artist-level bulk)
 * **FR-5.3:** For each unclassified track, AI SHALL suggest super genre based on:
   - Track title and artist
-  - Existing artist genre mappings in user's library
+  - Existing super_genre assignments for other tracks by the same artist in user's `spotify_liked` table
   - Year and other metadata
-* **FR-5.4:** User SHALL be able to:
+* **FR-5.4:** AI SHALL query: `SELECT DISTINCT super_genre FROM spotify_liked WHERE primary_artist = ? AND super_genre IS NOT NULL` to find artist's existing genre mappings
+* **FR-5.5:** User SHALL be able to:
   - Accept AI suggestion
   - Reject and manually select different super genre
   - Skip track
-* **FR-5.5:** System SHALL provide "Process Next 10" batch button
-* **FR-5.6:** Manual genre assignments SHALL persist through syncs
-* **FR-5.7:** System SHALL display count of unprocessed tracks
-* **FR-5.8:** AI suggestions SHALL NOT use library genre counts as signals
+* **FR-5.6:** System SHALL provide "Process Next 10" batch button prioritizing unassigned tracks
+* **FR-5.7:** Manual genre assignments SHALL persist through syncs (including interrupted/resumed)
+* **FR-5.8:** System SHALL display count of unprocessed tracks
+* **FR-5.9:** AI suggestions SHALL NOT use library genre counts as signals
+* **FR-5.10:** AI suggestions SHALL emphasize genre consistency when user has other tracks by same artist
 
-**Priority:** P1 (High)  
+**Priority:** P1 (High)
 **Dependencies:** Lovable AI integration, tracks synced  
 **Estimated Effort:** 13 story points
 
@@ -283,9 +289,12 @@ As a DJ, I want to see which Spotify tracks are missing from my local collection
 * **FR-6.5:** System SHALL allow sorting by any column
 * **FR-6.6:** System SHALL display total count of missing tracks
 * **FR-6.7:** System SHALL provide search within missing tracks
-* **FR-6.8:** Similarity matching SHALL use normalized strings and Levenshtein distance
+* **FR-6.8:** Track matching SHALL use exact normalized string comparison:
+  - Normalize: lowercase, remove special characters, collapse whitespace
+  - Match key: `normalized_title + "_" + normalized_primary_artist`
+  - Binary match (exact or no match)
 
-**Priority:** P0 (Critical)  
+**Priority:** P0 (Critical)
 **Dependencies:** Both Spotify sync and local scan completed  
 **Estimated Effort:** 8 story points
 
@@ -514,6 +523,8 @@ interface GenreOverride {
 * **NFR-2:** Local file scanning SHALL process 1,000+ files per session
 * **NFR-3:** Table rendering SHALL remain responsive with 5,000+ rows (virtualization)
 * **NFR-4:** Page load time < 3 seconds on broadband connection
+* **NFR-5:** All Supabase queries that may return >1000 rows MUST specify explicit limit or use pagination (Supabase default is 1000 rows)
+* **NFR-6:** Sync operations SHALL process tracks in chunks of 50 to manage memory and API limits
 
 ### **7.2 Reliability**
 
