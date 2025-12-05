@@ -6,9 +6,21 @@ export class SpotifyService {
     try {
       console.log('🔍 SPOTIFY SERVICE: Starting connection check...');
       
-      // Use getSession instead of getUser to avoid hanging issues
-      console.log('🔍 SPOTIFY SERVICE: Getting session...');
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // Add timeout wrapper for Supabase calls
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Supabase auth timeout after 5 seconds')), 5000);
+      });
+      
+      console.log('🔍 SPOTIFY SERVICE: Getting session with timeout...');
+      
+      const sessionResult = await Promise.race([
+        supabase.auth.getSession(),
+        timeoutPromise
+      ]);
+      
+      console.log('🔍 SPOTIFY SERVICE: Session call completed');
+      
+      const { data: { session }, error: sessionError } = sessionResult;
       
       console.log('🔍 SPOTIFY SERVICE: Session result:', {
         hasSession: !!session,
@@ -30,12 +42,19 @@ export class SpotifyService {
       const user = session.user;
       console.log('🔍 SPOTIFY SERVICE: Querying spotify_connections table for user:', user.id);
       
-      // Use .maybeSingle() instead of .single() to avoid 406 error when no connection exists
-      const { data, error } = await supabase
-        .from('spotify_connections')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Add timeout for database query too
+      const dbResult = await Promise.race([
+        supabase
+          .from('spotify_connections')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Database query timeout after 5 seconds')), 5000);
+        })
+      ]);
+
+      const { data, error } = dbResult;
 
       console.log('🔍 SPOTIFY SERVICE: Database query result:', {
         hasData: !!data,
@@ -59,6 +78,13 @@ export class SpotifyService {
       return { connection: null, isConnected: false };
     } catch (error) {
       console.error('❌ SPOTIFY SERVICE CRITICAL ERROR:', error);
+      
+      // If it's a timeout error, return a specific state
+      if (error instanceof Error && error.message.includes('timeout')) {
+        console.error('❌ SPOTIFY SERVICE: Supabase timeout detected - connection issue');
+        return { connection: null, isConnected: false };
+      }
+      
       return { connection: null, isConnected: false };
     }
   }
