@@ -13,3 +13,8 @@
 - **Role Storage Security**: Roles stored in separate `user_roles` table, never on user profiles to prevent privilege escalation
 - **Password Reset Implementation**: Complete flow with token validation - use `/reset-password` route, not inline forms
 - **Auth Import Pattern**: Always `import { useAuth } from '@/contexts/NewAuthContext'` - no legacy auth imports allowed
+- **Phase 4 Singleton Pattern**: SpotifyHealthMonitorService, SpotifySecurityValidatorService must use `getInstance()` - never `new`
+- **Token Vault Storage**: Spotify tokens stored as vault secret IDs, actual token fields contain `***ENCRYPTED_IN_VAULT***` placeholders
+- **Phase 4 Error Handling**: Use Phase4ErrorHandlerService.handleError() with service-specific categorization for all Phase 4 services
+- **Edge Function Phase 4 Flags**: Use `refresh_only`, `health_check`, `validate_vault`, `force_token_rotation` flags for targeted operations
+- **Security Validation Required**: All token operations must validate through SpotifySecurityValidatorService before execution

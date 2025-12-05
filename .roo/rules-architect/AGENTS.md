@@ -13,3 +13,9 @@
 - **Database Security Model**: RLS policies use `auth.uid() = user_id` for user data, `has_role(auth.uid(), 'admin')` for admin access
 - **Build System Architecture**: Supports development builds via `npm run build:dev` with different mode configuration
 - **Testing Architecture**: No test runner configured - uses acceptance test documentation pattern in `src/__tests__/`
+- **Phase 4 Singleton Architecture**: SpotifyHealthMonitorService, SpotifySecurityValidatorService use singleton pattern with getInstance() - never instantiate directly
+- **Phase 4 Token Security Architecture**: Tokens encrypted in Supabase Vault, database fields contain `***ENCRYPTED_IN_VAULT***` placeholders, vault secret IDs stored separately
+- **Phase 4 Error Handling Architecture**: Centralized Phase4ErrorHandlerService with service-specific error categorization and user-friendly toast notifications
+- **Phase 4 Edge Function Architecture**: Special operation flags (`refresh_only`, `health_check`, `validate_vault`, `force_token_rotation`) for targeted functionality
+- **Phase 4 Security Validation Architecture**: Automated token exposure detection using regex patterns, vault integrity validation through edge function calls
+- **Phase 4 Health Monitoring Architecture**: Singleton service creates monitoring intervals and listener management - must call stopMonitoring() to prevent memory leaks

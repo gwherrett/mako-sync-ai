@@ -13,3 +13,8 @@
 - **Pagination Requirements**: Supabase 1000-row limit with silent truncation - critical for large datasets
 - **Role Security Design**: Roles stored separately from profiles to prevent privilege escalation attacks
 - **Build Modes**: `npm run build:dev` creates development build with different configuration than standard build
+- **Phase 4 Documentation**: Comprehensive setup guide at `docs/supabase-phase4-configuration.md` and `README-PHASE4-SETUP.md` for deployment
+- **Phase 4 Services Architecture**: New singleton services (SpotifyHealthMonitorService, SpotifySecurityValidatorService) with getInstance() pattern
+- **Token Vault Documentation**: Actual tokens encrypted in vault, database fields contain `***ENCRYPTED_IN_VAULT***` placeholders for security
+- **Phase 4 Error Handling Documentation**: Centralized error handling with service-specific categorization and user-friendly messages
+- **Security Validation Documentation**: Automated token exposure detection and vault integrity validation through dedicated services

@@ -1,19 +1,63 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { SpotifyService } from '@/services/spotify.service';
 import type { SpotifyConnection } from '@/types/spotify';
 
+// Global state to prevent multiple simultaneous connection checks
+let globalConnectionState = {
+  isConnected: false,
+  isLoading: true,
+  connection: null as SpotifyConnection | null,
+  lastCheck: 0,
+  isChecking: false
+};
+
+const CONNECTION_CHECK_COOLDOWN = 2000; // 2 seconds cooldown between checks
+const listeners = new Set<() => void>();
+
+const notifyListeners = () => {
+  listeners.forEach(listener => listener());
+};
+
 export const useSpotifyAuth = () => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(globalConnectionState.isConnected);
+  const [isLoading, setIsLoading] = useState(globalConnectionState.isLoading);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [connection, setConnection] = useState<SpotifyConnection | null>(null);
+  const [connection, setConnection] = useState<SpotifyConnection | null>(globalConnectionState.connection);
   const { toast } = useToast();
+  const mountedRef = useRef(true);
+
+  // Subscribe to global state changes
+  useEffect(() => {
+    const updateLocalState = () => {
+      if (!mountedRef.current) return;
+      setIsConnected(globalConnectionState.isConnected);
+      setIsLoading(globalConnectionState.isLoading);
+      setConnection(globalConnectionState.connection);
+    };
+
+    listeners.add(updateLocalState);
+    return () => {
+      mountedRef.current = false;
+      listeners.delete(updateLocalState);
+    };
+  }, []);
 
   const checkConnection = async () => {
+    const now = Date.now();
+    
+    // Prevent multiple simultaneous checks
+    if (globalConnectionState.isChecking || (now - globalConnectionState.lastCheck) < CONNECTION_CHECK_COOLDOWN) {
+      console.log('🔍 SPOTIFY HOOK: Skipping check (cooldown or already checking)');
+      return;
+    }
+
     console.log('🔍 SPOTIFY HOOK: Starting connection check...');
-    setIsLoading(true);
+    globalConnectionState.isChecking = true;
+    globalConnectionState.isLoading = true;
+    globalConnectionState.lastCheck = now;
+    notifyListeners();
     
     try {
       console.log('🔍 SPOTIFY HOOK: Calling SpotifyService.checkConnection()...');
@@ -26,17 +70,19 @@ export const useSpotifyAuth = () => {
         expiresAt: result.connection?.expires_at
       });
       
-      setConnection(result.connection);
-      setIsConnected(result.isConnected);
+      globalConnectionState.connection = result.connection;
+      globalConnectionState.isConnected = result.isConnected;
       
       console.log('✅ SPOTIFY HOOK: State updated successfully');
     } catch (error) {
       console.error('❌ SPOTIFY HOOK ERROR: Exception in checkConnection:', error);
-      setIsConnected(false);
-      setConnection(null);
+      globalConnectionState.isConnected = false;
+      globalConnectionState.connection = null;
     } finally {
       console.log('🔍 SPOTIFY HOOK: Setting isLoading to false');
-      setIsLoading(false);
+      globalConnectionState.isLoading = false;
+      globalConnectionState.isChecking = false;
+      notifyListeners();
     }
   };
 
@@ -134,7 +180,11 @@ export const useSpotifyAuth = () => {
   };
 
   useEffect(() => {
-    checkConnection();
+    // Only check connection if we haven't checked recently
+    const now = Date.now();
+    if ((now - globalConnectionState.lastCheck) > CONNECTION_CHECK_COOLDOWN) {
+      checkConnection();
+    }
   }, []);
 
   return {
