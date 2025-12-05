@@ -37,10 +37,11 @@ export const SetupChecklist: React.FC = () => {
         
         setLikedSongsCount(liked || 0);
 
-        // Get unmapped songs count (no super_genre)
+        // Get unmapped songs count (no Spotify genre AND no super_genre)
         const { count: unmapped } = await supabase
           .from('spotify_liked')
           .select('*', { count: 'exact', head: true })
+          .is('genre', null)
           .is('super_genre', null);
         
         setUnmappedCount(unmapped || 0);
