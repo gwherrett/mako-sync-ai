@@ -6,15 +6,29 @@ export class SpotifyService {
     try {
       console.log('🔍 SPOTIFY SERVICE: Starting connection check...');
       
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('🔍 SPOTIFY SERVICE: Got user:', { hasUser: !!user, userId: user?.id });
+      // Use getSession instead of getUser to avoid hanging issues
+      console.log('🔍 SPOTIFY SERVICE: Getting session...');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (!user) {
-        console.log('❌ SPOTIFY SERVICE: No user found, returning disconnected');
+      console.log('🔍 SPOTIFY SERVICE: Session result:', {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        userId: session?.user?.id,
+        sessionError: sessionError?.message
+      });
+      
+      if (sessionError) {
+        console.error('❌ SPOTIFY SERVICE: Session error:', sessionError);
+        return { connection: null, isConnected: false };
+      }
+      
+      if (!session?.user) {
+        console.log('❌ SPOTIFY SERVICE: No user in session, returning disconnected');
         return { connection: null, isConnected: false };
       }
 
-      console.log('🔍 SPOTIFY SERVICE: Querying spotify_connections table...');
+      const user = session.user;
+      console.log('🔍 SPOTIFY SERVICE: Querying spotify_connections table for user:', user.id);
       
       // Use .maybeSingle() instead of .single() to avoid 406 error when no connection exists
       const { data, error } = await supabase
