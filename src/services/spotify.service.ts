@@ -6,85 +6,82 @@ export class SpotifyService {
     try {
       console.log('🔍 SPOTIFY SERVICE: Starting connection check...');
       
-      // Add timeout wrapper for Supabase calls
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Supabase auth timeout after 5 seconds')), 5000);
-      });
-      
+      // Try to get session with timeout, but don't let it block the UI
       console.log('🔍 SPOTIFY SERVICE: Getting session with timeout...');
       
-      const sessionResult = await Promise.race([
-        supabase.auth.getSession(),
-        timeoutPromise
-      ]);
-      
-      console.log('🔍 SPOTIFY SERVICE: Session call completed');
-      
-      const { data: { session }, error: sessionError } = sessionResult;
-      
-      console.log('🔍 SPOTIFY SERVICE: Session result:', {
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        userId: session?.user?.id,
-        sessionError: sessionError?.message
-      });
-      
-      if (sessionError) {
-        console.error('❌ SPOTIFY SERVICE: Session error:', sessionError);
+      try {
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Supabase auth timeout after 3 seconds')), 3000);
+          })
+        ]);
+        
+        console.log('🔍 SPOTIFY SERVICE: Session call completed successfully');
+        
+        const { data: { session }, error: sessionError } = sessionResult;
+        
+        console.log('🔍 SPOTIFY SERVICE: Session result:', {
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          userId: session?.user?.id,
+          sessionError: sessionError?.message
+        });
+        
+        if (sessionError || !session?.user) {
+          console.log('❌ SPOTIFY SERVICE: No valid session, returning disconnected');
+          return { connection: null, isConnected: false };
+        }
+
+        const user = session.user;
+        console.log('🔍 SPOTIFY SERVICE: Querying spotify_connections table for user:', user.id);
+        
+        // Try database query with shorter timeout
+        const dbResult = await Promise.race([
+          supabase
+            .from('spotify_connections')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle(),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Database query timeout after 3 seconds')), 3000);
+          })
+        ]);
+
+        const { data, error } = dbResult;
+
+        console.log('🔍 SPOTIFY SERVICE: Database query result:', {
+          hasData: !!data,
+          hasError: !!error,
+          errorMessage: error?.message,
+          errorCode: error?.code,
+          dataKeys: data ? Object.keys(data) : []
+        });
+
+        if (error) {
+          console.error('❌ SPOTIFY SERVICE ERROR: Database query failed:', error);
+          return { connection: null, isConnected: false };
+        }
+
+        if (data) {
+          console.log('✅ SPOTIFY SERVICE: Connection found, returning connected');
+          return { connection: data as SpotifyConnection, isConnected: true };
+        }
+
+        console.log('✅ SPOTIFY SERVICE: No connection found, returning disconnected');
+        return { connection: null, isConnected: false };
+        
+      } catch (timeoutError) {
+        console.error('❌ SPOTIFY SERVICE: Supabase timeout detected:', timeoutError);
+        
+        // For now, return disconnected state so UI can show Connect button
+        // This allows users to attempt Spotify connection even if Supabase auth is slow
+        console.log('🔄 SPOTIFY SERVICE: Returning disconnected due to timeout - user can still try to connect');
         return { connection: null, isConnected: false };
       }
       
-      if (!session?.user) {
-        console.log('❌ SPOTIFY SERVICE: No user in session, returning disconnected');
-        return { connection: null, isConnected: false };
-      }
-
-      const user = session.user;
-      console.log('🔍 SPOTIFY SERVICE: Querying spotify_connections table for user:', user.id);
-      
-      // Add timeout for database query too
-      const dbResult = await Promise.race([
-        supabase
-          .from('spotify_connections')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle(),
-        new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Database query timeout after 5 seconds')), 5000);
-        })
-      ]);
-
-      const { data, error } = dbResult;
-
-      console.log('🔍 SPOTIFY SERVICE: Database query result:', {
-        hasData: !!data,
-        hasError: !!error,
-        errorMessage: error?.message,
-        errorCode: error?.code,
-        dataKeys: data ? Object.keys(data) : []
-      });
-
-      if (error) {
-        console.error('❌ SPOTIFY SERVICE ERROR: Database query failed:', error);
-        return { connection: null, isConnected: false };
-      }
-
-      if (data) {
-        console.log('✅ SPOTIFY SERVICE: Connection found, returning connected');
-        return { connection: data as SpotifyConnection, isConnected: true };
-      }
-
-      console.log('✅ SPOTIFY SERVICE: No connection found, returning disconnected');
-      return { connection: null, isConnected: false };
     } catch (error) {
       console.error('❌ SPOTIFY SERVICE CRITICAL ERROR:', error);
-      
-      // If it's a timeout error, return a specific state
-      if (error instanceof Error && error.message.includes('timeout')) {
-        console.error('❌ SPOTIFY SERVICE: Supabase timeout detected - connection issue');
-        return { connection: null, isConnected: false };
-      }
-      
       return { connection: null, isConnected: false };
     }
   }
