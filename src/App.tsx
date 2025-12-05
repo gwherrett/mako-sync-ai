@@ -24,7 +24,7 @@ const queryClient = new QueryClient();
 function AppContent() {
   const authState = useAuthState({
     showLoadingStates: true,
-    sessionTimeoutWarning: 5, // 5 minutes warning
+    sessionTimeoutWarning: 10, // 10 minutes warning (more reasonable)
     autoRefresh: true,
   });
 

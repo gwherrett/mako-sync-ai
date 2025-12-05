@@ -134,18 +134,33 @@ const SpotifyCallback = () => {
         return;
       }
 
-      // Verify state matches what we stored
+      // Verify state matches what we stored (check both storage locations)
       const storedState = localStorage.getItem('spotify_auth_state');
-      console.log('🟡 CALLBACK FLOW: Verifying state - received:', state, 'stored:', storedState);
+      const backupState = sessionStorage.getItem('spotify_auth_state_backup');
+      console.log('🟡 CALLBACK FLOW: Verifying state - received:', state, 'localStorage:', storedState, 'sessionStorage:', backupState);
       
-      if (state !== storedState) {
-        console.log('❌ CALLBACK ERROR: State mismatch - potential CSRF attack');
+      // Check if state matches either storage location
+      const stateMatches = state === storedState || state === backupState;
+      
+      if (!stateMatches) {
+        console.log('❌ CALLBACK ERROR: State mismatch in both storage locations');
+        console.log('❌ CALLBACK ERROR: This could indicate:');
+        console.log('  1. CSRF attack attempt');
+        console.log('  2. Browser cleared storage');
+        console.log('  3. Multiple auth attempts');
+        console.log('  4. Cross-domain storage issues');
+        
         updateStepStatus(0, 'error');
         toast({
           title: "Authentication Error",
-          description: "Invalid state parameter",
+          description: "Invalid state parameter - please try connecting again",
           variant: "destructive",
         });
+        
+        // Clear any stored states
+        localStorage.removeItem('spotify_auth_state');
+        sessionStorage.removeItem('spotify_auth_state_backup');
+        
         setTimeout(() => navigate('/'), 3000);
         return;
       }
@@ -157,9 +172,10 @@ const SpotifyCallback = () => {
       updateStepStatus(1, 'active');
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Clean up stored state
+      // Clean up stored state from both locations
       localStorage.removeItem('spotify_auth_state');
-      console.log('🟡 CALLBACK FLOW: Cleaned up stored state');
+      sessionStorage.removeItem('spotify_auth_state_backup');
+      console.log('🟡 CALLBACK FLOW: Cleaned up stored state from both storage locations');
 
       try {
         console.log('🟡 CALLBACK FLOW: Getting current user session...');
@@ -205,8 +221,6 @@ const SpotifyCallback = () => {
         console.log('🟡 EDGE FUNCTION RESPONSE:', {
           hasError: !!response.error,
           hasData: !!response.data,
-          status: response.status,
-          statusText: response.statusText,
           errorMessage: response.error?.message,
           dataKeys: response.data ? Object.keys(response.data) : []
         });

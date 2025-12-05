@@ -150,11 +150,14 @@ export class SpotifyService {
 
       console.log('✅ SPOTIFY AUTH: User authenticated, user ID:', user.id);
 
-      const state = Math.random().toString(36).substring(7);
+      // Generate a more robust state parameter
+      const state = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
       
-      // Store state in localStorage for validation after redirect
+      // Store state in multiple places for validation after redirect
       localStorage.setItem('spotify_auth_state', state);
+      sessionStorage.setItem('spotify_auth_state_backup', state);
       console.log('🔵 SPOTIFY AUTH: Generated and stored auth state:', state);
+      console.log('🔵 SPOTIFY AUTH: State stored in localStorage and sessionStorage');
       
       const scopes = [
         'user-read-private',
@@ -238,8 +241,9 @@ export class SpotifyService {
         throw error;
       }
 
-      // Clear any stored state
+      // Clear any stored state from both locations
       localStorage.removeItem('spotify_auth_state');
+      sessionStorage.removeItem('spotify_auth_state_backup');
       
       return { success: true };
     } catch (error: any) {
