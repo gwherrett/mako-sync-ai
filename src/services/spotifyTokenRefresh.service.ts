@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { SpotifyConnection } from '@/types/spotify';
+import { Phase4ErrorHandlerService } from './phase4ErrorHandler.service';
 
 interface RetryConfig {
   maxRetries: number;
@@ -63,9 +64,25 @@ export class SpotifyTokenRefreshService {
         lastError = error;
         console.error(`Token refresh attempt ${attempt + 1} failed:`, error.message);
         
+        // Log error to Phase 4 error handler
+        Phase4ErrorHandlerService.handleError(
+          'token-refresh',
+          'refreshTokenWithRetry',
+          error,
+          { attempt: attempt + 1, maxRetries: retryConfig.maxRetries },
+          false // Don't show toast for individual retry attempts
+        );
+        
         // If it's a permanent error (like invalid refresh token), don't retry
         if (this.isPermanentError(error)) {
           console.log('Permanent error detected, stopping retries');
+          Phase4ErrorHandlerService.handleError(
+            'token-refresh',
+            'permanentError',
+            error,
+            { errorType: 'permanent' },
+            true // Show toast for permanent errors
+          );
           return {
             success: false,
             error: error.message
@@ -74,6 +91,13 @@ export class SpotifyTokenRefreshService {
         
         // If it's the last attempt, return the error
         if (attempt === retryConfig.maxRetries) {
+          Phase4ErrorHandlerService.handleError(
+            'token-refresh',
+            'maxRetriesExceeded',
+            lastError || new Error('Token refresh failed after all retries'),
+            { maxRetries: retryConfig.maxRetries },
+            true // Show toast for final failure
+          );
           return {
             success: false,
             error: lastError?.message || 'Token refresh failed after all retries'
@@ -134,20 +158,50 @@ export class SpotifyTokenRefreshService {
         };
       }
       
+      Phase4ErrorHandlerService.handleError(
+        'edge-function',
+        'tokenRefresh',
+        new Error(errorMessage),
+        { response: response.error },
+        false // Let the retry logic handle user notifications
+      );
       throw new Error(errorMessage);
     }
 
-    // Get updated connection info
-    const { connection: updatedConnection } = await this.checkConnection();
-    
-    if (!updatedConnection) {
-      throw new Error('Failed to retrieve updated connection after refresh');
+    // Check if the response indicates success
+    if (response.data && response.data.success) {
+      // Get updated connection info
+      const { connection: updatedConnection } = await this.checkConnection();
+      
+      if (!updatedConnection) {
+        const error = new Error('Failed to retrieve updated connection after refresh');
+        Phase4ErrorHandlerService.handleError(
+          'token-refresh',
+          'connectionRetrievalFailed',
+          error,
+          {},
+          false
+        );
+        throw error;
+      }
+
+      return {
+        success: true,
+        expiresAt: updatedConnection.expires_at
+      };
     }
 
-    return {
-      success: true,
-      expiresAt: updatedConnection.expires_at
-    };
+    // If we get here, the refresh failed
+    const errorMessage = response.data?.error || 'Token refresh failed';
+    const error = new Error(errorMessage);
+    Phase4ErrorHandlerService.handleError(
+      'edge-function',
+      'tokenRefreshUnexpectedResponse',
+      error,
+      { responseData: response.data },
+      false
+    );
+    throw error;
   }
 
   /**

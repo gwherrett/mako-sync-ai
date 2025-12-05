@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { SpotifyTokenRefreshService } from './spotifyTokenRefresh.service';
+import { Phase4ErrorHandlerService } from './phase4ErrorHandler.service';
 import type { SpotifyConnection } from '@/types/spotify';
 
 interface HealthMetrics {
@@ -163,6 +164,15 @@ export class SpotifyHealthMonitorService {
     } catch (error: any) {
       console.error('Health check failed:', error);
       
+      // Log error to Phase 4 error handler
+      Phase4ErrorHandlerService.handleError(
+        'health-monitor',
+        'performHealthCheck',
+        error,
+        { healthMetrics: this.healthMetrics },
+        true // Show toast for critical health check failures
+      );
+      
       this.updateHealthMetrics({
         connectionStatus: 'critical',
         tokenHealth: 'invalid',
@@ -223,12 +233,39 @@ export class SpotifyHealthMonitorService {
         };
       }
 
+      // Check if the response indicates success
+      if (response.data && response.data.success) {
+        return {
+          success: true,
+          responseTime
+        };
+      }
+
+      // If we get here, the health check failed
+      const errorMessage = response.data?.error || 'Health check failed';
+      Phase4ErrorHandlerService.handleError(
+        'edge-function',
+        'healthCheck',
+        new Error(errorMessage),
+        { responseData: response.data },
+        false // Don't show toast for individual API connectivity tests
+      );
+      
       return {
-        success: true,
+        success: false,
+        error: errorMessage,
         responseTime
       };
       
     } catch (error: any) {
+      Phase4ErrorHandlerService.handleError(
+        'health-monitor',
+        'testApiConnectivity',
+        error,
+        {},
+        false // Don't show toast for individual API connectivity tests
+      );
+      
       return {
         success: false,
         error: error.message
@@ -305,6 +342,14 @@ export class SpotifyHealthMonitorService {
       }
     } catch (error: any) {
       console.error('Health monitor: Token refresh error:', error);
+      
+      Phase4ErrorHandlerService.handleError(
+        'health-monitor',
+        'attemptTokenRefresh',
+        error,
+        { connection: connection.id },
+        false // Let the token refresh service handle user notifications
+      );
       
       this.createAlert({
         type: 'refresh_failed',

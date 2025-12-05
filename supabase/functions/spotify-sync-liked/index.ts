@@ -20,13 +20,21 @@ serve(async (req) => {
   }
 
   try {
-    // Parse request body for force_full_sync flag
+    // Parse request body for various flags
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
     const forceFullSync = body.force_full_sync === true
+    const refreshOnly = body.refresh_only === true
+    const healthCheck = body.health_check === true
+    const validateVault = body.validate_vault === true
+    const forceTokenRotation = body.force_token_rotation === true
     
     console.log('=== SPOTIFY SYNC STARTED ===')
     console.log('Request method:', req.method)
     console.log('Force full sync:', forceFullSync)
+    console.log('Refresh only:', refreshOnly)
+    console.log('Health check:', healthCheck)
+    console.log('Validate vault:', validateVault)
+    console.log('Force token rotation:', forceTokenRotation)
     
     // Create client for user auth and RLS-protected operations
     const supabaseClient = createClient(
@@ -70,6 +78,119 @@ serve(async (req) => {
       has_refresh_token: !!connection.refresh_token,
       created_at: connection.created_at
     })
+
+    // Handle Phase 4 special operations first
+    if (refreshOnly) {
+      console.log('🔄 REFRESH ONLY: Performing token refresh')
+      try {
+        const newAccessToken = await refreshSpotifyToken(connection as SpotifyConnection, supabaseAdmin, user.id)
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Token refreshed successfully',
+            access_token_refreshed: true
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      } catch (error: any) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    if (healthCheck) {
+      console.log('🏥 HEALTH CHECK: Testing API connectivity')
+      try {
+        const accessToken = await getValidAccessToken(connection as SpotifyConnection, supabaseAdmin, user.id)
+        
+        // Test Spotify API with a simple call
+        const response = await fetch('https://api.spotify.com/v1/me', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error(`Spotify API error: ${response.status}`)
+        }
+
+        const userData = await response.json()
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Health check passed',
+            spotify_user: userData.display_name || userData.id,
+            api_response_time: Date.now()
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      } catch (error: any) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: error.message,
+            health_check_failed: true
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    if (validateVault) {
+      console.log('🔐 VAULT VALIDATION: Checking vault storage integrity')
+      try {
+        // Validate that we can retrieve tokens from vault
+        const accessToken = await getValidAccessToken(connection as SpotifyConnection, supabaseAdmin, user.id)
+        
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Vault validation passed',
+            vault_access: true,
+            connection_id: body.connection_id || connection.id
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      } catch (error: any) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: error.message,
+            vault_validation_failed: true
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    if (forceTokenRotation) {
+      console.log('🔄 FORCE TOKEN ROTATION: Rotating tokens for security')
+      try {
+        // Force refresh to get new tokens
+        const newAccessToken = await refreshSpotifyToken(connection as SpotifyConnection, supabaseAdmin, user.id)
+        
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Tokens rotated successfully',
+            token_rotation_completed: true
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      } catch (error: any) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: error.message,
+            token_rotation_failed: true
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
 
     // Get valid access token (refresh if needed) - use admin client for vault access
     let accessToken

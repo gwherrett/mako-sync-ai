@@ -120,10 +120,12 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Clear user data
   const clearUserData = useCallback(() => {
+    console.log('🔴 DEBUG: clearUserData called');
     setUser(null);
     setSession(null);
     setProfile(null);
     setRole(null);
+    console.log('🔴 DEBUG: clearUserData completed - all state cleared');
   }, []);
 
   // Initialize auth state
@@ -163,21 +165,24 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
+        console.log('🔴 DEBUG: Auth state changed:', event, session?.user?.id);
         
         // Update state synchronously
         setSession(session);
         setUser(session?.user ?? null);
         
         if (event === 'SIGNED_IN' && session?.user) {
+          console.log('🔴 DEBUG: SIGNED_IN event - loading user data');
           // Defer data loading to prevent deadlocks
           setTimeout(() => {
             loadUserData(session.user.id);
           }, 0);
         } else if (event === 'SIGNED_OUT') {
+          console.log('🔴 DEBUG: SIGNED_OUT event - clearing user data');
           clearUserData();
         }
         
+        console.log('🔴 DEBUG: Setting loading to false');
         setLoading(false);
       }
     );
@@ -309,25 +314,33 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [setErrorLoading, clearError, handleError, toast]);
 
   const signOut = useCallback(async (): Promise<void> => {
+    console.log('🔴 DEBUG: signOut called');
     setErrorLoading(true);
     clearError();
 
     try {
+      console.log('🔴 DEBUG: Calling AuthService.signOut()');
       const { error } = await AuthService.signOut();
+      console.log('🔴 DEBUG: AuthService.signOut() result:', { error });
       
       if (error) {
+        console.log('🔴 DEBUG: SignOut error detected:', error);
         handleError(error, 'Failed to sign out. Please try again.');
         return;
       }
 
+      console.log('🔴 DEBUG: No error, calling clearUserData()');
       clearUserData();
+      console.log('🔴 DEBUG: Showing success toast');
       toast({
         title: 'Signed Out',
         description: 'You have been successfully signed out.',
       });
     } catch (error) {
+      console.log('🔴 DEBUG: SignOut caught exception:', error);
       handleError(error as AuthError);
     } finally {
+      console.log('🔴 DEBUG: SignOut finally block, setting loading false');
       setErrorLoading(false);
     }
   }, [setErrorLoading, clearError, handleError, toast, clearUserData]);

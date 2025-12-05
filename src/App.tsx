@@ -16,6 +16,7 @@ import SpotifyCallback from "./pages/SpotifyCallback";
 import NotFound from "./pages/NotFound";
 import { GenreMapping } from "./pages/GenreMapping";
 import { TrackLevelProcessor } from "./components/NoGenreTracks/TrackLevelProcessor";
+import Security from "./pages/Security";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,11 @@ function AppContent() {
           <Route path="/no-genre-tracks" element={
             <NewProtectedRoute>
               <TrackLevelProcessor />
+            </NewProtectedRoute>
+          } />
+          <Route path="/security" element={
+            <NewProtectedRoute>
+              <Security />
             </NewProtectedRoute>
           } />
           <Route path="*" element={<NotFound />} />

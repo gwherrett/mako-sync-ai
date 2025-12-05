@@ -80,10 +80,12 @@ export class AuthService {
    */
   static async signOut(): Promise<{ error: AuthError | null }> {
     try {
+      console.log('🔴 DEBUG: AuthService.signOut - calling supabase.auth.signOut()');
       const { error } = await supabase.auth.signOut({ scope: 'global' });
+      console.log('🔴 DEBUG: AuthService.signOut - supabase result:', { error });
       return { error };
     } catch (error) {
-      console.error('AuthService.signOut error:', error);
+      console.error('🔴 DEBUG: AuthService.signOut error:', error);
       return { error: error as AuthError };
     }
   }

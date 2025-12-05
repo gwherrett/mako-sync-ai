@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { Phase4ErrorHandlerService } from './phase4ErrorHandler.service';
 import type { SpotifyConnection } from '@/types/spotify';
 
 interface SecurityValidationResult {
@@ -133,6 +134,14 @@ export class SpotifySecurityValidatorService {
     } catch (error: any) {
       console.error('Security validation failed:', error);
       
+      Phase4ErrorHandlerService.handleError(
+        'security-validator',
+        'validateTokenSecurity',
+        error,
+        { connectionId: connection.id },
+        true // Show toast for security validation failures
+      );
+      
       return {
         isValid: false,
         issues: [{
@@ -175,8 +184,17 @@ export class SpotifySecurityValidatorService {
         accessPattern: 'normal'
       };
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Token storage validation failed:', error);
+      
+      Phase4ErrorHandlerService.handleError(
+        'security-validator',
+        'validateTokenStorage',
+        error,
+        { connectionId: connection.id },
+        false // Don't show toast for individual validation steps
+      );
+      
       return {
         isSecure: false,
         encryptionStatus: 'unknown',
@@ -359,9 +377,34 @@ export class SpotifySecurityValidatorService {
         };
       }
 
-      return { isValid: true };
+      // Check if the response indicates success
+      if (response.data && response.data.success) {
+        return { isValid: true };
+      }
+
+      const errorMessage = response.data?.error || 'Vault validation failed';
+      Phase4ErrorHandlerService.handleError(
+        'edge-function',
+        'vaultValidation',
+        new Error(errorMessage),
+        { responseData: response.data },
+        false // Don't show toast for individual validation steps
+      );
+      
+      return {
+        isValid: false,
+        reason: errorMessage
+      };
 
     } catch (error: any) {
+      Phase4ErrorHandlerService.handleError(
+        'security-validator',
+        'verifyVaultStorage',
+        error,
+        { connectionId: connection.id },
+        false // Don't show toast for individual validation steps
+      );
+      
       return {
         isValid: false,
         reason: `Vault integrity check failed: ${error.message}`
@@ -448,8 +491,16 @@ export class SpotifySecurityValidatorService {
         securityIncidents: validation.issues.filter(i => i.type === 'access_violation').length
       };
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to generate security metrics:', error);
+      
+      Phase4ErrorHandlerService.handleError(
+        'security-validator',
+        'generateSecurityMetrics',
+        error,
+        { connectionId: connection.id },
+        false // Don't show toast for metrics generation failures
+      );
       
       return {
         tokenSecurityScore: 0,
@@ -510,7 +561,7 @@ export class SpotifySecurityValidatorService {
           const { data: { session } } = await supabase.auth.getSession();
           
           if (session) {
-            await supabase.functions.invoke('spotify-sync-liked', {
+            const response = await supabase.functions.invoke('spotify-sync-liked', {
               headers: {
                 Authorization: `Bearer ${session.access_token}`,
               },
@@ -518,8 +569,16 @@ export class SpotifySecurityValidatorService {
                 force_token_rotation: true
               }
             });
-            
-            actionsPerformed.push('Rotated exposed tokens');
+
+            if (response.error) {
+              errors.push(`Token rotation failed: ${response.error.message}`);
+            } else if (response.data && response.data.success) {
+              actionsPerformed.push('Rotated exposed tokens');
+            } else {
+              errors.push(`Token rotation failed: ${response.data?.error || 'Unknown error'}`);
+            }
+          } else {
+            errors.push('No active session for token rotation');
           }
         } catch (error: any) {
           errors.push(`Token rotation failed: ${error.message}`);
