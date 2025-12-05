@@ -1,7 +1,7 @@
 # **Product Requirements Document: mako-sync**
 
-**Document Version:** 1.1  
-**Last Updated:** December 5, 2025
+**Document Version:** 1.0  
+**Last Updated:** December 4, 2025
 **Product Owner:** [To be assigned]  
 **Engineering Lead:** [To be assigned]
 
@@ -492,112 +492,6 @@ interface GenreOverride {
 9. **MissingTracksAnalyzer.tsx** - Gap analysis view
 10. **NoGenreTracksProcessor.tsx** - AI-assisted classification
 11. **GenreMappingTable.tsx** - Genre mapping editor
-### **5.5 Architectural Requirements**
-
-**Backend Architecture (Supabase):**
-
-The application uses Supabase as the exclusive backend platform:
-
-* **Database:** PostgreSQL with Row Level Security (RLS) on all user-data tables
-* **Authentication:** Supabase Auth with email/password only (no OAuth providers for app auth)
-* **Edge Functions:** Deno-based serverless functions for:
-  - Spotify OAuth flow (token exchange, refresh)
-  - Sync operations (API calls requiring secrets)
-  - AI genre suggestions (Lovable AI integration)
-* **Vault:** Secure storage for Spotify access/refresh tokens
-* **No direct SQL execution:** Edge functions MUST use Supabase client methods, never raw SQL
-
-**Security Architecture:**
-
-1. **Role Management (Critical):**
-   - Roles MUST be stored in separate `user_roles` table (never on profiles table)
-   - Security definer functions (`has_role`, `get_user_role`) for RLS policy checks
-   - Prevents privilege escalation attacks from profile self-modification
-   - Pattern:
-     ```sql
-     CREATE FUNCTION has_role(_user_id uuid, _role app_role)
-     RETURNS boolean SECURITY DEFINER
-     ```
-
-2. **Row Level Security:**
-   - ALL user-data tables have RLS enabled
-   - Policies use `auth.uid() = user_id` pattern for user-owned data
-   - Admin policies use `has_role(auth.uid(), 'admin')` function
-   - Genre cache tables (artist_genres, album_genres) allow authenticated read/write
-
-3. **Token Security:**
-   - Spotify tokens stored in Supabase Vault (not plain text in tables)
-   - `spotify_connections` table stores vault secret IDs, not tokens
-   - Token refresh handled server-side in edge functions
-
-4. **Client-Side Security:**
-   - NEVER check admin status via localStorage/sessionStorage
-   - All authorization checks use server-side RLS
-   - No hardcoded credentials in frontend code
-
-**Data Flow Patterns:**
-
-1. **Spotify Sync Flow:**
-   ```
-   Client → Edge Function (spotify-sync-liked) → Spotify API
-                    ↓
-              Vault (token retrieval)
-                    ↓
-              Database (upsert tracks with RLS bypass via service role)
-   ```
-
-2. **Genre Classification Flow:**
-   ```
-   Track without super_genre
-          ↓
-   Check artist_genres cache → Spotify API (if cache miss)
-          ↓
-   Apply spotify_genre_map_base mapping
-          ↓
-   Check user's spotify_genre_map_overrides
-          ↓
-   Assign final super_genre to track
-   ```
-
-3. **Manual Genre Persistence:**
-   - User-assigned `super_genre` values cached before sync operations
-   - Cached in `sync_progress.cached_genres` JSONB column for resume support
-   - Reapplied during upsert using service role client
-
-**Frontend Architecture:**
-
-* **State Management:** TanStack React Query for server state, React Context for auth state
-* **Component Pattern:** Small, focused components with single responsibility
-* **Service Layer:** Dedicated service files (`*.service.ts`) for Supabase operations
-* **Hooks Pattern:** Custom hooks for data fetching and business logic
-* **No Direct API Calls:** All Supabase operations via `@/integrations/supabase/client`
-
-**Pagination Requirements (Critical):**
-
-* Supabase queries default to 1000 row maximum (silent truncation)
-* ALL queries potentially returning >1000 rows MUST implement pagination:
-  ```typescript
-  // Pattern: Paginated fetch loop
-  let offset = 0;
-  const PAGE_SIZE = 1000;
-  while (true) {
-    const { data } = await supabase
-      .from('table')
-      .select('*')
-      .range(offset, offset + PAGE_SIZE - 1);
-    if (!data?.length) break;
-    results.push(...data);
-    offset += PAGE_SIZE;
-  }
-  ```
-
-**Edge Function Constraints:**
-
-* Must handle CORS headers for browser requests
-* Must include OPTIONS preflight handler
-* Cannot import from `src/` directory (self-contained)
-* Use `Deno.env.get()` for secrets, never hardcoded values
-* Logging required for debugging (logs available in Supabase dashboard)
 
 ---
 
