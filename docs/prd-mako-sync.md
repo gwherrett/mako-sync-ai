@@ -419,6 +419,23 @@ interface GenreOverride {
 }
 ```
 
+### **5.1.1 Data Model Semantics**
+
+**Genre Field Meanings:**
+- `genre` (spotify_liked.genre): The genre tag provided by Spotify. NULL means Spotify did not provide any genre metadata for that track.
+- `super_genre` (spotify_liked.super_genre): The user's own genre classification, either derived from the genre mapping system or manually assigned.
+
+**"Tracks Without Genre" Count Definition:**
+The count of tracks needing genre processing is tracks where BOTH conditions are true:
+- `genre IS NULL` (Spotify provided no genre)
+- `super_genre IS NULL` (user has not assigned a super genre)
+
+This count excludes:
+- Tracks with Spotify genre (they get super_genre via mapping)
+- Tracks where user manually assigned super_genre (regardless of Spotify genre)
+
+This ensures the "unmapped/unprocessed" count accurately reflects tracks that truly need AI processing or manual assignment.
+
 ### **5.2 API Specifications (Edge Functions)**
 
 **spotify-auth**
