@@ -9,21 +9,46 @@ export class SpotifyService {
       // Get session without artificial timeout - let Supabase handle its own timeouts
       console.log('🔍 SPOTIFY SERVICE: Getting session...');
       
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      let session, sessionError, user;
       
-      console.log('🔍 SPOTIFY SERVICE: Session result:', {
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        userId: session?.user?.id,
-        sessionError: sessionError?.message
-      });
-      
-      if (sessionError || !session?.user) {
-        console.log('❌ SPOTIFY SERVICE: No valid session, returning disconnected');
+      try {
+        const sessionStart = Date.now();
+        const result = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Session timeout after 5 seconds')), 5000)
+          )
+        ]);
+        const sessionTime = Date.now() - sessionStart;
+        
+        const { data, error } = result as any;
+        session = data?.session;
+        sessionError = error;
+        
+        console.log('🔍 SPOTIFY SERVICE: Session result:', {
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          userId: session?.user?.id,
+          sessionError: sessionError?.message,
+          sessionTime: `${sessionTime}ms`
+        });
+        
+        if (sessionError) {
+          console.error('❌ SPOTIFY SERVICE: Session error details:', sessionError);
+          return { connection: null, isConnected: false };
+        }
+        
+        if (!session?.user) {
+          console.log('❌ SPOTIFY SERVICE: No valid session, returning disconnected');
+          return { connection: null, isConnected: false };
+        }
+        
+        user = session.user;
+        
+      } catch (sessionException) {
+        console.error('❌ SPOTIFY SERVICE: Session exception (likely timeout):', sessionException);
         return { connection: null, isConnected: false };
       }
-
-      const user = session.user;
       console.log('🔍 SPOTIFY SERVICE: Querying spotify_connections table for user:', user.id);
       
       // Query database without artificial timeout
