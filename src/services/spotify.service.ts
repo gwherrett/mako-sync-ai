@@ -4,12 +4,18 @@ import type { SpotifyConnection } from '@/types/spotify';
 export class SpotifyService {
   static async checkConnection(): Promise<{ connection: SpotifyConnection | null; isConnected: boolean }> {
     try {
+      console.log('🔍 SPOTIFY SERVICE: Starting connection check...');
+      
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('🔍 SPOTIFY SERVICE: Got user:', { hasUser: !!user, userId: user?.id });
       
       if (!user) {
+        console.log('❌ SPOTIFY SERVICE: No user found, returning disconnected');
         return { connection: null, isConnected: false };
       }
 
+      console.log('🔍 SPOTIFY SERVICE: Querying spotify_connections table...');
+      
       // Use .maybeSingle() instead of .single() to avoid 406 error when no connection exists
       const { data, error } = await supabase
         .from('spotify_connections')
@@ -17,18 +23,28 @@ export class SpotifyService {
         .eq('user_id', user.id)
         .maybeSingle();
 
+      console.log('🔍 SPOTIFY SERVICE: Database query result:', {
+        hasData: !!data,
+        hasError: !!error,
+        errorMessage: error?.message,
+        errorCode: error?.code,
+        dataKeys: data ? Object.keys(data) : []
+      });
+
       if (error) {
-        console.error('Error checking Spotify connection:', error);
+        console.error('❌ SPOTIFY SERVICE ERROR: Database query failed:', error);
         return { connection: null, isConnected: false };
       }
 
       if (data) {
+        console.log('✅ SPOTIFY SERVICE: Connection found, returning connected');
         return { connection: data as SpotifyConnection, isConnected: true };
       }
 
+      console.log('✅ SPOTIFY SERVICE: No connection found, returning disconnected');
       return { connection: null, isConnected: false };
     } catch (error) {
-      console.error('Error checking connection:', error);
+      console.error('❌ SPOTIFY SERVICE CRITICAL ERROR:', error);
       return { connection: null, isConnected: false };
     }
   }

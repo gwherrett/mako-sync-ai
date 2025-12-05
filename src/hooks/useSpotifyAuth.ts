@@ -12,22 +12,30 @@ export const useSpotifyAuth = () => {
   const { toast } = useToast();
 
   const checkConnection = async () => {
-    console.log('🔍 SPOTIFY HOOK: Checking connection status...');
+    console.log('🔍 SPOTIFY HOOK: Starting connection check...');
     setIsLoading(true);
+    
     try {
-      const { connection, isConnected } = await SpotifyService.checkConnection();
-      console.log('🔍 SPOTIFY HOOK: Connection check result:', {
-        isConnected,
-        hasConnection: !!connection,
-        connectionId: connection?.id,
-        expiresAt: connection?.expires_at
+      console.log('🔍 SPOTIFY HOOK: Calling SpotifyService.checkConnection()...');
+      const result = await SpotifyService.checkConnection();
+      
+      console.log('🔍 SPOTIFY HOOK: Service returned:', {
+        isConnected: result.isConnected,
+        hasConnection: !!result.connection,
+        connectionId: result.connection?.id,
+        expiresAt: result.connection?.expires_at
       });
-      setConnection(connection);
-      setIsConnected(isConnected);
+      
+      setConnection(result.connection);
+      setIsConnected(result.isConnected);
+      
+      console.log('✅ SPOTIFY HOOK: State updated successfully');
     } catch (error) {
-      console.error('❌ SPOTIFY HOOK ERROR: Error checking connection:', error);
+      console.error('❌ SPOTIFY HOOK ERROR: Exception in checkConnection:', error);
       setIsConnected(false);
+      setConnection(null);
     } finally {
+      console.log('🔍 SPOTIFY HOOK: Setting isLoading to false');
       setIsLoading(false);
     }
   };

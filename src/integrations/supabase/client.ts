@@ -5,6 +5,12 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://bzzstdpfmyqttnzhgaoa.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6enN0ZHBmbXlxdHRuemhnYW9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NzI5NzMsImV4cCI6MjA2NDA0ODk3M30.NXT4XRuPilV2AV6KYY56-vk3AqZ8I2DQKkVjfbMcWoI";
 
+console.log('🔍 SUPABASE CLIENT: Initializing with:', {
+  url: SUPABASE_URL,
+  hasKey: !!SUPABASE_PUBLISHABLE_KEY,
+  keyPreview: SUPABASE_PUBLISHABLE_KEY?.substring(0, 20) + '...'
+});
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
