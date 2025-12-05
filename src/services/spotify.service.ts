@@ -51,33 +51,53 @@ export class SpotifyService {
       }
       console.log('🔍 SPOTIFY SERVICE: Querying spotify_connections table for user:', user.id);
       
-      // Query database without artificial timeout
-      const { data, error } = await supabase
-        .from('spotify_connections')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      try {
+        const queryStart = Date.now();
+        
+        // Add timeout to database query as well
+        const queryResult = await Promise.race([
+          supabase
+            .from('spotify_connections')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Database query timeout after 10 seconds')), 10000)
+          )
+        ]);
+        
+        const queryTime = Date.now() - queryStart;
+        const { data, error } = queryResult as any;
 
-      console.log('🔍 SPOTIFY SERVICE: Database query result:', {
-        hasData: !!data,
-        hasError: !!error,
-        errorMessage: error?.message,
-        errorCode: error?.code,
-        dataKeys: data ? Object.keys(data) : []
-      });
+        console.log('🔍 SPOTIFY SERVICE: Database query result:', {
+          hasData: !!data,
+          hasError: !!error,
+          errorMessage: error?.message,
+          errorCode: error?.code,
+          errorDetails: error?.details,
+          errorHint: error?.hint,
+          dataKeys: data ? Object.keys(data) : [],
+          queryTime: `${queryTime}ms`,
+          userId: user.id
+        });
+        
+        if (error) {
+          console.error('❌ SPOTIFY SERVICE ERROR: Database query failed:', error);
+          return { connection: null, isConnected: false };
+        }
 
-      if (error) {
-        console.error('❌ SPOTIFY SERVICE ERROR: Database query failed:', error);
+        if (data) {
+          console.log('✅ SPOTIFY SERVICE: Connection found, returning connected');
+          return { connection: data as SpotifyConnection, isConnected: true };
+        }
+
+        console.log('✅ SPOTIFY SERVICE: No connection found, returning disconnected');
+        return { connection: null, isConnected: false };
+        
+      } catch (queryException) {
+        console.error('❌ SPOTIFY SERVICE: Database query exception:', queryException);
         return { connection: null, isConnected: false };
       }
-
-      if (data) {
-        console.log('✅ SPOTIFY SERVICE: Connection found, returning connected');
-        return { connection: data as SpotifyConnection, isConnected: true };
-      }
-
-      console.log('✅ SPOTIFY SERVICE: No connection found, returning disconnected');
-      return { connection: null, isConnected: false };
       
     } catch (error) {
       console.error('❌ SPOTIFY SERVICE CRITICAL ERROR:', error);
