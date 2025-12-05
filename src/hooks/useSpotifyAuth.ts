@@ -139,8 +139,12 @@ export const useSpotifyAuth = () => {
     const { success, error } = await SpotifyService.disconnectSpotify();
     
     if (success) {
-      setIsConnected(false);
-      setConnection(null);
+      // Update global state
+      globalConnectionState.isConnected = false;
+      globalConnectionState.connection = null;
+      globalConnectionState.lastCheck = 0; // Reset to allow fresh check
+      notifyListeners();
+      
       toast({
         title: "Spotify Disconnected",
         description: "Successfully disconnected from Spotify. Please reconnect to get fresh tokens.",
@@ -180,9 +184,9 @@ export const useSpotifyAuth = () => {
   };
 
   useEffect(() => {
-    // Only check connection if we haven't checked recently
+    // Always allow the first check, then use cooldown for subsequent checks
     const now = Date.now();
-    if ((now - globalConnectionState.lastCheck) > CONNECTION_CHECK_COOLDOWN) {
+    if (globalConnectionState.lastCheck === 0 || (now - globalConnectionState.lastCheck) > CONNECTION_CHECK_COOLDOWN) {
       checkConnection();
     }
   }, []);
