@@ -61,38 +61,61 @@ export class SpotifyService {
 
   static async connectSpotify(): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log('🔵 Step 1: Starting Spotify connection process...');
+      console.log('🔵 SPOTIFY AUTH DEBUG: Starting connection process...');
+      console.log('🔍 ENVIRONMENT DEBUG:', {
+        origin: window.location.origin,
+        hostname: window.location.hostname,
+        protocol: window.location.protocol,
+        userAgent: navigator.userAgent.substring(0, 50)
+      });
       
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        console.log('❌ Step 1 Failed: User not authenticated');
+        console.log('❌ SPOTIFY AUTH ERROR: User not authenticated');
         return { success: false, error: 'Please log in to connect Spotify' };
       }
 
-      console.log('✅ Step 1 Complete: User authenticated, user ID:', user.id);
+      console.log('✅ SPOTIFY AUTH: User authenticated, user ID:', user.id);
 
       const state = Math.random().toString(36).substring(7);
       
       // Store state in localStorage for validation after redirect
       localStorage.setItem('spotify_auth_state', state);
-      console.log('🔵 Step 2: Generated and stored auth state:', state);
+      console.log('🔵 SPOTIFY AUTH: Generated and stored auth state:', state);
       
       const scopes = [
         'user-read-private',
-        'user-read-email', 
+        'user-read-email',
         'user-library-read',
         'playlist-read-private',
         'playlist-read-collaborative',
         'user-top-read'  // Required for audio features
       ].join(' ');
 
-      // Use current origin for redirect URI
-      const redirectUri = `${window.location.origin}/spotify-callback`;
-      console.log('🔵 Step 3: Using redirect URI:', redirectUri);
+      // Use environment variable for redirect URI or fallback to current origin
+      const redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || `${window.location.origin}/spotify-callback`;
+      console.log('🔵 SPOTIFY AUTH: Using redirect URI:', redirectUri);
+      console.log('🔍 REDIRECT URI DEBUG:', {
+        redirectUri,
+        hasEnvRedirectUri: !!import.meta.env.VITE_SPOTIFY_REDIRECT_URI,
+        envRedirectUri: import.meta.env.VITE_SPOTIFY_REDIRECT_URI,
+        currentOrigin: window.location.origin,
+        isProduction: window.location.hostname !== 'localhost'
+      });
+      
+      // Get client ID from environment or use fallback
+      const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '3bac088a26d64ddfb49d57fb5d451d71';
+      console.log('🔍 SPOTIFY CLIENT ID DEBUG:', {
+        clientId,
+        isProduction: window.location.hostname !== 'localhost',
+        hostname: window.location.hostname,
+        hasEnvClientId: !!import.meta.env.VITE_SPOTIFY_CLIENT_ID,
+        envClientId: import.meta.env.VITE_SPOTIFY_CLIENT_ID?.substring(0, 8) + '...'
+      });
       
       const authUrl = new URL('https://accounts.spotify.com/authorize');
-      authUrl.searchParams.append('client_id', '3bac088a26d64ddfb49d57fb5d451d71');
+      authUrl.searchParams.append('client_id', clientId);
       authUrl.searchParams.append('response_type', 'code');
       authUrl.searchParams.append('redirect_uri', redirectUri);
       authUrl.searchParams.append('scope', scopes);
@@ -100,18 +123,29 @@ export class SpotifyService {
       // Add cache-busting parameter to ensure fresh request
       authUrl.searchParams.append('t', Date.now().toString());
 
-      console.log('🔵 Step 4: Redirecting to Spotify auth (no popup) - URL:', authUrl.toString());
-      console.log('🔍 Debug: URL length:', authUrl.toString().length);
-      console.log('🔍 Debug: Redirect URI used:', redirectUri);
+      console.log('🔵 SPOTIFY AUTH: Constructed auth URL');
+      console.log('🔍 AUTH URL DEBUG:', {
+        url: authUrl.toString(),
+        urlLength: authUrl.toString().length,
+        redirectUri,
+        clientId,
+        state,
+        scopes: scopes.split(' ').length + ' scopes'
+      });
 
-      // Redirect to Spotify auth instead of using popup
-      window.location.href = authUrl.toString();
+      // Add a delay to ensure logs are captured before redirect
+      console.log('🔵 SPOTIFY AUTH: Redirecting to Spotify in 100ms...');
+      setTimeout(() => {
+        console.log('🔵 SPOTIFY AUTH: REDIRECTING NOW to:', authUrl.toString().substring(0, 100) + '...');
+        window.location.href = authUrl.toString();
+      }, 100);
       
       // This return won't execute because we're redirecting
       return { success: true };
     } catch (error: any) {
-      console.error('❌ Connect Spotify error:', error);
-      throw new Error(error.message);
+      console.error('❌ SPOTIFY AUTH CRITICAL ERROR:', error);
+      console.error('❌ ERROR STACK:', error.stack);
+      throw new Error(`Spotify auth failed: ${error.message}`);
     }
   }
 

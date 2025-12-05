@@ -76,14 +76,22 @@ const SpotifyCallback = () => {
   };
 
   // Add immediate debug output
-  console.log('🟡 CALLBACK COMPONENT MOUNTED - this should appear immediately');
-  console.log('🟡 Window location:', window.location.href);
-  console.log('🟡 Is popup?', !!window.opener);
+  console.log('🟡 CALLBACK DEBUG: Component mounted - this should appear immediately');
+  console.log('🟡 CALLBACK DEBUG: Window location:', window.location.href);
+  console.log('🟡 CALLBACK DEBUG: Is popup?', !!window.opener);
+  console.log('🟡 CALLBACK DEBUG: Environment info:', {
+    origin: window.location.origin,
+    hostname: window.location.hostname,
+    pathname: window.location.pathname,
+    search: window.location.search,
+    userAgent: navigator.userAgent.substring(0, 50)
+  });
 
   useEffect(() => {
     const processCallback = async () => {
-      console.log('🟡 Step 8: SpotifyCallback component loaded - URL:', window.location.href);
-      console.log('🟡 Step 8a: Current window is popup?', !!window.opener);
+      console.log('🟡 CALLBACK FLOW: Starting callback processing');
+      console.log('🟡 CALLBACK FLOW: URL:', window.location.href);
+      console.log('🟡 CALLBACK FLOW: Is popup?', !!window.opener);
       
       // Step 1: Validate authorization
       updateStepStatus(0, 'active');
@@ -94,10 +102,16 @@ const SpotifyCallback = () => {
       const state = urlParams.get('state');
       const error = urlParams.get('error');
 
-      console.log('🟡 Step 8b: URL parameters extracted:', { code: code?.substring(0, 10) + '...', state, error });
+      console.log('🟡 CALLBACK FLOW: URL parameters extracted:', {
+        hasCode: !!code,
+        codePreview: code?.substring(0, 10) + '...',
+        state,
+        error,
+        allParams: Object.fromEntries(urlParams.entries())
+      });
 
       if (error) {
-        console.log('❌ Step 8 Failed: Spotify returned error:', error);
+        console.log('❌ CALLBACK ERROR: Spotify returned error:', error);
         updateStepStatus(0, 'error');
         toast({
           title: "Spotify Connection Failed",
@@ -109,7 +123,7 @@ const SpotifyCallback = () => {
       }
 
       if (!code || !state) {
-        console.log('❌ Step 8 Failed: Missing required parameters - code:', !!code, 'state:', !!state);
+        console.log('❌ CALLBACK ERROR: Missing required parameters - code:', !!code, 'state:', !!state);
         updateStepStatus(0, 'error');
         toast({
           title: "Authentication Error",
@@ -122,10 +136,10 @@ const SpotifyCallback = () => {
 
       // Verify state matches what we stored
       const storedState = localStorage.getItem('spotify_auth_state');
-      console.log('🟡 Step 9: Verifying state - received:', state, 'stored:', storedState);
+      console.log('🟡 CALLBACK FLOW: Verifying state - received:', state, 'stored:', storedState);
       
       if (state !== storedState) {
-        console.log('❌ Step 9 Failed: State mismatch - potential CSRF attack');
+        console.log('❌ CALLBACK ERROR: State mismatch - potential CSRF attack');
         updateStepStatus(0, 'error');
         toast({
           title: "Authentication Error",
@@ -136,7 +150,7 @@ const SpotifyCallback = () => {
         return;
       }
 
-      console.log('✅ Step 9 Complete: State verification successful');
+      console.log('✅ CALLBACK FLOW: State verification successful');
       updateStepStatus(0, 'completed');
 
       // Step 2: Verify session
@@ -145,14 +159,14 @@ const SpotifyCallback = () => {
 
       // Clean up stored state
       localStorage.removeItem('spotify_auth_state');
-      console.log('🟡 Step 10: Cleaned up stored state');
+      console.log('🟡 CALLBACK FLOW: Cleaned up stored state');
 
       try {
-        console.log('🟡 Step 11: Getting current user session...');
+        console.log('🟡 CALLBACK FLOW: Getting current user session...');
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
-          console.log('❌ Step 11 Failed: No active session found');
+          console.log('❌ CALLBACK ERROR: No active session found');
           updateStepStatus(1, 'error');
           toast({
             title: "Authentication Required",
@@ -163,7 +177,7 @@ const SpotifyCallback = () => {
           return;
         }
 
-        console.log('✅ Step 11 Complete: Session found for user:', session.user.id);
+        console.log('✅ CALLBACK FLOW: Session found for user:', session.user.id);
         updateStepStatus(1, 'completed');
 
         // Step 3: Exchange tokens
@@ -172,7 +186,14 @@ const SpotifyCallback = () => {
 
         // Send the current origin's redirect URI to the edge function
         const redirectUri = `${window.location.origin}/spotify-callback`;
-        console.log('🟡 Step 12: Calling spotify-auth edge function with redirect URI:', redirectUri);
+        console.log('🟡 CALLBACK FLOW: Calling spotify-auth edge function');
+        console.log('🟡 EDGE FUNCTION DEBUG:', {
+          redirectUri,
+          code: code?.substring(0, 10) + '...',
+          state,
+          sessionUserId: session.user.id,
+          functionUrl: 'spotify-auth'
+        });
 
         const response = await supabase.functions.invoke('spotify-auth', {
           body: { code, state, redirect_uri: redirectUri },
@@ -181,13 +202,24 @@ const SpotifyCallback = () => {
           },
         });
 
-        console.log('🟡 Step 12a: Edge function response:', response);
+        console.log('🟡 EDGE FUNCTION RESPONSE:', {
+          hasError: !!response.error,
+          hasData: !!response.data,
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage: response.error?.message,
+          dataKeys: response.data ? Object.keys(response.data) : []
+        });
+        
+        if (response.error) {
+          console.error('❌ EDGE FUNCTION ERROR DETAILS:', response.error);
+        }
 
         if (response.error) {
           throw new Error(response.error.message);
         }
 
-        console.log('✅ Step 12 Complete: Edge function call successful');
+        console.log('✅ CALLBACK FLOW: Edge function call successful');
         updateStepStatus(2, 'completed');
 
         // Step 4: Complete connection
@@ -202,23 +234,28 @@ const SpotifyCallback = () => {
         });
 
         // Navigate back to main page
-        console.log('🟡 Step 13: Navigating back to main page');
+        console.log('🟡 CALLBACK FLOW: Navigating back to main page');
         setTimeout(() => navigate('/'), 2000);
       } catch (error: any) {
-        console.error('❌ Step 12 Failed: Spotify auth error:', error);
+        console.error('❌ CALLBACK CRITICAL ERROR:', error);
+        console.error('❌ ERROR DETAILS:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
         updateStepStatus(currentStep, 'error');
         
         // Send error message to parent window and close popup
         if (window.opener) {
-          console.log('🟡 Step 13 Error: Sending error message to parent window');
+          console.log('🟡 CALLBACK ERROR HANDLING: Sending error message to parent window');
           window.opener.postMessage({
             type: 'spotify-auth-error',
             error: error.message
           }, window.location.origin);
-          console.log('🟡 Step 13 Error Complete: Error message sent, closing popup');
+          console.log('🟡 CALLBACK ERROR HANDLING: Error message sent, closing popup');
           window.close();
         } else {
-          console.log('🟡 Step 13 Error Alternative: Not in popup, showing error toast');
+          console.log('🟡 CALLBACK ERROR HANDLING: Not in popup, showing error toast');
           // Fallback: show toast and navigate if not in popup
           toast({
             title: "Connection Failed",

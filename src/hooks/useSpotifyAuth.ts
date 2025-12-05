@@ -12,13 +12,20 @@ export const useSpotifyAuth = () => {
   const { toast } = useToast();
 
   const checkConnection = async () => {
+    console.log('🔍 SPOTIFY HOOK: Checking connection status...');
     setIsLoading(true);
     try {
       const { connection, isConnected } = await SpotifyService.checkConnection();
+      console.log('🔍 SPOTIFY HOOK: Connection check result:', {
+        isConnected,
+        hasConnection: !!connection,
+        connectionId: connection?.id,
+        expiresAt: connection?.expires_at
+      });
       setConnection(connection);
       setIsConnected(isConnected);
     } catch (error) {
-      console.error('Error checking connection:', error);
+      console.error('❌ SPOTIFY HOOK ERROR: Error checking connection:', error);
       setIsConnected(false);
     } finally {
       setIsLoading(false);
@@ -45,8 +52,12 @@ export const useSpotifyAuth = () => {
 
   const connectSpotify = async () => {
     try {
-      // SpotifyService.connectSpotify() handles the popup flow and resolves when successful
+      console.log('🔵 SPOTIFY HOOK: Starting connection process...');
+      
+      // SpotifyService.connectSpotify() handles the redirect flow
       await SpotifyService.connectSpotify();
+      
+      console.log('🔵 SPOTIFY HOOK: Connection service call completed');
       
       // Refresh connection state after successful auth
       await checkConnection();
@@ -56,8 +67,12 @@ export const useSpotifyAuth = () => {
         title: "Spotify Connected",
         description: "Successfully connected to Spotify!",
       });
+      
+      console.log('✅ SPOTIFY HOOK: Connection process completed successfully');
     } catch (error: any) {
-      // Show error toast for popup failures
+      console.error('❌ SPOTIFY HOOK ERROR: Connection failed:', error);
+      
+      // Show error toast for failures
       toast({
         title: "Connection Failed",
         description: error.message,
