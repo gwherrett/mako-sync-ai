@@ -1,41 +1,94 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/NewAuthContext';
 import { useAuthRedirect } from '@/hooks/useAuthRedirect';
+import { useRealTimeValidation } from '@/hooks/useRealTimeValidation';
+import { useAuthState } from '@/hooks/useAuthState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Music2, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
+import { PasswordStrength } from '@/components/ui/password-strength';
+import { AuthLoadingInline } from '@/components/auth/AuthLoadingStates';
+import { Music2, Loader2, Eye, EyeOff, Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { z } from 'zod';
 
-// Validation schemas
-const emailSchema = z.string().trim().email('Invalid email address').max(255, 'Email too long');
+// Enhanced validation schemas
+const emailSchema = z.string()
+  .trim()
+  .min(1, 'Email is required')
+  .email('Please enter a valid email address')
+  .max(255, 'Email address is too long')
+  .refine(
+    (email) => {
+      // Basic domain validation
+      const domain = email.split('@')[1];
+      return domain && domain.includes('.') && domain.length > 3;
+    },
+    'Please enter a valid email domain'
+  );
+
 const passwordSchema = z.string()
   .min(8, 'Password must be at least 8 characters')
   .regex(/^(?=.*[a-z])/, 'Password must contain at least one lowercase letter')
   .regex(/^(?=.*[A-Z])/, 'Password must contain at least one uppercase letter')
-  .regex(/^(?=.*\d)/, 'Password must contain at least one number');
-const displayNameSchema = z.string().trim().max(100, 'Display name too long').optional();
+  .regex(/^(?=.*\d)/, 'Password must contain at least one number')
+  .regex(/^(?=.*[!@#$%^&*(),.?":{}|<>])/, 'Password must contain at least one special character');
+
+const loginPasswordSchema = z.string()
+  .min(6, 'Password must be at least 6 characters');
+
+const displayNameSchema = z.string()
+  .trim()
+  .max(100, 'Display name is too long')
+  .refine(
+    (name) => !name || name.length >= 2,
+    'Display name must be at least 2 characters if provided'
+  )
+  .optional();
+
+// Real-time validation schemas
+const getValidationSchemas = (isLogin: boolean) => ({
+  email: emailSchema,
+  password: isLogin ? loginPasswordSchema : passwordSchema,
+  displayName: displayNameSchema,
+});
 
 const NewAuth = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const [isPasswordReset, setIsPasswordReset] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showResendConfirmation, setShowResendConfirmation] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [passwordResetSent, setPasswordResetSent] = useState(false);
+  const [showPasswordStrength, setShowPasswordStrength] = useState(false);
 
-  const { 
-    user, 
-    loading, 
+  // Real-time validation
+  const validation = useRealTimeValidation({
+    schemas: getValidationSchemas(isLogin),
+    debounceMs: 300,
+  });
+
+  const emailProps = validation.getFieldProps('email');
+  const passwordProps = validation.getFieldProps('password');
+  const displayNameProps = validation.getFieldProps('displayName');
+
+  // Authentication state management
+  const authState = useAuthState({
+    showLoadingStates: true,
+    sessionTimeoutWarning: 5,
+    autoRefresh: false, // Don't auto-refresh on auth page
+  });
+
+  const {
+    user,
+    loading,
     isAuthenticated,
     isEmailVerified,
-    signUp, 
-    signIn, 
+    signUp,
+    signIn,
     resendConfirmation,
+    resetPassword,
     error,
     clearError
   } = useAuth();
@@ -51,55 +104,47 @@ const NewAuth = () => {
   useEffect(() => {
     // Clear error when switching between login/signup
     clearError();
+    // Reset validation when switching modes
+    validation.resetAllFields();
+    setShowPasswordStrength(false);
   }, [isLogin, clearError]);
+
+  // Show password strength when user starts typing password in signup mode
+  useEffect(() => {
+    if (!isLogin && passwordProps.value && passwordProps.touched) {
+      setShowPasswordStrength(true);
+    } else {
+      setShowPasswordStrength(false);
+    }
+  }, [isLogin, passwordProps.value, passwordProps.touched]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     clearError();
-    setValidationErrors({});
 
     try {
-      // Validate inputs
-      const errors: Record<string, string> = {};
+      // Validate all fields
+      const { errors, isValid } = validation.validateAllFields();
       
-      const emailValidation = emailSchema.safeParse(email);
-      if (!emailValidation.success) {
-        errors.email = emailValidation.error.errors[0].message;
-      }
-
-      // More strict password validation for signup
-      if (!isLogin) {
-        const passwordValidation = passwordSchema.safeParse(password);
-        if (!passwordValidation.success) {
-          errors.password = passwordValidation.error.errors[0].message;
-        }
-      } else {
-        // Basic validation for login (allow existing users with old requirements)
-        if (password.length < 6) {
-          errors.password = 'Password must be at least 6 characters';
-        }
-      }
-
-      if (displayName) {
-        const displayNameValidation = displayNameSchema.safeParse(displayName);
-        if (!displayNameValidation.success) {
-          errors.displayName = displayNameValidation.error.errors[0].message;
-        }
-      }
-
-      if (Object.keys(errors).length > 0) {
-        setValidationErrors(errors);
+      if (!isValid) {
+        // Mark all fields as touched to show errors
+        Object.keys(errors).forEach(fieldName => {
+          validation.updateField(fieldName, validation.fields[fieldName]?.value || '', true);
+        });
         setIsSubmitting(false);
         return;
       }
 
       // Sanitize inputs
-      const sanitizedEmail = email.trim().toLowerCase();
-      const sanitizedDisplayName = displayName.trim();
+      const sanitizedEmail = emailProps.value.trim().toLowerCase();
+      const sanitizedDisplayName = displayNameProps.value.trim();
 
       if (isLogin) {
-        const success = await signIn({ email: sanitizedEmail, password });
+        const success = await signIn({
+          email: sanitizedEmail,
+          password: passwordProps.value
+        });
         if (success) {
           // Redirect will be handled by useAuthRedirect
         } else {
@@ -109,15 +154,14 @@ const NewAuth = () => {
           }
         }
       } else {
-        const success = await signUp({ 
-          email: sanitizedEmail, 
-          password, 
-          displayName: sanitizedDisplayName || undefined 
+        const success = await signUp({
+          email: sanitizedEmail,
+          password: passwordProps.value,
+          displayName: sanitizedDisplayName || undefined
         });
         if (success) {
           setIsLogin(true);
-          setPassword('');
-          setDisplayName('');
+          validation.resetAllFields();
         }
       }
     } catch (error) {
@@ -131,7 +175,7 @@ const NewAuth = () => {
   const handleResendConfirmation = async () => {
     setIsSubmitting(true);
     try {
-      await resendConfirmation(email);
+      await resendConfirmation(emailProps.value);
       setShowResendConfirmation(false);
     } catch (error) {
       console.error('Resend confirmation error:', error);
@@ -141,27 +185,126 @@ const NewAuth = () => {
   };
 
   const resetForm = () => {
-    setEmail('');
-    setPassword('');
-    setDisplayName('');
+    validation.resetAllFields();
     setShowPassword(false);
     setShowResendConfirmation(false);
+    setPasswordResetSent(false);
+    setShowPasswordStrength(false);
     clearError();
+  };
+
+  const handlePasswordReset = async () => {
+    if (!emailProps.value) {
+      validation.updateField('email', '', true);
+      return;
+    }
+
+    const emailValidation = emailSchema.safeParse(emailProps.value);
+    if (!emailValidation.success) {
+      validation.updateField('email', emailProps.value, true);
+      return;
+    }
+
+    setIsSubmitting(true);
+    clearError();
+
+    try {
+      const success = await resetPassword(emailProps.value.trim().toLowerCase());
+      if (success) {
+        setPasswordResetSent(true);
+      }
+    } catch (error) {
+      console.error('Password reset error:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBackToLogin = () => {
+    setIsPasswordReset(false);
+    setPasswordResetSent(false);
+    resetForm();
   };
 
   const switchMode = () => {
     setIsLogin(!isLogin);
-    setValidationErrors({});
+    setIsPasswordReset(false);
     resetForm();
   };
 
+  // Enhanced input component with validation feedback
+  const ValidatedInput = ({
+    fieldProps,
+    label,
+    type = 'text',
+    placeholder,
+    required = false,
+    showValidation = true,
+    children
+  }: {
+    fieldProps: ReturnType<typeof validation.getFieldProps>;
+    label: string;
+    type?: string;
+    placeholder: string;
+    required?: boolean;
+    showValidation?: boolean;
+    children?: React.ReactNode;
+  }) => (
+    <div className="space-y-2">
+      <Label className="text-white flex items-center space-x-2">
+        <span>{label}</span>
+        {required && <span className="text-red-400">*</span>}
+        {showValidation && fieldProps.touched && (
+          fieldProps.valid ? (
+            <CheckCircle className="w-4 h-4 text-green-400" />
+          ) : fieldProps.error ? (
+            <AlertCircle className="w-4 h-4 text-red-400" />
+          ) : null
+        )}
+      </Label>
+      <div className="relative">
+        <Input
+          type={type}
+          value={fieldProps.value}
+          onChange={(e) => fieldProps.onChange(e.target.value)}
+          onBlur={fieldProps.onBlur}
+          required={required}
+          className={`bg-white/10 border-white/20 text-white placeholder-gray-400 transition-colors ${
+            fieldProps.touched
+              ? fieldProps.valid
+                ? 'border-green-500/50 focus:border-green-500'
+                : fieldProps.error
+                ? 'border-red-500/50 focus:border-red-500'
+                : 'border-white/20'
+              : 'border-white/20'
+          }`}
+          placeholder={placeholder}
+        />
+        {children}
+      </div>
+      {showValidation && fieldProps.touched && fieldProps.error && (
+        <p className="text-red-400 text-sm flex items-center space-x-1">
+          <AlertCircle className="w-3 h-3" />
+          <span>{fieldProps.error}</span>
+        </p>
+      )}
+    </div>
+  );
+
   // Show loading while auth state is being determined
-  if (loading) {
+  if (loading || authState.isInitializing) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black flex items-center justify-center p-4">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-green-400 mx-auto mb-4" />
-          <p className="text-gray-400">Loading...</p>
+          <p className="text-gray-400">
+            {authState.isInitializing ? 'Initializing security...' : 'Loading...'}
+          </p>
+          {!authState.isOnline && (
+            <p className="text-red-400 text-sm mt-2">
+              You're offline. Some features may be limited.
+            </p>
+          )}
         </div>
       </div>
     );
@@ -221,6 +364,100 @@ const NewAuth = () => {
     );
   }
 
+  // Password reset flow
+  if (isPasswordReset) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-spotify-dark border-white/10">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Mail className="w-8 h-8 text-blue-400" />
+            </div>
+            <CardTitle className="text-2xl text-white">
+              {passwordResetSent ? 'Check Your Email' : 'Reset Password'}
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              {passwordResetSent
+                ? 'We\'ve sent password reset instructions to your email'
+                : 'Enter your email address to reset your password'
+              }
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent>
+            {passwordResetSent ? (
+              <div className="space-y-4">
+                <Alert className="border-green-500/20 bg-green-500/10">
+                  <AlertDescription className="text-green-400">
+                    Password reset email sent successfully! Please check your inbox and follow the instructions to reset your password.
+                  </AlertDescription>
+                </Alert>
+                
+                <div className="space-y-2">
+                  <Button
+                    onClick={handleBackToLogin}
+                    variant="outline"
+                    className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Sign In
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {error && (
+                  <Alert className="mb-4 border-red-500/20 bg-red-500/10">
+                    <AlertDescription className="text-red-400">
+                      {error.message}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-4">
+                  <ValidatedInput
+                    fieldProps={emailProps}
+                    label="Email Address"
+                    type="email"
+                    placeholder="Enter your email address"
+                    required
+                  />
+                  
+                  <div className="space-y-2">
+                    <Button
+                      onClick={handlePasswordReset}
+                      className="w-full spotify-gradient text-black font-medium"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Sending Reset Email...
+                        </>
+                      ) : (
+                        'Send Reset Email'
+                      )}
+                    </Button>
+                    
+                    <Button
+                      onClick={handleBackToLogin}
+                      variant="ghost"
+                      className="w-full text-gray-400 hover:text-white"
+                      disabled={isSubmitting}
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Back to Sign In
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-spotify-dark border-white/10">
@@ -232,8 +469,8 @@ const NewAuth = () => {
             {isLogin ? 'Welcome Back' : 'Create Account'}
           </CardTitle>
           <CardDescription className="text-gray-400">
-            {isLogin 
-              ? 'Sign in to access your music library' 
+            {isLogin
+              ? 'Sign in to access your music library'
               : 'Join us to start syncing your music'
             }
           </CardDescription>
@@ -274,76 +511,60 @@ const NewAuth = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="displayName" className="text-white">Display Name (Optional)</Label>
-                <Input
-                  id="displayName"
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className={`bg-white/10 border-white/20 text-white placeholder-gray-400 ${validationErrors.displayName ? 'border-red-500' : ''}`}
-                  placeholder="Enter your display name"
-                />
-                {validationErrors.displayName && (
-                  <p className="text-red-400 text-sm">{validationErrors.displayName}</p>
-                )}
-              </div>
+              <ValidatedInput
+                fieldProps={displayNameProps}
+                label="Display Name (Optional)"
+                type="text"
+                placeholder="Enter your display name"
+                required={false}
+              />
             )}
             
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-white">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className={`bg-white/10 border-white/20 text-white placeholder-gray-400 ${validationErrors.email ? 'border-red-500' : ''}`}
-                placeholder="Enter your email"
+            <ValidatedInput
+              fieldProps={emailProps}
+              label="Email"
+              type="email"
+              placeholder="Enter your email"
+              required
+            />
+            
+            <ValidatedInput
+              fieldProps={passwordProps}
+              label={`Password ${!isLogin ? '(min 8 chars, must include uppercase, lowercase, number, and special character)' : ''}`}
+              type={showPassword ? "text" : "password"}
+              placeholder="Enter your password"
+              required
+            >
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </ValidatedInput>
+
+            {/* Password strength indicator for signup */}
+            {showPasswordStrength && (
+              <PasswordStrength
+                password={passwordProps.value}
+                className="mt-3"
               />
-              {validationErrors.email && (
-                <p className="text-red-400 text-sm">{validationErrors.email}</p>
-              )}
-            </div>
+            )}
             
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">
-                Password {!isLogin && <span className="text-gray-400 text-xs">(min 8 chars, must include uppercase, lowercase, and number)</span>}
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={isLogin ? 6 : 8}
-                  className={`bg-white/10 border-white/20 text-white placeholder-gray-400 pr-10 ${validationErrors.password ? 'border-red-500' : ''}`}
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {validationErrors.password && (
-                <p className="text-red-400 text-sm">{validationErrors.password}</p>
-              )}
-            </div>
-            
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full spotify-gradient text-black font-medium"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !authState.isOnline}
             >
               {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {isLogin ? 'Signing in...' : 'Creating account...'}
-                </>
+                <AuthLoadingInline
+                  isAuthenticating={true}
+                  loadingMessage={isLogin ? 'Signing in...' : 'Creating account...'}
+                  className="text-black"
+                />
+              ) : !authState.isOnline ? (
+                'Offline - Cannot authenticate'
               ) : (
                 isLogin ? 'Sign In' : 'Create Account'
               )}
@@ -366,9 +587,7 @@ const NewAuth = () => {
               <div>
                 <button
                   type="button"
-                  onClick={() => {
-                    // Password reset functionality would go here
-                  }}
+                  onClick={() => setIsPasswordReset(true)}
                   className="text-gray-400 hover:text-gray-300 text-xs transition-colors"
                 >
                   Forgot your password?

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Settings, Database, Shuffle } from 'lucide-react';
 import LibraryHeader from '@/components/LibraryHeader';
 import { StatsOverview } from '@/components/StatsOverview';
-import { SetupChecklist } from '@/components/SetupChecklist';
+import SetupChecklist from '@/components/SetupChecklist';
 import TracksTable from '@/components/TracksTable';
 import LocalTracksTable from '@/components/LocalTracksTable';
 import SpotifySyncButton from '@/components/SpotifySyncButton';

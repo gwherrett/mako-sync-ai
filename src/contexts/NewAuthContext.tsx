@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { AuthService, SignUpData, SignInData } from '@/services/auth.service';
 import { UserService, UserProfile } from '@/services/user.service';
 import { SessionService } from '@/services/session.service';
+import { AuthRetryService } from '@/services/authRetry.service';
+import { AuthStateRecoveryService } from '@/services/authStateRecovery.service';
+import { ErrorHandlingService } from '@/services/errorHandling.service';
+import { ErrorLoggingService } from '@/services/errorLogging.service';
 import { useAuthErrors } from '@/hooks/useAuthErrors';
 import { useToast } from '@/hooks/use-toast';
 
@@ -35,6 +39,9 @@ export interface AuthContextType {
   // Session actions
   refreshSession: () => Promise<void>;
   
+  // Recovery actions
+  recoverAuthState: () => Promise<boolean>;
+  
   // Role checks
   hasRole: (role: 'admin' | 'user') => boolean;
   isAdmin: boolean;
@@ -42,6 +49,10 @@ export interface AuthContextType {
   // Error handling
   error: AuthError | null;
   clearError: () => void;
+  
+  // Enhanced error info
+  lastErrorContext: any;
+  errorRecoveryAvailable: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,6 +81,22 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { error, setError, clearError, setLoading: setErrorLoading, handleError } = useAuthErrors();
   const { toast } = useToast();
   const initializationRef = useRef(false);
+  const [lastErrorContext, setLastErrorContext] = useState<any>(null);
+  const [errorRecoveryAvailable, setErrorRecoveryAvailable] = useState(false);
+  
+  // Initialize enhanced error handling services
+  useEffect(() => {
+    ErrorLoggingService.initialize({
+      enableConsoleLogging: true,
+      enableLocalStorage: true,
+      logLevels: ['info', 'warn', 'error', 'critical']
+    });
+    
+    // Setup auto backup
+    const cleanupBackup = AuthStateRecoveryService.setupAutoBackup();
+    
+    return cleanupBackup;
+  }, []);
 
   // Load user profile and role
   const loadUserData = useCallback(async (userId: string) => {
@@ -167,23 +194,53 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     clearError();
 
     try {
-      const { user, session, error } = await AuthService.signUp(data);
+      ErrorLoggingService.logAuthEvent('signUp_attempt', 'info', {
+        operation: 'signUp',
+        component: 'NewAuthContext'
+      });
+
+      const result = await AuthRetryService.signUpWithRetry(data);
       
-      if (error) {
-        handleError(error);
+      if (!result.success || result.error) {
+        const errorResult = ErrorHandlingService.handleError(result.error!, {
+          operation: 'signUp',
+          component: 'NewAuthContext',
+          additionalData: { email: data.email, attempts: result.attempts }
+        });
+        
+        setLastErrorContext(errorResult);
+        handleError(result.error as AuthError);
+        
+        ErrorLoggingService.logAuthEvent('signUp_failed', 'error', {
+          operation: 'signUp',
+          component: 'NewAuthContext'
+        }, { attempts: result.attempts, totalTime: result.totalTime });
+        
         return false;
       }
 
-      if (user) {
+      if (result.data?.user) {
         toast({
           title: 'Account Created',
           description: 'Please check your email to verify your account.',
         });
+        
+        ErrorLoggingService.logAuthEvent('signUp_success', 'info', {
+          operation: 'signUp',
+          component: 'NewAuthContext'
+        }, { attempts: result.attempts, totalTime: result.totalTime });
+        
         return true;
       }
 
       return false;
     } catch (error) {
+      const errorResult = ErrorHandlingService.handleError(error as AuthError, {
+        operation: 'signUp',
+        component: 'NewAuthContext'
+      });
+      
+      setLastErrorContext(errorResult);
       handleError(error as AuthError);
       return false;
     } finally {
@@ -196,23 +253,54 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     clearError();
 
     try {
-      const { user, session, error } = await AuthService.signIn(data);
+      ErrorLoggingService.logAuthEvent('signIn_attempt', 'info', {
+        operation: 'signIn',
+        component: 'NewAuthContext'
+      });
+
+      const result = await AuthRetryService.signInWithRetry(data);
       
-      if (error) {
-        handleError(error);
+      if (!result.success || result.error) {
+        const errorResult = ErrorHandlingService.handleError(result.error!, {
+          operation: 'signIn',
+          component: 'NewAuthContext',
+          additionalData: { email: data.email, attempts: result.attempts }
+        });
+        
+        setLastErrorContext(errorResult);
+        setErrorRecoveryAvailable(errorResult.shouldRetry);
+        handleError(result.error as AuthError);
+        
+        ErrorLoggingService.logAuthEvent('signIn_failed', 'error', {
+          operation: 'signIn',
+          component: 'NewAuthContext'
+        }, { attempts: result.attempts, totalTime: result.totalTime });
+        
         return false;
       }
 
-      if (user && session) {
+      if (result.data?.user && result.data?.session) {
         toast({
           title: 'Welcome back!',
           description: 'Successfully signed in.',
         });
+        
+        ErrorLoggingService.logAuthEvent('signIn_success', 'info', {
+          operation: 'signIn',
+          component: 'NewAuthContext'
+        }, { attempts: result.attempts, totalTime: result.totalTime });
+        
         return true;
       }
 
       return false;
     } catch (error) {
+      const errorResult = ErrorHandlingService.handleError(error as AuthError, {
+        operation: 'signIn',
+        component: 'NewAuthContext'
+      });
+      
+      setLastErrorContext(errorResult);
       handleError(error as AuthError);
       return false;
     } finally {
@@ -379,6 +467,56 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
+  // Enhanced auth state recovery
+  const recoverAuthState = useCallback(async (): Promise<boolean> => {
+    try {
+      ErrorLoggingService.logAuthEvent('recovery_attempt', 'info', {
+        operation: 'recoverAuthState',
+        component: 'NewAuthContext'
+      });
+
+      const result = await AuthStateRecoveryService.recoverAuthState();
+      
+      if (result.success && result.newState) {
+        if (result.newState.user && result.newState.session) {
+          setUser(result.newState.user);
+          setSession(result.newState.session);
+          setProfile(result.newState.profile);
+          setRole(result.newState.role);
+        }
+        
+        toast({
+          title: 'Session Recovered',
+          description: result.fallbackUsed ? 'Using guest mode' : 'Your session has been restored.',
+        });
+        
+        ErrorLoggingService.logAuthEvent('recovery_success', 'info', {
+          operation: 'recoverAuthState',
+          component: 'NewAuthContext'
+        }, {
+          method: result.recoveryMethod,
+          fallbackUsed: result.fallbackUsed
+        });
+        
+        return true;
+      }
+      
+      ErrorLoggingService.logAuthEvent('recovery_failed', 'warn', {
+        operation: 'recoverAuthState',
+        component: 'NewAuthContext'
+      }, { error: result.error?.message });
+      
+      return false;
+    } catch (error) {
+      ErrorLoggingService.logError(error as Error, {
+        operation: 'recoverAuthState',
+        component: 'NewAuthContext'
+      });
+      
+      return false;
+    }
+  }, [toast]);
+
   // Computed values
   const isAuthenticated = !!user;
   const isEmailVerified = user?.email_confirmed_at != null;
@@ -417,6 +555,9 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Session actions
     refreshSession,
     
+    // Recovery actions
+    recoverAuthState,
+    
     // Role checks
     hasRole,
     isAdmin,
@@ -424,6 +565,8 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Error handling
     error,
     clearError,
+    lastErrorContext,
+    errorRecoveryAvailable,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

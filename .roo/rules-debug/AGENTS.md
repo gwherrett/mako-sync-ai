@@ -1,0 +1,14 @@
+# Project Debug Rules (Non-Obvious Only)
+
+- **File System API Browser Restriction**: Local file scanning fails silently in iframes (Lovable preview) - must test in new tab with Chromium browser
+- **Edge Function Logs**: Available at Supabase dashboard under Functions > [function-name] > Logs, not in browser console
+- **Metadata Extraction Debugging**: Extensive console logging in `extractMetadata()` - check for parseBlob failures and tag format fallbacks
+- **Auth Context Initialization**: Uses `useRef` to prevent double-initialization - check `initializationRef.current` state
+- **Auth Context Conflicts**: Only `NewAuthProvider` exists - if seeing auth issues, verify no legacy `AuthContext` imports remain
+- **Password Reset Debugging**: Check `/reset-password` route with URL params `access_token`, `refresh_token`, and `type=recovery`
+- **Supabase Silent Truncation**: Queries return max 1000 rows without error - use explicit `.limit()` to verify pagination issues
+- **Genre Mapping Edge Cases**: Accepts any spotify_genre but validates super_genre enum - check validation vs acceptance logic
+- **Token Vault Storage**: Spotify tokens stored as vault secret IDs, not plain text - check `spotify_connections` table for references
+- **RLS Policy Testing**: Test with actual user context, not service role - verify `auth.uid() = user_id` patterns
+- **Normalization Service**: Complex text processing with multiple fallback strategies - check diacritics, punctuation, and feature extraction
+- **Batch Processing Memory**: Files processed in batches of 5 to prevent memory issues - increase batch size may cause crashes

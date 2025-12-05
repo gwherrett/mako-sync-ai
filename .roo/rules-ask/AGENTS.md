@@ -1,0 +1,15 @@
+# Project Documentation Rules (Non-Obvious Only)
+
+- **Architecture Document**: Comprehensive technical reference at `docs/architecture-mako-sync.md` - contains critical patterns not evident from code structure
+- **Acceptance Tests as Documentation**: `src/__tests__/genreMapping.acceptance.test.ts` documents business requirements, not actual tests
+- **Service Layer Pattern**: All database operations abstracted through `src/services/*.service.ts` - components never query directly
+- **Edge Function Isolation**: Functions in `supabase/functions/` cannot import from `src/` - self-contained with duplicated utilities
+- **Genre System Complexity**: SUPER_GENRES array intentionally unsorted, UI must sort alphabetically, database enum updates require separate transactions
+- **Token Security Model**: Spotify tokens stored in Supabase Vault with secret IDs, not plain text in database tables
+- **File Processing Architecture**: Complex metadata extraction with multiple ID3 tag format fallbacks and normalization pipeline
+- **Authentication Context**: NewAuthProvider uses deferred loading pattern to prevent initialization deadlocks
+- **Authentication Consolidation**: Only `NewAuthProvider` exists - legacy `AuthContext` removed to prevent conflicts
+- **Password Reset Architecture**: Complete flow with dedicated `/reset-password` page handling token validation
+- **Pagination Requirements**: Supabase 1000-row limit with silent truncation - critical for large datasets
+- **Role Security Design**: Roles stored separately from profiles to prevent privilege escalation attacks
+- **Build Modes**: `npm run build:dev` creates development build with different configuration than standard build

@@ -1,281 +1,182 @@
-# Music Library Sync & Genre Mapper
+# Supabase CLI (v1)
 
-A full-stack web application that bridges the gap between your Spotify liked songs and local MP3 collection, providing intelligent genre classification and track matching powered by AI.
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main)
 
-## 🎯 What Does This Do?
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-This app solves a common problem for music enthusiasts: managing and organizing a hybrid music library across Spotify and local files. It:
+This repository contains all the functionality for Supabase CLI.
 
-- **Syncs your Spotify liked songs** into a searchable database
-- **Scans local MP3 files** and extracts metadata (artist, title, BPM, key, etc.)
-- **Intelligently matches** local tracks with Spotify tracks
-- **AI-powered genre mapping** that learns from your collection and follows custom rules
-- **Organizes music into "super genres"** (27 high-level categories like House, Hip Hop, Soul-Funk, etc.)
-- **Provides analytics** on your music collection with filters and insights
+- [x] Running Supabase locally
+- [x] Managing database migrations
+- [x] Creating and deploying Supabase Functions
+- [x] Generating types directly from your database schema
+- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
 
-Perfect for DJs, music collectors, and anyone who maintains both streaming and local music libraries.
+## Getting started
 
----
+### Install the CLI
 
-## 🚀 Key Features
-
-### Spotify Integration
-- OAuth authentication with Spotify
-- Automatic sync of liked songs (incremental & full sync)
-- Fetches audio features (BPM, key, danceability)
-- Artist and album genre extraction
-- Sync progress tracking with resume capability
-
-### Local Library Management
-- Browser-based MP3 file scanning (no backend upload required)
-- Extracts ID3 metadata (title, artist, album, year, BPM, key, etc.)
-- Generates unique file hashes to detect duplicates
-- Stores metadata in Supabase database
-- File system integration with persistent tracking
-
-### AI Genre Classification
-- Leverages Lovable AI for intelligent genre suggestions
-- Context-aware: considers user's existing library patterns
-- Rule-based classification with time periods, artist patterns, and track titles
-- Learns from manual overrides
-- Batch processing for efficiency
-
-### Advanced Track Matching
-- Fuzzy matching algorithm using Levenshtein distance
-- Considers multiple factors: title, artist, album, mix version
-- Confidence scoring system
-- Identifies remixes and alternative versions
-
-### Genre Management
-- 27-category super genre taxonomy
-- Base genre mapping system (1000+ Spotify genres mapped)
-- User-specific override system for personalized mappings
-- Bulk genre assignment tools
-- Artist-grouped processing
-
----
-
-## 🛠️ Technology Stack
-
-### Frontend
-- **React 18** with TypeScript
-- **Vite** for blazing-fast builds
-- **TanStack Query** for server state management
-- **React Router** for navigation
-- **Tailwind CSS** with custom design system
-- **shadcn/ui** component library
-- **Recharts** for data visualization
-
-### Backend & Infrastructure
-- **Supabase** (PostgreSQL database + Edge Functions)
-- **Supabase Auth** for user authentication
-- **Supabase Storage** for potential file uploads
-- **Edge Functions (Deno)** for serverless backend logic
-
-### Key Libraries
-- `music-metadata-browser` - MP3 metadata extraction
-- `buffer` - File handling in browser
-- `date-fns` - Date manipulation
-- `zod` - Runtime type validation
-- `react-hook-form` - Form management
-
----
-
-## 🏗️ Architecture Overview
-
-### Database Schema
-```
-profiles
-├── user authentication & onboarding
-
-spotify_connections
-├── OAuth tokens (stored in Supabase Vault)
-├── token expiration tracking
-
-spotify_liked
-├── synced Spotify tracks
-├── normalized metadata
-├── super_genre classification
-
-local_mp3s
-├── scanned local files
-├── file hashes for deduplication
-├── extracted metadata
-
-track_matches
-├── links local files to Spotify tracks
-├── confidence scores
-
-spotify_genre_map_base
-├── global genre mappings (Spotify → Super Genre)
-
-spotify_genre_map_overrides
-├── user-specific genre mappings
-
-artist_genres / album_genres
-├── cached genre data from Spotify API
-
-sync_progress
-├── tracks sync state for resumable operations
-```
-
-### Edge Functions
-1. **`spotify-auth`** - Handles OAuth callback and token exchange
-2. **`spotify-sync-liked`** - Syncs liked songs from Spotify (incremental/full)
-3. **`spotify-resync-tracks`** - Re-processes tracks with updated genre rules
-4. **`ai-track-genre-suggest`** - AI-powered genre suggestions with context
-5. **`genre-mapping`** - Batch genre mapping operations
-
-### Data Flow
-```
-1. User Authentication (Supabase Auth)
-   ↓
-2. Spotify Connection (OAuth → Vault Storage)
-   ↓
-3. Sync Liked Songs (Edge Function → Spotify API → Database)
-   ↓
-4. Genre Classification (Edge Function → Lovable AI → Database)
-   ↓
-5. Local File Scan (Browser → Metadata Extraction → Database)
-   ↓
-6. Track Matching (Algorithm → Confidence Scoring → Database)
-   ↓
-7. Analytics & Visualization (React Query → Components)
-```
-
----
-
-## 🎨 Design System
-
-The app uses a custom design system built on Tailwind CSS with:
-- **Semantic color tokens** (HSL-based for theme flexibility)
-- **Custom shadcn/ui components** with variants
-- **Responsive layouts** with mobile-first approach
-- **Dark/light mode support** (via `next-themes`)
-- **Consistent spacing and typography scales**
-
----
-
-## 🚦 Getting Started
-
-### Prerequisites
-- Node.js 18+ (or Bun)
-- A Spotify account
-- Local MP3 files (optional)
-
-### Installation
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
 ```bash
-# Clone the repository
-git clone <YOUR_GIT_URL>
-cd <YOUR_PROJECT_NAME>
-
-# Install dependencies
-npm install
-
-# Set up environment variables
-cp .env.example .env
-# Add your Supabase credentials to .env
-
-# Start development server
-npm run dev
+npm i supabase --save-dev
 ```
 
-### Environment Variables
-```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### First-Time Setup
-1. Create an account or sign in
-2. Connect your Spotify account (OAuth flow)
-3. Run initial sync (may take a few minutes for large libraries)
-4. Optionally scan local MP3 files
-5. Review and customize genre mappings
-
----
-
-## 🧪 Testing
-
-The project includes acceptance tests for core functionality:
+To install the beta release channel:
 
 ```bash
-# Run all tests
-npm test
-
-# Run specific test suite
-npm test -- genreMapping.acceptance.test.ts
+npm i supabase@beta --save-dev
 ```
 
----
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
 
-## 📦 Deployment
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
+```
 
-### Lovable Cloud (Recommended)
-- Click "Publish" in the Lovable editor
-- Frontend deploys to CDN
-- Edge functions auto-deploy to Supabase
-- Database migrations auto-apply
+> **Note**
+For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
 
-### Self-Hosting
-1. Deploy frontend to any static host (Vercel, Netlify, Cloudflare Pages)
-2. Set up Supabase project
-3. Deploy edge functions: `supabase functions deploy`
-4. Configure environment variables in hosting platform
+<details>
+  <summary><b>macOS</b></summary>
 
----
+  Available via [Homebrew](https://brew.sh). To install:
 
-## 🔒 Security & Privacy
+  ```sh
+  brew install supabase/tap/supabase
+  ```
 
-- **No music files uploaded**: Local scanning happens in-browser
-- **Secure token storage**: Spotify tokens stored in Supabase Vault
-- **Row Level Security (RLS)**: All database tables protected by user-scoped policies
-- **OAuth flow**: Industry-standard authentication
+  To install the beta release channel:
+  
+  ```sh
+  brew install supabase/tap/supabase-beta
+  brew link --overwrite supabase-beta
+  ```
+  
+  To upgrade:
 
----
+  ```sh
+  brew upgrade supabase
+  ```
+</details>
 
-## 🎯 Future Enhancements
+<details>
+  <summary><b>Windows</b></summary>
 
-- [ ] Playlist generation based on super genres
-- [ ] Advanced analytics and listening insights
-- [ ] Export capabilities (CSV, JSON)
-- [ ] Batch metadata editing
-- [ ] Integration with other streaming platforms (Apple Music, Tidal)
-- [ ] Mobile app (React Native)
-- [ ] Collaborative playlists
+  Available via [Scoop](https://scoop.sh). To install:
 
----
+  ```powershell
+  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+  scoop install supabase
+  ```
 
-## 🤝 Contributing
+  To upgrade:
 
-This is a personal project, but suggestions and feedback are welcome! Feel free to:
-- Open issues for bugs or feature requests
-- Submit pull requests with improvements
-- Share your use cases and experiences
+  ```powershell
+  scoop update supabase
+  ```
+</details>
 
----
+<details>
+  <summary><b>Linux</b></summary>
 
-## 📄 License
+  Available via [Homebrew](https://brew.sh) and Linux packages.
 
-This project is built with [Lovable](https://lovable.dev) and uses open-source technologies.
+  #### via Homebrew
 
----
+  To install:
 
-## 🙏 Acknowledgments
+  ```sh
+  brew install supabase/tap/supabase
+  ```
 
-- **Lovable** for the development platform
-- **Supabase** for backend infrastructure
-- **Spotify** for their comprehensive Web API
-- **shadcn/ui** for beautiful component primitives
-- The open-source community for the amazing libraries used in this project
+  To upgrade:
 
----
+  ```sh
+  brew upgrade supabase
+  ```
 
-## 📞 Contact
+  #### via Linux packages
 
-For questions or opportunities, feel free to reach out via [your contact method].
+  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
 
----
+  ```sh
+  sudo apk add --allow-untrusted <...>.apk
+  ```
 
-**Built with ❤️ using Lovable, React, and Supabase**
+  ```sh
+  sudo dpkg -i <...>.deb
+  ```
+
+  ```sh
+  sudo rpm -i <...>.rpm
+  ```
+
+  ```sh
+  sudo pacman -U <...>.pkg.tar.zst
+  ```
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+  ```sh
+  go install github.com/supabase/cli@latest
+  ```
+
+  Add a symlink to the binary in `$PATH` for easier access:
+
+  ```sh
+  ln -s "$(go env GOPATH)/cli" /usr/bin/supabase
+  ```
+
+  This works on other non-standard Linux distros.
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+  To install in your working directory:
+
+  ```bash
+  pkgx install supabase
+  ```
+
+  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
+</details>
+
+### Run the CLI
+
+```bash
+supabase bootstrap
+```
+
+Or using npx:
+
+```bash
+npx supabase bootstrap
+```
+
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
+
+## Docs
+
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+
+## Breaking changes
+
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+
+## Developing
+
+To run from source:
+
+```sh
+# Go >= 1.22
+go run . help
+```

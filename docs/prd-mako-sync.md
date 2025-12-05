@@ -64,6 +64,26 @@ mako-sync is a web-based tool that bridges the gap between Spotify libraries and
 * Batch metadata editing
 * Track recommendations based on library gaps
 
+### **2.4 Data Ownership & Rights**
+
+**User Data Ownership:**
+* Users own all manually entered data including:
+  - Genre assignments and overrides
+  - Local file metadata and organization
+  - Custom genre mapping preferences
+  - Sync preferences and settings
+
+**Data Portability:**
+* Complete data export functionality via CSV/JSON formats
+* Export includes all user-assigned genres, mappings, and preferences
+* No vendor lock-in - users can migrate data to other systems
+
+**Data Retention:**
+* User data retained for 2 years from last activity (as specified in NFR-18)
+* Users may delete their data at any time via account settings
+* Account deletion removes all user data within 30 days
+* Spotify tokens automatically expire and are refreshed; stale connections (>90 days) flagged for cleanup
+
 ---
 
 ## **3. User Personas & Use Cases**
@@ -237,6 +257,35 @@ As a DJ, I want my tracks automatically classified into super genres so I can or
   - Boom bap hip hop → Hip Hop (not Urban)
   - House is priority genre when in doubt
 
+### **4.4.1 Genre Mapping Precedence Rules**
+
+The system applies genre classifications in the following priority order (highest to lowest):
+
+1. **User-Specific Override Mappings** (Highest Priority)
+   - Custom mappings in `spotify_genre_map_overrides` table
+   - User-defined rules: "jazz fusion" → "Jazz" instead of default "Electronic"
+   - Applies to all tracks with matching Spotify genre
+
+2. **Manual User Assignment**
+   - Direct assignment of `super_genre` on individual tracks
+   - Persists through all sync operations including full re-sync
+   - Cannot be overridden by automated processes
+
+3. **Base System Mappings**
+   - Default mappings in `spotify_genre_map_base` table
+   - Covers 1000+ Spotify genres mapped to 27 super genres
+   - Includes special rules (R&B ≤1990 → Soul-Funk, R&B >1990 → Urban)
+
+4. **AI Suggestions** (Lowest Priority)
+   - Applied only when no Spotify genre available AND no manual assignment
+   - Considers artist's existing genres in user's library
+   - Requires user acceptance - never applied automatically
+
+**Conflict Resolution:**
+- If multiple rules could apply, higher priority always wins
+- Manual assignments are immutable and survive all automated processes
+- System logs all genre assignment sources for transparency
+
 **Priority:** P0 (Critical)  
 **Dependencies:** spotify_genre_map_base table populated  
 **Estimated Effort:** 13 story points
@@ -331,6 +380,73 @@ As a user, I want to see an overview of my library status so I can track my prog
 **Priority:** P1 (High)  
 **Dependencies:** Data from all epics  
 **Estimated Effort:** 5 story points
+
+---
+
+### **4.8 Epic 8: Data Quality Management**
+
+**User Story:**
+As a user, I want duplicate tracks automatically detected and managed so that I can maintain a clean, organized library.
+
+**Acceptance Criteria:**
+
+* **FR-8.1:** System SHALL populate normalization fields during sync operations:
+  - `normalized_title` and `normalized_artist` fields must be computed for all tracks
+  - Normalization: lowercase, remove special characters, collapse whitespace
+  - Apply to both Spotify sync and local file scanning
+* **FR-8.2:** System SHALL detect duplicate tracks using normalized matching:
+  - Match key: `normalized_title + "_" + normalized_primary_artist`
+  - Run duplicate detection automatically after sync completion
+  - Flag duplicates for user review (do not auto-delete)
+* **FR-8.3:** System SHALL provide duplicate management interface:
+  - Display duplicate groups with track details (album, year, Spotify ID)
+  - Allow user to select preferred version to keep
+  - Merge manual genre assignments from deleted duplicates
+  - Preserve sync history and user preferences
+* **FR-8.4:** System SHALL handle duplicate resolution during sync:
+  - If duplicate detected during sync, preserve existing track with manual assignments
+  - Update metadata from Spotify but retain user-assigned `super_genre`
+  - Log duplicate resolution actions for user review
+
+**Priority:** P1 (High)
+**Dependencies:** Normalization service implementation
+**Estimated Effort:** 8 story points
+
+---
+
+### **4.9 Epic 9: Error Handling & Recovery**
+
+**User Story:**
+As a user, I want clear feedback when operations fail so that I can understand what happened and how to proceed.
+
+**Acceptance Criteria:**
+
+* **FR-9.1:** System SHALL provide user-friendly error messages:
+  - Replace technical error codes with plain language explanations
+  - Include specific next steps for resolution
+  - Differentiate between temporary (retry) and permanent (action required) errors
+* **FR-9.2:** System SHALL handle Spotify API failures gracefully:
+  - Rate limit errors: Show wait time and auto-retry option
+  - Token expiry: Automatic refresh with user notification
+  - Network errors: Retry with exponential backoff, show progress
+  - Invalid track errors: Skip and continue, report at end
+* **FR-9.3:** System SHALL provide operation recovery options:
+  - "Retry" button for failed operations
+  - "Resume" option for interrupted syncs using `sync_progress` table
+  - "Skip and continue" for non-critical failures
+* **FR-9.4:** System SHALL preserve user data during errors:
+  - Manual genre assignments never lost due to sync failures
+  - Partial sync progress saved and resumable
+  - Local file scan progress preserved across browser sessions
+* **FR-9.5:** System SHALL provide error state UI:
+  - Toast notifications for immediate feedback
+  - Error banners for persistent issues requiring attention
+  - Loading states with timeout and error fallbacks
+  - Empty states with clear next actions
+
+**Priority:** P0 (Critical)
+**Dependencies:** Error handling service, UI components
+**Estimated Effort:** 13 story points
 
 ---
 
@@ -630,6 +746,16 @@ This ensures the "unmapped/unprocessed" count accurately reflects tracks that tr
 * **NFR-19:** Users MAY delete their data at any time via account settings
 * **NFR-20:** Spotify tokens are refreshed automatically; stale connections (>90 days inactive) MAY be flagged for cleanup
 * **NFR-21:** Sync progress records older than 30 days SHALL be automatically purged
+
+### **7.8 Error Handling & Recovery**
+
+* **NFR-22:** System SHALL provide clear error messages with suggested actions within 200ms of error detection
+* **NFR-23:** Users SHALL be able to retry failed operations without data loss or duplicate processing
+* **NFR-24:** Sync interruptions SHALL preserve progress and allow resume from last successful checkpoint
+* **NFR-25:** Error states SHALL not block other application functionality (graceful degradation)
+* **NFR-26:** Critical errors SHALL be logged with sufficient detail for debugging while maintaining user privacy
+* **NFR-27:** Network timeouts SHALL not exceed 30 seconds with clear progress indication
+* **NFR-28:** Failed operations SHALL provide specific next steps rather than generic "try again" messages
 
 ---
 
