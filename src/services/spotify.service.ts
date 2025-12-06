@@ -6,47 +6,43 @@ export class SpotifyService {
     try {
       console.log('🔍 SPOTIFY SERVICE: Starting connection check...');
       
-      // Get session without artificial timeout - let Supabase handle its own timeouts
-      console.log('🔍 SPOTIFY SERVICE: Getting session...');
+      // Try to get user directly first (faster than getSession)
+      console.log('🔍 SPOTIFY SERVICE: Getting user...');
       
-      let session, sessionError, user;
+      let user;
       
       try {
-        const sessionStart = Date.now();
+        const userStart = Date.now();
         const result = await Promise.race([
-          supabase.auth.getSession(),
+          supabase.auth.getUser(),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Session timeout after 5 seconds')), 5000)
+            setTimeout(() => reject(new Error('User fetch timeout after 10 seconds')), 10000)
           )
         ]);
-        const sessionTime = Date.now() - sessionStart;
+        const userTime = Date.now() - userStart;
         
         const { data, error } = result as any;
-        session = data?.session;
-        sessionError = error;
+        user = data?.user;
         
-        console.log('🔍 SPOTIFY SERVICE: Session result:', {
-          hasSession: !!session,
-          hasUser: !!session?.user,
-          userId: session?.user?.id,
-          sessionError: sessionError?.message,
-          sessionTime: `${sessionTime}ms`
+        console.log('🔍 SPOTIFY SERVICE: User result:', {
+          hasUser: !!user,
+          userId: user?.id,
+          userError: error?.message,
+          userTime: `${userTime}ms`
         });
         
-        if (sessionError) {
-          console.error('❌ SPOTIFY SERVICE: Session error details:', sessionError);
+        if (error) {
+          console.error('❌ SPOTIFY SERVICE: User error details:', error);
           return { connection: null, isConnected: false };
         }
         
-        if (!session?.user) {
-          console.log('❌ SPOTIFY SERVICE: No valid session, returning disconnected');
+        if (!user) {
+          console.log('❌ SPOTIFY SERVICE: No valid user, returning disconnected');
           return { connection: null, isConnected: false };
         }
         
-        user = session.user;
-        
-      } catch (sessionException) {
-        console.error('❌ SPOTIFY SERVICE: Session exception (likely timeout):', sessionException);
+      } catch (userException) {
+        console.error('❌ SPOTIFY SERVICE: User exception (likely timeout):', userException);
         return { connection: null, isConnected: false };
       }
       console.log('🔍 SPOTIFY SERVICE: Querying spotify_connections table for user:', user.id);

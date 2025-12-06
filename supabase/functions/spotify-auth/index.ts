@@ -52,17 +52,36 @@ serve(async (req) => {
     
     const { code, state, redirect_uri } = requestBody
 
-    // Use the redirect_uri from the request, with fallback to hardcoded value
-    const redirectUri = redirect_uri || 'https://groove-sync-serato-ai.lovable.app/spotify-callback';
+    // Use the redirect_uri from the request, with fallback to production domain
+    const redirectUri = redirect_uri || 'https://mako-sync.vercel.app/spotify-callback';
 
     console.log('Processing Spotify token exchange')
     
     const clientId = Deno.env.get('SPOTIFY_CLIENT_ID')
     const clientSecret = Deno.env.get('SPOTIFY_CLIENT_SECRET')
     
+    console.log('Environment check:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      clientIdPreview: clientId?.substring(0, 8) + '...',
+      redirectUri
+    })
+    
     if (!clientId || !clientSecret) {
-      console.error('Spotify credentials not configured')
-      throw new Error('Spotify credentials not configured')
+      console.error('Spotify credentials not configured:', {
+        SPOTIFY_CLIENT_ID: !!clientId,
+        SPOTIFY_CLIENT_SECRET: !!clientSecret
+      })
+      return new Response(
+        JSON.stringify({
+          error: 'Spotify credentials not configured in edge function environment',
+          debug: {
+            hasClientId: !!clientId,
+            hasClientSecret: !!clientSecret
+          }
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // Exchange code for access token
@@ -128,11 +147,25 @@ serve(async (req) => {
     // Store tokens securely in Vault using Postgres driver for direct SQL access
     console.log('Storing tokens in vault using Postgres driver')
     
+    const dbUrl = Deno.env.get('SUPABASE_DB_URL')
+    console.log('Database connection check:', {
+      hasDbUrl: !!dbUrl,
+      dbUrlPreview: dbUrl?.substring(0, 20) + '...'
+    })
+    
+    if (!dbUrl) {
+      console.error('SUPABASE_DB_URL not configured')
+      return new Response(
+        JSON.stringify({
+          error: 'Database connection not configured in edge function environment',
+          debug: 'SUPABASE_DB_URL missing'
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
     // Create Postgres connection pool - use connection string for internal socket connection
-    const pool = new Pool(
-      Deno.env.get('SUPABASE_DB_URL')!,
-      1
-    )
+    const pool = new Pool(dbUrl, 1)
 
     let accessTokenSecretId: string
     let refreshTokenSecretId: string
