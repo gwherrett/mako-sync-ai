@@ -1,5 +1,6 @@
 # Project Debug Rules (Non-Obvious Only)
 
+- **NEVER DECLARE SUCCESS UNTIL USER CONFIRMS**: Do not write success summaries or declare fixes complete until user deploys to production and confirms functionality. Wait for actual test results.
 - **File System API Browser Restriction**: Local file scanning fails silently in iframes (Lovable preview) - must test in new tab with Chromium browser
 - **Edge Function Logs**: Available at Supabase dashboard under Functions > [function-name] > Logs, not in browser console
 - **Metadata Extraction Debugging**: Extensive console logging in `extractMetadata()` - check for parseBlob failures and tag format fallbacks
