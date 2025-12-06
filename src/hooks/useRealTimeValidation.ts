@@ -63,6 +63,8 @@ export const useRealTimeValidation = ({
   }, [schemas]);
 
   const updateField = useCallback((fieldName: string, value: string, immediate = false) => {
+    console.log('🔴 DEBUG: updateField called for', fieldName, 'value length:', value.length, 'immediate:', immediate);
+    
     // Update value immediately
     setFields(prev => ({
       ...prev,
@@ -80,6 +82,7 @@ export const useRealTimeValidation = ({
 
     // Set up debounced validation
     const timer = setTimeout(() => {
+      console.log('🔴 DEBUG: Debounced validation triggered for', fieldName, '- this may cause re-render and focus loss');
       validateField(fieldName, value);
       setDebounceTimers(prev => {
         const newTimers = { ...prev };

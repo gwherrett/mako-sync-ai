@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo, useCallback } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -14,7 +14,7 @@ interface SessionTimeoutWarningProps {
   className?: string;
 }
 
-export const SessionTimeoutWarning = ({
+const SessionTimeoutWarningComponent = ({
   timeRemaining,
   isRefreshing,
   isOnline,
@@ -36,15 +36,15 @@ export const SessionTimeoutWarning = ({
     return null;
   }
 
-  const handleDismiss = () => {
+  const handleDismiss = useCallback(() => {
     setDismissed(true);
     onDismiss?.();
-  };
+  }, [onDismiss]);
 
-  const handleExtend = () => {
+  const handleExtend = useCallback(() => {
     onExtendSession();
     setDismissed(true);
-  };
+  }, [onExtendSession]);
 
   // Calculate progress (5 minutes = 100%, 0 minutes = 0%)
   const progressValue = Math.max(0, (timeRemaining / 5) * 100);
@@ -145,5 +145,8 @@ export const SessionTimeoutWarning = ({
     </Alert>
   );
 };
+
+// Memoize component to prevent unnecessary re-renders
+export const SessionTimeoutWarning = memo(SessionTimeoutWarningComponent);
 
 export default SessionTimeoutWarning;

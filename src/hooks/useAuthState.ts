@@ -63,7 +63,7 @@ export const useAuthState = (config: AuthStateConfig = {}): AuthState => {
     }
   }, [loading]);
 
-  // Handle session timing
+  // Handle session timing with optimized updates
   useEffect(() => {
     if (!session?.expires_at) return;
 
@@ -73,28 +73,46 @@ export const useAuthState = (config: AuthStateConfig = {}): AuthState => {
       const timeRemaining = Math.max(0, expiresAt.getTime() - now.getTime());
       const minutesRemaining = Math.floor(timeRemaining / (1000 * 60));
 
-      setSessionTimeRemaining(minutesRemaining);
+      console.log('🔴 DEBUG: Session timer update - minutes remaining:', minutesRemaining, 'warning threshold:', sessionTimeoutWarning);
+      
+      // Only update state if values actually changed to prevent unnecessary re-renders
+      setSessionTimeRemaining(prev => prev !== minutesRemaining ? minutesRemaining : prev);
 
       // Show warning if session is expiring soon
-      if (minutesRemaining <= sessionTimeoutWarning && minutesRemaining > 0) {
-        setShowSessionWarning(true);
-      } else {
-        setShowSessionWarning(false);
-      }
+      const shouldShowWarning = minutesRemaining <= sessionTimeoutWarning && minutesRemaining > 0;
+      setShowSessionWarning(prev => prev !== shouldShowWarning ? shouldShowWarning : prev);
 
       // Mark as expired if time is up
-      if (minutesRemaining <= 0) {
-        setIsSessionExpired(true);
-      }
+      const isExpired = minutesRemaining <= 0;
+      setIsSessionExpired(prev => prev !== isExpired ? isExpired : prev);
     };
 
     // Update immediately
     updateSessionTime();
 
-    // Update every minute
-    const interval = setInterval(updateSessionTime, 60000);
+    // Use dynamic interval timing - more frequent when close to expiry
+    const getIntervalTime = () => {
+      const expiresAt = new Date(session.expires_at! * 1000);
+      const timeRemaining = Math.max(0, expiresAt.getTime() - Date.now());
+      const minutesRemaining = Math.floor(timeRemaining / (1000 * 60));
+      
+      // Update every 10 seconds when within warning threshold, otherwise every 2 minutes
+      return minutesRemaining <= sessionTimeoutWarning ? 10000 : 120000;
+    };
 
-    return () => clearInterval(interval);
+    let timeoutId: NodeJS.Timeout;
+    
+    const scheduleNextUpdate = () => {
+      const intervalTime = getIntervalTime();
+      timeoutId = setTimeout(() => {
+        updateSessionTime();
+        scheduleNextUpdate();
+      }, intervalTime);
+    };
+
+    scheduleNextUpdate();
+
+    return () => clearTimeout(timeoutId);
   }, [session?.expires_at, sessionTimeoutWarning]);
 
   // Auto-refresh session when warning appears

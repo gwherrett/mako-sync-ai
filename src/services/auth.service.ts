@@ -80,9 +80,19 @@ export class AuthService {
    */
   static async signOut(): Promise<{ error: AuthError | null }> {
     try {
-      console.log('🔴 DEBUG: AuthService.signOut - calling supabase.auth.signOut()');
+      console.log('🔴 DEBUG: AuthService.signOut - Browser:', navigator.userAgent.includes('Edg') ? 'Edge' : 'Other');
+      console.log('🔴 DEBUG: AuthService.signOut - calling supabase.auth.signOut() with global scope');
+      
       const { error } = await supabase.auth.signOut({ scope: 'global' });
       console.log('🔴 DEBUG: AuthService.signOut - supabase result:', { error });
+      
+      if (error) {
+        console.log('🔴 DEBUG: SignOut failed with global scope, trying local scope for Edge compatibility');
+        const { error: localError } = await supabase.auth.signOut({ scope: 'local' });
+        console.log('🔴 DEBUG: AuthService.signOut - local scope result:', { error: localError });
+        return { error: localError };
+      }
+      
       return { error };
     } catch (error) {
       console.error('🔴 DEBUG: AuthService.signOut error:', error);
