@@ -17,6 +17,7 @@ import NotFound from "./pages/NotFound";
 import { GenreMapping } from "./pages/GenreMapping";
 import { TrackLevelProcessor } from "./components/NoGenreTracks/TrackLevelProcessor";
 import Security from "./pages/Security";
+import AuthDebug from "./pages/AuthDebug";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +72,7 @@ function AppContent() {
               <Security />
             </NewProtectedRoute>
           } />
+          <Route path="/auth-debug" element={<AuthDebug />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
