@@ -198,15 +198,17 @@ export class SpotifyService {
         scopes: scopes.split(' ').length + ' scopes'
       });
 
-      // Add a delay to ensure logs are captured before redirect
-      console.log('🔵 SPOTIFY AUTH: Redirecting to Spotify in 100ms...');
-      setTimeout(() => {
-        console.log('🔵 SPOTIFY AUTH: REDIRECTING NOW to:', authUrl.toString().substring(0, 100) + '...');
-        window.location.href = authUrl.toString();
-      }, 100);
+      // Redirect immediately - no delay needed
+      console.log('🔵 SPOTIFY AUTH: REDIRECTING NOW to:', authUrl.toString().substring(0, 100) + '...');
       
-      // This return won't execute because we're redirecting
-      return { success: true };
+      try {
+        window.location.href = authUrl.toString();
+        // This return won't execute because we're redirecting
+        return { success: true };
+      } catch (redirectError: any) {
+        console.error('❌ SPOTIFY AUTH: Redirect failed:', redirectError);
+        throw new Error(`Failed to redirect to Spotify: ${redirectError.message}`);
+      }
     } catch (error: any) {
       console.error('❌ SPOTIFY AUTH CRITICAL ERROR:', error);
       console.error('❌ ERROR STACK:', error.stack);

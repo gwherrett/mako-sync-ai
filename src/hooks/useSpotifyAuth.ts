@@ -126,28 +126,27 @@ export const useSpotifyAuth = () => {
     try {
       console.log('🔵 SPOTIFY HOOK: Starting connection process...');
       
+      // Show loading toast to indicate process started
+      toast({
+        title: "Connecting to Spotify",
+        description: "Redirecting to Spotify for authorization...",
+      });
+      
       // SpotifyService.connectSpotify() handles the redirect flow
       await SpotifyService.connectSpotify();
       
       console.log('🔵 SPOTIFY HOOK: Connection service call completed');
       
-      // Refresh connection state after successful auth
-      await checkConnection();
+      // Note: The code below won't execute because we're redirecting
+      // The success handling happens in the SpotifyCallback component
       
-      // Show success toast
-      toast({
-        title: "Spotify Connected",
-        description: "Successfully connected to Spotify!",
-      });
-      
-      console.log('✅ SPOTIFY HOOK: Connection process completed successfully');
     } catch (error: any) {
       console.error('❌ SPOTIFY HOOK ERROR: Connection failed:', error);
       
       // Show error toast for failures
       toast({
         title: "Connection Failed",
-        description: error.message,
+        description: error.message || "Failed to redirect to Spotify. Please try again.",
         variant: "destructive",
       });
     }
