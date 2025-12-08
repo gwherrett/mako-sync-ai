@@ -31,11 +31,6 @@ const SessionTimeoutWarningComponent = ({
     }
   }, [timeRemaining]);
 
-  // Don't show if dismissed or time remaining is more than 5 minutes
-  if (dismissed || timeRemaining > 5) {
-    return null;
-  }
-
   const handleDismiss = useCallback(() => {
     setDismissed(true);
     onDismiss?.();
@@ -45,6 +40,12 @@ const SessionTimeoutWarningComponent = ({
     onExtendSession();
     setDismissed(true);
   }, [onExtendSession]);
+
+  // Don't show if dismissed or time remaining is more than 5 minutes
+  // MOVED AFTER ALL HOOKS to prevent "Rendered fewer hooks than expected" error
+  if (dismissed || timeRemaining > 5) {
+    return null;
+  }
 
   // Calculate progress (5 minutes = 100%, 0 minutes = 0%)
   const progressValue = Math.max(0, (timeRemaining / 5) * 100);

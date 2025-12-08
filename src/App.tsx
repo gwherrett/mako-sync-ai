@@ -82,13 +82,13 @@ function AppContent() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <NewAuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <NewAuthProvider>
         <AppContent />
-      </TooltipProvider>
-    </NewAuthProvider>
+      </NewAuthProvider>
+    </TooltipProvider>
   </QueryClientProvider>
 );
 

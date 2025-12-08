@@ -130,67 +130,107 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Initialize auth state
   const initializeAuth = useCallback(async () => {
-    if (initializationRef.current) return;
+    console.log('🚀 INIT DEBUG: initializeAuth called', {
+      alreadyInitialized: initializationRef.current,
+      timestamp: new Date().toISOString()
+    });
+    
+    if (initializationRef.current) {
+      console.log('⚠️ INIT DEBUG: Already initialized, skipping');
+      return;
+    }
+    
     initializationRef.current = true;
+    console.log('🔄 INIT DEBUG: Starting auth initialization');
 
     try {
       const { session, error } = await AuthService.getCurrentSession();
       
+      console.log('📡 INIT DEBUG: Got session from AuthService', {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        error: error?.message,
+        userId: session?.user?.id
+      });
+      
       if (error) {
-        console.error('Error getting session:', error);
+        console.error('❌ INIT DEBUG: Error getting session:', error);
         clearUserData();
         return;
       }
 
       if (session?.user) {
+        console.log('✅ INIT DEBUG: Valid session found, setting user state');
         setSession(session);
         setUser(session.user);
         
         // Load user data after session is established
         setTimeout(() => {
+          console.log('📊 INIT DEBUG: Loading user data for:', session.user.id);
           loadUserData(session.user.id);
         }, 0);
       } else {
+        console.log('🚫 INIT DEBUG: No valid session, clearing user data');
         clearUserData();
       }
     } catch (error) {
-      console.error('Auth initialization error:', error);
+      console.error('💥 INIT DEBUG: Auth initialization error:', error);
       clearUserData();
     } finally {
+      console.log('🏁 INIT DEBUG: Setting loading to false');
       setLoading(false);
     }
   }, [clearUserData, loadUserData]);
 
   // Auth state change handler
   useEffect(() => {
+    console.log('🔍 AUTH DEBUG: Setting up auth state change handler');
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔴 DEBUG: Auth state changed:', event, session?.user?.id);
+        console.log('🔴 AUTH STATE CHANGE:', {
+          event,
+          userId: session?.user?.id,
+          hasSession: !!session,
+          timestamp: new Date().toISOString(),
+          currentLoading: loading,
+          initializationComplete: initializationRef.current
+        });
+        
+        // Prevent race conditions during initialization
+        if (!initializationRef.current && event !== 'INITIAL_SESSION') {
+          console.log('⚠️ AUTH DEBUG: Ignoring auth change during initialization');
+          return;
+        }
         
         // Update state synchronously
         setSession(session);
         setUser(session?.user ?? null);
         
         if (event === 'SIGNED_IN' && session?.user) {
-          console.log('🔴 DEBUG: SIGNED_IN event - loading user data');
+          console.log('✅ AUTH DEBUG: SIGNED_IN event - loading user data');
           // Defer data loading to prevent deadlocks
           setTimeout(() => {
             loadUserData(session.user.id);
           }, 0);
         } else if (event === 'SIGNED_OUT') {
-          console.log('🔴 DEBUG: SIGNED_OUT event - clearing user data');
+          console.log('🚪 AUTH DEBUG: SIGNED_OUT event - clearing user data');
           clearUserData();
         }
         
-        console.log('🔴 DEBUG: Setting loading to false');
+        console.log('🔄 AUTH DEBUG: Setting loading to false after auth change');
         setLoading(false);
       }
     );
 
     // Initialize auth state
+    console.log('🚀 AUTH DEBUG: Calling initializeAuth');
     initializeAuth();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('🧹 AUTH DEBUG: Cleaning up auth subscription');
+      subscription.unsubscribe();
+    };
   }, [initializeAuth, loadUserData, clearUserData]);
 
   // Auth actions
@@ -254,6 +294,11 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [setErrorLoading, clearError, handleError, toast]);
 
   const signIn = useCallback(async (data: SignInData): Promise<boolean> => {
+    console.log('🔑 SIGNIN DEBUG: signIn called', {
+      email: data.email,
+      timestamp: new Date().toISOString()
+    });
+    
     setErrorLoading(true);
     clearError();
 
@@ -263,9 +308,23 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         component: 'NewAuthContext'
       });
 
+      console.log('📡 SIGNIN DEBUG: Calling AuthRetryService.signInWithRetry');
       const result = await AuthRetryService.signInWithRetry(data);
       
+      console.log('📡 SIGNIN DEBUG: AuthRetryService result', {
+        success: result.success,
+        hasError: !!result.error,
+        hasUser: !!result.data?.user,
+        hasSession: !!result.data?.session,
+        attempts: result.attempts
+      });
+      
       if (!result.success || result.error) {
+        console.log('❌ SIGNIN DEBUG: Sign in failed', {
+          error: result.error?.message,
+          attempts: result.attempts
+        });
+        
         const errorResult = ErrorHandlingService.handleError(result.error!, {
           operation: 'signIn',
           component: 'NewAuthContext',
@@ -285,6 +344,11 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       if (result.data?.user && result.data?.session) {
+        console.log('✅ SIGNIN DEBUG: Sign in successful', {
+          userId: result.data.user.id,
+          sessionId: result.data.session.access_token.substring(0, 10) + '...'
+        });
+        
         toast({
           title: 'Welcome back!',
           description: 'Successfully signed in.',
@@ -298,8 +362,11 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return true;
       }
 
+      console.log('⚠️ SIGNIN DEBUG: Sign in returned success but no user/session data');
       return false;
     } catch (error) {
+      console.log('💥 SIGNIN DEBUG: Sign in threw exception', error);
+      
       const errorResult = ErrorHandlingService.handleError(error as AuthError, {
         operation: 'signIn',
         component: 'NewAuthContext'
@@ -309,6 +376,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       handleError(error as AuthError);
       return false;
     } finally {
+      console.log('🏁 SIGNIN DEBUG: Setting error loading to false');
       setErrorLoading(false);
     }
   }, [setErrorLoading, clearError, handleError, toast]);

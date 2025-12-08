@@ -45,27 +45,56 @@ export const useAuthRedirect = ({
   }, [userRole]);
 
   useEffect(() => {
+    console.log('🔄 REDIRECT DEBUG: useAuthRedirect effect triggered', {
+      hasUser: !!user,
+      loading,
+      currentPath: location.pathname,
+      loginPath,
+      allowedRoles,
+      userRole,
+      timestamp: new Date().toISOString()
+    });
+
     // Don't redirect while loading
-    if (loading) return;
+    if (loading) {
+      console.log('⏳ REDIRECT DEBUG: Skipping redirect - still loading');
+      return;
+    }
 
     // If user is not authenticated and not on login page, redirect to login
     if (!user && location.pathname !== loginPath) {
+      console.log('🔐 REDIRECT DEBUG: User not authenticated, redirecting to login', {
+        from: location.pathname,
+        to: loginPath
+      });
       redirectToLogin();
       return;
     }
 
     // If user is authenticated and on login page, redirect to main app
     if (user && location.pathname === loginPath) {
+      console.log('✅ REDIRECT DEBUG: User authenticated on login page, redirecting to app', {
+        userId: user.id,
+        from: loginPath,
+        returnTo: (location.state as any)?.returnTo || redirectTo
+      });
       redirectToDestination();
       return;
     }
 
     // Check role-based access
     if (user && allowedRoles && !checkRoleAccess(allowedRoles)) {
+      console.log('🚫 REDIRECT DEBUG: User lacks required role, redirecting to home', {
+        userId: user.id,
+        userRole,
+        requiredRoles: allowedRoles
+      });
       // Redirect to unauthorized page or main page
       navigate('/', { replace: true });
       return;
     }
+
+    console.log('✅ REDIRECT DEBUG: No redirect needed - user in correct state');
   }, [
     user,
     loading,

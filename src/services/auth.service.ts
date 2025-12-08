@@ -105,13 +105,29 @@ export class AuthService {
    */
   static async getCurrentSession(): Promise<{ session: Session | null; error: AuthError | null }> {
     try {
-      const { data, error } = await supabase.auth.getSession();
+      console.log('📡 AUTH SERVICE: Starting getCurrentSession...');
+      
+      // Add timeout to prevent hanging
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Session fetch timeout after 10 seconds')), 10000)
+      );
+      
+      const { data, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+      
+      console.log('📡 AUTH SERVICE: getCurrentSession result', {
+        hasSession: !!data?.session,
+        hasUser: !!data?.session?.user,
+        error: error?.message,
+        userId: data?.session?.user?.id
+      });
+      
       return {
         session: data.session,
         error
       };
     } catch (error) {
-      console.error('AuthService.getCurrentSession error:', error);
+      console.error('❌ AUTH SERVICE: getCurrentSession error:', error);
       return {
         session: null,
         error: error as AuthError
