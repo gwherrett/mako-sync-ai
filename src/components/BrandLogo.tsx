@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import makoSharkImage from '/lovable-uploads/e4b87a4e-9811-48cc-8416-672fd487b3e0.png';
+import makoSharkImage from '/favicon.png';
 
 interface BrandLogoProps {
   size?: number;
