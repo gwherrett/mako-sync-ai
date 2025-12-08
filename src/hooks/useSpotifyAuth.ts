@@ -7,13 +7,14 @@ import type { SpotifyConnection } from '@/types/spotify';
 // Global state to prevent multiple simultaneous connection checks
 let globalConnectionState = {
   isConnected: false,
-  isLoading: true,
+  isLoading: false, // Start as false to prevent initial blocking
   connection: null as SpotifyConnection | null,
   lastCheck: 0,
-  isChecking: false
+  isChecking: false,
+  hasInitialCheck: false // Track if we've done the first check
 };
 
-const CONNECTION_CHECK_COOLDOWN = 2000; // 2 seconds cooldown between checks
+const CONNECTION_CHECK_COOLDOWN = 5000; // Increase cooldown to 5 seconds
 const listeners = new Set<() => void>();
 
 const notifyListeners = () => {
@@ -44,24 +45,39 @@ export const useSpotifyAuth = () => {
     };
   }, []);
 
-  const checkConnection = async () => {
+  const checkConnection = async (force: boolean = false) => {
     const now = Date.now();
     
-    // Prevent multiple simultaneous checks
-    if (globalConnectionState.isChecking || (now - globalConnectionState.lastCheck) < CONNECTION_CHECK_COOLDOWN) {
+    // Prevent multiple simultaneous checks unless forced
+    if (!force && (globalConnectionState.isChecking || (now - globalConnectionState.lastCheck) < CONNECTION_CHECK_COOLDOWN)) {
       console.log('🔍 SPOTIFY HOOK: Skipping check (cooldown or already checking)');
       return;
     }
 
     console.log('🔍 SPOTIFY HOOK: Starting connection check...');
     globalConnectionState.isChecking = true;
-    globalConnectionState.isLoading = true;
+    
+    // Only show loading on initial check or forced checks
+    if (!globalConnectionState.hasInitialCheck || force) {
+      globalConnectionState.isLoading = true;
+    }
+    
     globalConnectionState.lastCheck = now;
     notifyListeners();
     
     try {
       console.log('🔍 SPOTIFY HOOK: Calling SpotifyService.checkConnection()...');
-      const result = await SpotifyService.checkConnection();
+      
+      // Use a shorter timeout for the hook level
+      const result = await Promise.race([
+        SpotifyService.checkConnection(),
+        new Promise<{ connection: null; isConnected: false }>((resolve) =>
+          setTimeout(() => {
+            console.warn('⚠️ SPOTIFY HOOK: Connection check timeout, returning disconnected');
+            resolve({ connection: null, isConnected: false });
+          }, 4000) // 4 second timeout at hook level
+        )
+      ]);
       
       console.log('🔍 SPOTIFY HOOK: Service returned:', {
         isConnected: result.isConnected,
@@ -72,12 +88,14 @@ export const useSpotifyAuth = () => {
       
       globalConnectionState.connection = result.connection;
       globalConnectionState.isConnected = result.isConnected;
+      globalConnectionState.hasInitialCheck = true;
       
       console.log('✅ SPOTIFY HOOK: State updated successfully');
     } catch (error) {
-      console.error('❌ SPOTIFY HOOK ERROR: Exception in checkConnection:', error);
+      console.warn('⚠️ SPOTIFY HOOK: Connection check failed, setting disconnected:', error);
       globalConnectionState.isConnected = false;
       globalConnectionState.connection = null;
+      globalConnectionState.hasInitialCheck = true;
     } finally {
       console.log('🔍 SPOTIFY HOOK: Setting isLoading to false');
       globalConnectionState.isLoading = false;
@@ -184,10 +202,14 @@ export const useSpotifyAuth = () => {
   };
 
   useEffect(() => {
-    // Always allow the first check, then use cooldown for subsequent checks
-    const now = Date.now();
-    if (globalConnectionState.lastCheck === 0 || (now - globalConnectionState.lastCheck) > CONNECTION_CHECK_COOLDOWN) {
-      checkConnection();
+    // Only do initial check if we haven't done one yet
+    if (!globalConnectionState.hasInitialCheck) {
+      // Use setTimeout to make it non-blocking
+      const timeoutId = setTimeout(() => {
+        checkConnection();
+      }, 100); // Small delay to prevent blocking initial render
+      
+      return () => clearTimeout(timeoutId);
     }
   }, []);
 

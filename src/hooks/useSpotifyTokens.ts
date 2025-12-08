@@ -80,21 +80,34 @@ export const useSpotifyTokens = (config: UseSpotifyTokensConfig = {}) => {
     };
   }, [autoRefresh, tokenHealth.lastRefresh]);
 
-  // Check connection and update token health
+  // Check connection and update token health (non-blocking)
   const checkConnection = useCallback(async () => {
-    setIsLoading(true);
     try {
-      const { connection: conn, isConnected } = await SpotifyService.checkConnection();
+      // Use a timeout to prevent blocking
+      const result = await Promise.race([
+        SpotifyService.checkConnection(),
+        new Promise<{ connection: null; isConnected: false }>((resolve) =>
+          setTimeout(() => {
+            console.warn('⚠️ SPOTIFY TOKENS: Connection check timeout');
+            resolve({ connection: null, isConnected: false });
+          }, 3000) // 3 second timeout
+        )
+      ]);
+      
+      const { connection: conn, isConnected } = result;
       setConnection(conn);
       
       if (isConnected && conn) {
         const health = calculateTokenHealth(conn);
         setTokenHealth(health);
         
-        // Auto-refresh if needed
+        // Auto-refresh if needed (but don't block)
         if (autoRefresh && health.expiresIn <= refreshThreshold && health.expiresIn > 0) {
           console.log(`Auto-refreshing tokens (${health.expiresIn} minutes remaining)`);
-          await refreshTokens();
+          // Don't await - let it run in background
+          refreshTokens().catch(error =>
+            console.warn('Background token refresh failed:', error)
+          );
         }
       } else {
         setTokenHealth({
@@ -105,7 +118,7 @@ export const useSpotifyTokens = (config: UseSpotifyTokensConfig = {}) => {
         });
       }
     } catch (error) {
-      console.error('Error checking connection:', error);
+      console.warn('⚠️ SPOTIFY TOKENS: Connection check failed:', error);
       setTokenHealth({
         status: 'error',
         expiresIn: 0,
@@ -230,14 +243,23 @@ export const useSpotifyTokens = (config: UseSpotifyTokensConfig = {}) => {
     }
   }, [tokenHealth.status, getTimeUntilExpiry]);
 
-  // Set up periodic health checks
+  // Set up periodic health checks (non-blocking)
   useEffect(() => {
-    checkConnection();
+    // Start with loading false to prevent blocking
+    setIsLoading(false);
     
-    // Check every 5 minutes
-    const interval = setInterval(checkConnection, 5 * 60 * 1000);
+    // Delay initial check to prevent blocking
+    const initialTimeout = setTimeout(() => {
+      checkConnection();
+    }, 500); // 500ms delay
     
-    return () => clearInterval(interval);
+    // Check every 10 minutes (reduced frequency)
+    const interval = setInterval(checkConnection, 10 * 60 * 1000);
+    
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
   }, [checkConnection]);
 
   // Set up auto-refresh timer
