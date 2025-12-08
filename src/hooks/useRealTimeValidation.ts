@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { z } from 'zod';
 
 interface ValidationField {
@@ -31,41 +31,32 @@ export const useRealTimeValidation = ({
   });
 
   const [debounceTimers, setDebounceTimers] = useState<Record<string, NodeJS.Timeout>>({});
+  const isTyping = useRef<Record<string, boolean>>({});
+  const fieldsRef = useRef<Record<string, ValidationField>>({});
+  
+  // Keep fieldsRef in sync with fields state
+  fieldsRef.current = fields;
 
   const validateField = useCallback((fieldName: string, value: string) => {
     const schema = schemas[fieldName];
-    if (!schema) return;
+    if (!schema) return { error: null, valid: false };
 
     try {
       schema.parse(value);
-      setFields(prev => ({
-        ...prev,
-        [fieldName]: {
-          ...prev[fieldName],
-          value,
-          error: null,
-          valid: true,
-        }
-      }));
+      return { error: null, valid: true };
     } catch (error) {
       if (error instanceof z.ZodError) {
-        setFields(prev => ({
-          ...prev,
-          [fieldName]: {
-            ...prev[fieldName],
-            value,
-            error: error.errors[0]?.message || 'Invalid value',
-            valid: false,
-          }
-        }));
+        return {
+          error: error.errors[0]?.message || 'Invalid value',
+          valid: false
+        };
       }
+      return { error: 'Invalid value', valid: false };
     }
   }, [schemas]);
 
   const updateField = useCallback((fieldName: string, value: string, immediate = false) => {
-    console.log('🔴 DEBUG: updateField called for', fieldName, 'value length:', value.length, 'immediate:', immediate);
-    
-    // Update value immediately
+    // Update value immediately without any validation to prevent re-renders during typing
     setFields(prev => ({
       ...prev,
       [fieldName]: {
@@ -75,27 +66,19 @@ export const useRealTimeValidation = ({
       }
     }));
 
-    // Clear existing timer
-    if (debounceTimers[fieldName]) {
-      clearTimeout(debounceTimers[fieldName]);
+    // Only validate if immediate (onBlur) - no debounced validation during typing
+    if (immediate) {
+      const validation = validateField(fieldName, value);
+      setFields(prev => ({
+        ...prev,
+        [fieldName]: {
+          ...prev[fieldName],
+          error: validation.error,
+          valid: validation.valid,
+        }
+      }));
     }
-
-    // Set up debounced validation
-    const timer = setTimeout(() => {
-      console.log('🔴 DEBUG: Debounced validation triggered for', fieldName, '- this may cause re-render and focus loss');
-      validateField(fieldName, value);
-      setDebounceTimers(prev => {
-        const newTimers = { ...prev };
-        delete newTimers[fieldName];
-        return newTimers;
-      });
-    }, immediate ? 0 : debounceMs);
-
-    setDebounceTimers(prev => ({
-      ...prev,
-      [fieldName]: timer,
-    }));
-  }, [validateField, debounceTimers, debounceMs]);
+  }, [validateField]);
 
   const validateAllFields = useCallback(() => {
     const errors: Record<string, string> = {};
@@ -142,14 +125,21 @@ export const useRealTimeValidation = ({
     Object.keys(fields).forEach(resetField);
   }, [fields, resetField]);
 
-  const getFieldProps = useCallback((fieldName: string) => ({
-    value: fields[fieldName]?.value || '',
-    error: fields[fieldName]?.error,
-    touched: fields[fieldName]?.touched || false,
-    valid: fields[fieldName]?.valid || false,
-    onChange: (value: string) => updateField(fieldName, value),
-    onBlur: () => updateField(fieldName, fields[fieldName]?.value || '', true),
-  }), [fields, updateField]);
+  // Create stable handlers using refs to avoid re-creation
+  const getFieldProps = useCallback((fieldName: string) => {
+    return {
+      value: fields[fieldName]?.value || '',
+      error: fields[fieldName]?.error,
+      touched: fields[fieldName]?.touched || false,
+      valid: fields[fieldName]?.valid || false,
+      onChange: (value: string) => updateField(fieldName, value),
+      onBlur: () => {
+        // Use ref to get current value to avoid closure issues
+        const currentValue = fieldsRef.current[fieldName]?.value || '';
+        updateField(fieldName, currentValue, true);
+      },
+    };
+  }, [updateField]); // Remove fields dependency to prevent re-creation
 
   const isFormValid = useMemo(() => {
     return Object.values(fields).every(field => 

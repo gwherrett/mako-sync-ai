@@ -63,15 +63,48 @@ const NewAuth = () => {
   const [passwordResetSent, setPasswordResetSent] = useState(false);
   const [showPasswordStrength, setShowPasswordStrength] = useState(false);
 
-  // Real-time validation
-  const validation = useRealTimeValidation({
-    schemas: getValidationSchemas(isLogin),
-    debounceMs: 300,
+  // Emergency fix: Direct state management to prevent focus loss
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    displayName: ''
+  });
+  
+  const [formErrors, setFormErrors] = useState({
+    email: '',
+    password: '',
+    displayName: ''
+  });
+  
+  const [formTouched, setFormTouched] = useState({
+    email: false,
+    password: false,
+    displayName: false
   });
 
-  const emailProps = validation.getFieldProps('email');
-  const passwordProps = validation.getFieldProps('password');
-  const displayNameProps = validation.getFieldProps('displayName');
+  // Validation schemas for manual validation
+  const validationSchemas = React.useMemo(() => getValidationSchemas(isLogin), [isLogin]);
+
+  // Create field props objects for compatibility with ValidatedInput
+  const createFieldProps = (fieldName: keyof typeof formData) => ({
+    value: formData[fieldName],
+    error: formTouched[fieldName] ? formErrors[fieldName] : null,
+    touched: formTouched[fieldName],
+    valid: formTouched[fieldName] && !formErrors[fieldName],
+    onChange: (value: string) => {
+      setFormData(prev => ({ ...prev, [fieldName]: value }));
+      setFormTouched(prev => ({ ...prev, [fieldName]: true }));
+    },
+    onBlur: () => {
+      const error = validateField(fieldName, formData[fieldName]);
+      setFormErrors(prev => ({ ...prev, [fieldName]: error }));
+      setFormTouched(prev => ({ ...prev, [fieldName]: true }));
+    }
+  });
+
+  const emailProps = createFieldProps('email');
+  const passwordProps = createFieldProps('password');
+  const displayNameProps = createFieldProps('displayName');
 
   // Authentication state management
   const authState = useAuthState({
@@ -104,19 +137,37 @@ const NewAuth = () => {
   useEffect(() => {
     // Clear error when switching between login/signup
     clearError();
-    // Reset validation when switching modes
-    validation.resetAllFields();
+    // Reset form data when switching modes
+    setFormData({ email: '', password: '', displayName: '' });
+    setFormErrors({ email: '', password: '', displayName: '' });
+    setFormTouched({ email: false, password: false, displayName: false });
     setShowPasswordStrength(false);
   }, [isLogin, clearError]);
 
   // Show password strength when user starts typing password in signup mode
   useEffect(() => {
-    if (!isLogin && passwordProps.value && passwordProps.touched) {
+    if (!isLogin && formData.password && formTouched.password) {
       setShowPasswordStrength(true);
     } else {
       setShowPasswordStrength(false);
     }
-  }, [isLogin, passwordProps.value, passwordProps.touched]);
+  }, [isLogin, formData.password, formTouched.password]);
+
+  // Manual validation function
+  const validateField = (fieldName: string, value: string) => {
+    const schema = validationSchemas[fieldName];
+    if (!schema) return '';
+
+    try {
+      schema.parse(value);
+      return '';
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return error.errors[0]?.message || 'Invalid value';
+      }
+      return 'Invalid value';
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,26 +175,31 @@ const NewAuth = () => {
     clearError();
 
     try {
-      // Validate all fields
-      const { errors, isValid } = validation.validateAllFields();
+      // Validate all fields manually
+      const errors = {
+        email: validateField('email', formData.email),
+        password: validateField('password', formData.password),
+        displayName: validateField('displayName', formData.displayName)
+      };
+      
+      const isValid = !errors.email && !errors.password && !errors.displayName;
       
       if (!isValid) {
-        // Mark all fields as touched to show errors
-        Object.keys(errors).forEach(fieldName => {
-          validation.updateField(fieldName, validation.fields[fieldName]?.value || '', true);
-        });
+        // Mark all fields as touched and show errors
+        setFormTouched({ email: true, password: true, displayName: true });
+        setFormErrors(errors);
         setIsSubmitting(false);
         return;
       }
 
       // Sanitize inputs
-      const sanitizedEmail = emailProps.value.trim().toLowerCase();
-      const sanitizedDisplayName = displayNameProps.value.trim();
+      const sanitizedEmail = formData.email.trim().toLowerCase();
+      const sanitizedDisplayName = formData.displayName.trim();
 
       if (isLogin) {
         const success = await signIn({
           email: sanitizedEmail,
-          password: passwordProps.value
+          password: formData.password
         });
         if (success) {
           // Redirect will be handled by useAuthRedirect
@@ -156,12 +212,14 @@ const NewAuth = () => {
       } else {
         const success = await signUp({
           email: sanitizedEmail,
-          password: passwordProps.value,
+          password: formData.password,
           displayName: sanitizedDisplayName || undefined
         });
         if (success) {
           setIsLogin(true);
-          validation.resetAllFields();
+          setFormData({ email: '', password: '', displayName: '' });
+          setFormErrors({ email: '', password: '', displayName: '' });
+          setFormTouched({ email: false, password: false, displayName: false });
         }
       }
     } catch (error) {
@@ -175,7 +233,7 @@ const NewAuth = () => {
   const handleResendConfirmation = async () => {
     setIsSubmitting(true);
     try {
-      await resendConfirmation(emailProps.value);
+      await resendConfirmation(formData.email);
       setShowResendConfirmation(false);
     } catch (error) {
       console.error('Resend confirmation error:', error);
@@ -185,7 +243,9 @@ const NewAuth = () => {
   };
 
   const resetForm = () => {
-    validation.resetAllFields();
+    setFormData({ email: '', password: '', displayName: '' });
+    setFormErrors({ email: '', password: '', displayName: '' });
+    setFormTouched({ email: false, password: false, displayName: false });
     setShowPassword(false);
     setShowResendConfirmation(false);
     setPasswordResetSent(false);
@@ -194,14 +254,16 @@ const NewAuth = () => {
   };
 
   const handlePasswordReset = async () => {
-    if (!emailProps.value) {
-      validation.updateField('email', '', true);
+    if (!formData.email) {
+      setFormTouched(prev => ({ ...prev, email: true }));
+      setFormErrors(prev => ({ ...prev, email: 'Email is required' }));
       return;
     }
 
-    const emailValidation = emailSchema.safeParse(emailProps.value);
+    const emailValidation = emailSchema.safeParse(formData.email);
     if (!emailValidation.success) {
-      validation.updateField('email', emailProps.value, true);
+      setFormTouched(prev => ({ ...prev, email: true }));
+      setFormErrors(prev => ({ ...prev, email: emailValidation.error.errors[0]?.message || 'Invalid email' }));
       return;
     }
 
@@ -209,7 +271,7 @@ const NewAuth = () => {
     clearError();
 
     try {
-      const success = await resetPassword(emailProps.value.trim().toLowerCase());
+      const success = await resetPassword(formData.email.trim().toLowerCase());
       if (success) {
         setPasswordResetSent(true);
       }
@@ -232,8 +294,8 @@ const NewAuth = () => {
     resetForm();
   };
 
-  // Enhanced input component with validation feedback
-  const ValidatedInput = ({
+  // Enhanced input component with validation feedback - optimized to prevent focus loss
+  const ValidatedInput = React.memo(({
     fieldProps,
     label,
     type = 'text',
@@ -242,54 +304,79 @@ const NewAuth = () => {
     showValidation = true,
     children
   }: {
-    fieldProps: ReturnType<typeof validation.getFieldProps>;
+    fieldProps: {
+      value: string;
+      error: string | null;
+      touched: boolean;
+      valid: boolean;
+      onChange: (value: string) => void;
+      onBlur: () => void;
+    };
     label: string;
     type?: string;
     placeholder: string;
     required?: boolean;
     showValidation?: boolean;
     children?: React.ReactNode;
-  }) => (
-    <div className="space-y-2">
-      <Label className="text-white flex items-center space-x-2">
-        <span>{label}</span>
-        {required && <span className="text-red-400">*</span>}
-        {showValidation && fieldProps.touched && (
-          fieldProps.valid ? (
-            <CheckCircle className="w-4 h-4 text-green-400" />
-          ) : fieldProps.error ? (
-            <AlertCircle className="w-4 h-4 text-red-400" />
-          ) : null
+  }) => {
+    // Memoize the className to prevent re-renders
+    const inputClassName = React.useMemo(() => {
+      const baseClasses = 'bg-white/10 border-white/20 text-white placeholder-gray-400 transition-colors';
+      if (!fieldProps.touched) {
+        return `${baseClasses} border-white/20`;
+      }
+      if (fieldProps.valid) {
+        return `${baseClasses} border-green-500/50 focus:border-green-500`;
+      }
+      if (fieldProps.error) {
+        return `${baseClasses} border-red-500/50 focus:border-red-500`;
+      }
+      return `${baseClasses} border-white/20`;
+    }, [fieldProps.touched, fieldProps.valid, fieldProps.error]);
+
+    // Memoize handlers to prevent re-creation
+    const handleChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      fieldProps.onChange(e.target.value);
+    }, [fieldProps.onChange]);
+
+    const handleBlur = React.useCallback(() => {
+      fieldProps.onBlur();
+    }, [fieldProps.onBlur]);
+
+    return (
+      <div className="space-y-2">
+        <Label className="text-white flex items-center space-x-2">
+          <span>{label}</span>
+          {required && <span className="text-red-400">*</span>}
+          {showValidation && fieldProps.touched && (
+            fieldProps.valid ? (
+              <CheckCircle className="w-4 h-4 text-green-400" />
+            ) : fieldProps.error ? (
+              <AlertCircle className="w-4 h-4 text-red-400" />
+            ) : null
+          )}
+        </Label>
+        <div className="relative">
+          <Input
+            type={type}
+            value={fieldProps.value}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            required={required}
+            className={inputClassName}
+            placeholder={placeholder}
+          />
+          {children}
+        </div>
+        {showValidation && fieldProps.touched && fieldProps.error && (
+          <p className="text-red-400 text-sm flex items-center space-x-1">
+            <AlertCircle className="w-3 h-3" />
+            <span>{fieldProps.error}</span>
+          </p>
         )}
-      </Label>
-      <div className="relative">
-        <Input
-          type={type}
-          value={fieldProps.value}
-          onChange={(e) => fieldProps.onChange(e.target.value)}
-          onBlur={fieldProps.onBlur}
-          required={required}
-          className={`bg-white/10 border-white/20 text-white placeholder-gray-400 transition-colors ${
-            fieldProps.touched
-              ? fieldProps.valid
-                ? 'border-green-500/50 focus:border-green-500'
-                : fieldProps.error
-                ? 'border-red-500/50 focus:border-red-500'
-                : 'border-white/20'
-              : 'border-white/20'
-          }`}
-          placeholder={placeholder}
-        />
-        {children}
       </div>
-      {showValidation && fieldProps.touched && fieldProps.error && (
-        <p className="text-red-400 text-sm flex items-center space-x-1">
-          <AlertCircle className="w-3 h-3" />
-          <span>{fieldProps.error}</span>
-        </p>
-      )}
-    </div>
-  );
+    );
+  });
 
   // Show loading while auth state is being determined
   if (loading || authState.isInitializing) {

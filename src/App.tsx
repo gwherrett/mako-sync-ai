@@ -38,13 +38,15 @@ function AppContent() {
         isOnline={authState.isOnline}
       />
 
-      {/* Session timeout warning */}
-      <SessionTimeoutWarning
-        timeRemaining={authState.sessionTimeRemaining || 0}
-        isRefreshing={authState.isRefreshing}
-        isOnline={authState.isOnline}
-        onExtendSession={authState.extendSession}
-      />
+      {/* Session timeout warning - only show when not on auth pages */}
+      {!window.location.pathname.includes('/auth') && (
+        <SessionTimeoutWarning
+          timeRemaining={authState.sessionTimeRemaining || 0}
+          isRefreshing={authState.isRefreshing}
+          isOnline={authState.isOnline}
+          onExtendSession={authState.extendSession}
+        />
+      )}
 
       {/* Main application routes */}
       <BrowserRouter>
