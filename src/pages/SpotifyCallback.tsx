@@ -88,6 +88,16 @@ const SpotifyCallback = () => {
   });
 
   useEffect(() => {
+    // Prevent multiple executions with a flag
+    const executionFlag = 'spotify_callback_processing';
+    if (sessionStorage.getItem(executionFlag)) {
+      console.log('🟡 CALLBACK DEBUG: Already processing, skipping duplicate execution');
+      return;
+    }
+    
+    // Set flag to prevent duplicate executions
+    sessionStorage.setItem(executionFlag, 'true');
+    
     const processCallback = async () => {
       console.log('🟡 CALLBACK FLOW: Starting callback processing');
       console.log('🟡 CALLBACK FLOW: URL:', window.location.href);
@@ -187,9 +197,10 @@ const SpotifyCallback = () => {
             variant: "destructive",
           });
           
-          // Clear any stored states
+          // Clear any stored states and execution flag on error
           localStorage.removeItem('spotify_auth_state');
           sessionStorage.removeItem('spotify_auth_state_backup');
+          sessionStorage.removeItem('spotify_callback_processing');
           
           setTimeout(() => navigate('/'), 3000);
           return;
@@ -207,10 +218,8 @@ const SpotifyCallback = () => {
       updateStepStatus(1, 'active');
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Clean up stored state from both locations
-      localStorage.removeItem('spotify_auth_state');
-      sessionStorage.removeItem('spotify_auth_state_backup');
-      console.log('🟡 CALLBACK FLOW: Cleaned up stored state from both storage locations');
+      // Don't clean up state yet - wait until we're sure we're processing successfully
+      console.log('🟡 CALLBACK FLOW: Keeping stored state for validation');
 
       try {
         console.log('🟡 CALLBACK FLOW: Getting current user session...');
@@ -276,6 +285,12 @@ const SpotifyCallback = () => {
         await new Promise(resolve => setTimeout(resolve, 1000));
         updateStepStatus(3, 'completed');
 
+        // Clean up stored state and execution flag on success
+        localStorage.removeItem('spotify_auth_state');
+        sessionStorage.removeItem('spotify_auth_state_backup');
+        sessionStorage.removeItem('spotify_callback_processing');
+        console.log('🟡 CALLBACK FLOW: Cleaned up stored state and execution flag on success');
+
         // Show success message
         toast({
           title: "Spotify Connected!",
@@ -293,6 +308,9 @@ const SpotifyCallback = () => {
           name: error.name
         });
         updateStepStatus(currentStep, 'error');
+        
+        // Clean up execution flag on error
+        sessionStorage.removeItem('spotify_callback_processing');
         
         // Send error message to parent window and close popup
         if (window.opener) {
