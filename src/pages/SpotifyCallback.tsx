@@ -223,7 +223,36 @@ const SpotifyCallback = () => {
 
       try {
         console.log('🟡 CALLBACK FLOW: Getting current user session...');
-        const { data: { session } } = await supabase.auth.getSession();
+        
+        // Use a more direct session check with timeout
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Session check timeout')), 5000)
+        );
+        
+        const { data: { session }, error: sessionError } = await Promise.race([
+          sessionPromise,
+          timeoutPromise
+        ]) as any;
+        
+        console.log('🟡 CALLBACK FLOW: Session check result:', {
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          sessionError: sessionError?.message,
+          userId: session?.user?.id
+        });
+        
+        if (sessionError) {
+          console.log('❌ CALLBACK ERROR: Session error:', sessionError);
+          updateStepStatus(1, 'error');
+          toast({
+            title: "Session Error",
+            description: "Authentication session error. Please try again.",
+            variant: "destructive",
+          });
+          setTimeout(() => navigate('/auth'), 3000);
+          return;
+        }
         
         if (!session) {
           console.log('❌ CALLBACK ERROR: No active session found');
