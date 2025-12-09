@@ -161,10 +161,25 @@ export class SpotifyAuthManager {
 
     try {
       // Get current user from session instead of triggering auth state changes
+      console.log('🔍 SPOTIFY AUTH MANAGER: Starting session fetch...');
+      const sessionStartTime = Date.now();
+      
       const { data: { session }, error: sessionError } = await Promise.race([
-        supabase.auth.getSession(),
+        supabase.auth.getSession().then(result => {
+          const elapsed = Date.now() - sessionStartTime;
+          console.log(`✅ SPOTIFY AUTH MANAGER: Session fetch completed in ${elapsed}ms`);
+          return result;
+        }).catch(error => {
+          const elapsed = Date.now() - sessionStartTime;
+          console.error(`❌ SPOTIFY AUTH MANAGER: Session fetch failed after ${elapsed}ms:`, error);
+          throw error;
+        }),
         new Promise<any>((_, reject) =>
-          setTimeout(() => reject(new Error('Session fetch timeout')), 35000)
+          setTimeout(() => {
+            const elapsed = Date.now() - sessionStartTime;
+            console.error(`❌ SPOTIFY AUTH MANAGER: Session fetch timeout after ${elapsed}ms (limit: 20000ms)`);
+            reject(new Error('Session fetch timeout - SpotifyAuthManager'));
+          }, 20000)
         )
       ]);
 
@@ -183,14 +198,33 @@ export class SpotifyAuthManager {
       const user = session.user;
 
       // Get Spotify connection
+      console.log('🔍 SPOTIFY AUTH MANAGER: Starting connection query...');
+      const connectionStartTime = Date.now();
+      
       const { data: connection, error: connectionError } = await Promise.race([
-        supabase
-          .from('spotify_connections')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle(),
+        (async () => {
+          try {
+            const result = await supabase
+              .from('spotify_connections')
+              .select('*')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            
+            const elapsed = Date.now() - connectionStartTime;
+            console.log(`✅ SPOTIFY AUTH MANAGER: Connection query completed in ${elapsed}ms`);
+            return result;
+          } catch (error) {
+            const elapsed = Date.now() - connectionStartTime;
+            console.error(`❌ SPOTIFY AUTH MANAGER: Connection query failed after ${elapsed}ms:`, error);
+            throw error;
+          }
+        })(),
         new Promise<any>((_, reject) =>
-          setTimeout(() => reject(new Error('Connection query timeout')), 35000)
+          setTimeout(() => {
+            const elapsed = Date.now() - connectionStartTime;
+            console.error(`❌ SPOTIFY AUTH MANAGER: Connection query timeout after ${elapsed}ms (limit: 20000ms)`);
+            reject(new Error('Connection query timeout - SpotifyAuthManager'));
+          }, 20000)
         )
       ]);
 
@@ -256,6 +290,13 @@ export class SpotifyAuthManager {
       }
     } catch (error: any) {
       const errorMessage = error.message || 'Connection check failed';
+      const duration = Date.now() - startTime;
+      
+      console.error(`❌ SPOTIFY AUTH MANAGER: Connection check failed after ${duration}ms:`, {
+        error: errorMessage,
+        stack: error.stack,
+        type: error.constructor.name
+      });
       
       this.updateState({
         isConnected: false,
@@ -264,8 +305,6 @@ export class SpotifyAuthManager {
         isLoading: false,
         healthStatus: 'error',
       });
-
-      console.error('❌ SPOTIFY AUTH MANAGER: Connection check failed:', error);
       
       // Use Phase 4 error handler for consistent error handling
       Phase4ErrorHandlerService.handleError(error, 'SpotifyAuthManager', 'checkConnection');
@@ -273,7 +312,7 @@ export class SpotifyAuthManager {
       return {
         success: false,
         error: errorMessage,
-        metadata: { duration: Date.now() - startTime }
+        metadata: { duration }
       };
     }
   }

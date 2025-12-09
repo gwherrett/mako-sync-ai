@@ -27,7 +27,10 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     // Enhanced fetch configuration for better network resilience
     fetch: (url, options = {}) => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+      const timeoutId = setTimeout(() => {
+        console.error('🚨 SUPABASE CLIENT: Network request timeout after 15000ms for:', url);
+        controller.abort();
+      }, 15000); // 15s timeout - more reasonable for user-facing operations
       
       const requestOptions = options as RequestInit;
       
@@ -40,6 +43,12 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
           'Cache-Control': 'no-cache',
           'Connection': 'keep-alive'
         }
+      }).catch(error => {
+        if (error.name === 'AbortError') {
+          console.error('🚨 SUPABASE CLIENT: Request aborted due to timeout for:', url);
+          throw new Error('Network request timeout - Supabase Client');
+        }
+        throw error;
       }).finally(() => {
         clearTimeout(timeoutId);
       });
