@@ -90,8 +90,17 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
       }
     });
 
-    // Initial connection check
-    authManager.current.checkConnection();
+    // Only check connection if we don't have recent data (avoid redundant checks)
+    const currentState = authManager.current.getState();
+    const timeSinceLastCheck = Date.now() - currentState.lastCheck;
+    const shouldCheck = timeSinceLastCheck > 30000; // 30 seconds
+    
+    if (shouldCheck) {
+      console.log('🔍 UNIFIED SPOTIFY AUTH: Performing initial connection check');
+      authManager.current.checkConnection();
+    } else {
+      console.log('🔍 UNIFIED SPOTIFY AUTH: Using cached connection status');
+    }
 
     return unsubscribe;
   }, [onConnectionChange, onError]);

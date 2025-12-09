@@ -160,15 +160,15 @@ export class SpotifyAuthManager {
     });
 
     try {
-      // Get current user
-      const { data: { user }, error: userError } = await Promise.race([
-        supabase.auth.getUser(),
+      // Get current user from session instead of triggering auth state changes
+      const { data: { session }, error: sessionError } = await Promise.race([
+        supabase.auth.getSession(),
         new Promise<any>((_, reject) =>
-          setTimeout(() => reject(new Error('User fetch timeout')), 3000)
+          setTimeout(() => reject(new Error('Session fetch timeout')), 3000)
         )
       ]);
 
-      if (userError || !user) {
+      if (sessionError || !session?.user) {
         const error = 'User not authenticated';
         this.updateState({
           isConnected: false,
@@ -179,6 +179,8 @@ export class SpotifyAuthManager {
         });
         return { success: false, error };
       }
+
+      const user = session.user;
 
       // Get Spotify connection
       const { data: connection, error: connectionError } = await Promise.race([
@@ -283,13 +285,15 @@ export class SpotifyAuthManager {
     console.log('🔵 SPOTIFY AUTH MANAGER: Starting connection process...');
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!user) {
+      if (!session?.user) {
         const error = 'Please log in to connect Spotify';
         this.updateState({ error });
         return { success: false, error };
       }
+      
+      const user = session.user;
 
       // Generate secure state parameter
       const state = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -350,11 +354,13 @@ export class SpotifyAuthManager {
     console.log('🔴 SPOTIFY AUTH MANAGER: Disconnecting from Spotify...');
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!user) {
+      if (!session?.user) {
         return { success: false, error: 'No user found' };
       }
+      
+      const user = session.user;
 
       // Delete connection from database
       const { error } = await supabase

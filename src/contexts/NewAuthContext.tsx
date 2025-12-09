@@ -154,7 +154,35 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
       
       if (error) {
+        const isTimeoutError = error.message?.includes('timeout');
         console.error('❌ INIT DEBUG: Error getting session:', error);
+        
+        if (isTimeoutError) {
+          console.log('⏳ INIT DEBUG: Timeout detected, attempting recovery...');
+          
+          // Try to recover from local storage or use guest mode
+          try {
+            const recoveryResult = await AuthStateRecoveryService.recoverAuthState();
+            if (recoveryResult.success && recoveryResult.newState?.session) {
+              console.log('✅ INIT DEBUG: Session recovered from backup');
+              setSession(recoveryResult.newState.session);
+              setUser(recoveryResult.newState.user);
+              setProfile(recoveryResult.newState.profile);
+              setRole(recoveryResult.newState.role);
+              return;
+            }
+          } catch (recoveryError) {
+            console.error('❌ INIT DEBUG: Recovery failed:', recoveryError);
+          }
+          
+          // Show user-friendly timeout message
+          toast({
+            title: 'Connection Timeout',
+            description: 'Having trouble connecting. You can continue in offline mode or try refreshing.',
+            variant: 'destructive'
+          });
+        }
+        
         clearUserData();
         return;
       }
@@ -175,6 +203,18 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       console.error('💥 INIT DEBUG: Auth initialization error:', error);
+      
+      // Enhanced error handling for timeout scenarios
+      const isTimeoutError = error instanceof Error && error.message?.includes('timeout');
+      if (isTimeoutError) {
+        console.log('⏳ INIT DEBUG: Initialization timeout, showing user notification');
+        toast({
+          title: 'Slow Connection Detected',
+          description: 'Authentication is taking longer than usual. Please check your internet connection.',
+          variant: 'destructive'
+        });
+      }
+      
       clearUserData();
     } finally {
       console.log('🏁 INIT DEBUG: Setting loading to false');

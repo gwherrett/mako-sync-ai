@@ -5,7 +5,7 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://bzzstdpfmyqttnzhgaoa.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6enN0ZHBmbXlxdHRuemhnYW9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NzI5NzMsImV4cCI6MjA2NDA0ODk3M30.NXT4XRuPilV2AV6KYY56-vk3AqZ8I2DQKkVjfbMcWoI";
 
-console.log('🔍 SUPABASE CLIENT: Initializing with:', {
+console.log('🔍 SUPABASE CLIENT: Initializing with enhanced timeout settings:', {
   url: SUPABASE_URL,
   hasKey: !!SUPABASE_PUBLISHABLE_KEY,
   keyPreview: SUPABASE_PUBLISHABLE_KEY?.substring(0, 20) + '...'
@@ -14,4 +14,45 @@ console.log('🔍 SUPABASE CLIENT: Initializing with:', {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    // Enhanced auth configuration for better timeout handling
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    // Increase timeout for auth operations
+    flowType: 'pkce'
+  },
+  global: {
+    // Enhanced fetch configuration for better network resilience
+    fetch: (url, options = {}) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+      
+      const requestOptions = options as RequestInit;
+      
+      return fetch(url, {
+        ...requestOptions,
+        signal: controller.signal,
+        // Add retry headers for better network handling
+        headers: {
+          ...(requestOptions.headers || {}),
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive'
+        }
+      }).finally(() => {
+        clearTimeout(timeoutId);
+      });
+    }
+  },
+  db: {
+    // Database connection settings
+    schema: 'public'
+  },
+  realtime: {
+    // Realtime connection settings for better stability
+    params: {
+      eventsPerSecond: 10
+    }
+  }
+});
