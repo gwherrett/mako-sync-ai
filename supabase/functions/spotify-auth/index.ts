@@ -119,11 +119,24 @@ serve(async (req) => {
     })
 
     if (tokenData.error) {
-      console.log('Token exchange failed')
+      console.error('Token exchange failed:', {
+        error: tokenData.error,
+        error_description: tokenData.error_description,
+        status: tokenResponse.status,
+        requestBody: {
+          grant_type: 'authorization_code',
+          code: code?.substring(0, 10) + '...',
+          redirect_uri: redirectUri
+        }
+      })
       return new Response(
-        JSON.stringify({ 
-          error: `Spotify auth failed: ${tokenData.error}`, 
-          details: tokenData.error_description
+        JSON.stringify({
+          error: `Spotify auth failed: ${tokenData.error}`,
+          details: tokenData.error_description,
+          debug: {
+            status: tokenResponse.status,
+            redirect_uri: redirectUri
+          }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )

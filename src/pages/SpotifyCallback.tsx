@@ -139,6 +139,19 @@ const SpotifyCallback = () => {
       const backupState = sessionStorage.getItem('spotify_auth_state_backup');
       console.log('🟡 CALLBACK FLOW: Verifying state - received:', state, 'localStorage:', storedState, 'sessionStorage:', backupState);
       
+      // Enhanced debugging for state mismatch
+      console.log('🔍 STATE DEBUG: Detailed comparison:', {
+        receivedState: state,
+        receivedLength: state?.length,
+        storedState: storedState,
+        storedLength: storedState?.length,
+        backupState: backupState,
+        backupLength: backupState?.length,
+        receivedType: typeof state,
+        storedType: typeof storedState,
+        backupType: typeof backupState
+      });
+      
       // Check if state matches either storage location
       const stateMatches = state === storedState || state === backupState;
       
@@ -149,20 +162,42 @@ const SpotifyCallback = () => {
         console.log('  2. Browser cleared storage');
         console.log('  3. Multiple auth attempts');
         console.log('  4. Cross-domain storage issues');
+        console.log('  5. URL encoding/decoding issues');
         
-        updateStepStatus(0, 'error');
-        toast({
-          title: "Authentication Error",
-          description: "Invalid state parameter - please try connecting again",
-          variant: "destructive",
+        // Try to be more lenient - check if states are similar (URL encoding issues)
+        const normalizedReceived = decodeURIComponent(state || '');
+        const normalizedStored = decodeURIComponent(storedState || '');
+        const normalizedBackup = decodeURIComponent(backupState || '');
+        
+        console.log('🔍 STATE DEBUG: Trying normalized comparison:', {
+          normalizedReceived,
+          normalizedStored,
+          normalizedBackup,
+          matchesStored: normalizedReceived === normalizedStored,
+          matchesBackup: normalizedReceived === normalizedBackup
         });
         
-        // Clear any stored states
-        localStorage.removeItem('spotify_auth_state');
-        sessionStorage.removeItem('spotify_auth_state_backup');
+        const normalizedMatches = normalizedReceived === normalizedStored || normalizedReceived === normalizedBackup;
         
-        setTimeout(() => navigate('/'), 3000);
-        return;
+        if (!normalizedMatches) {
+          updateStepStatus(0, 'error');
+          toast({
+            title: "Authentication Error",
+            description: "Invalid state parameter - please try connecting again",
+            variant: "destructive",
+          });
+          
+          // Clear any stored states
+          localStorage.removeItem('spotify_auth_state');
+          sessionStorage.removeItem('spotify_auth_state_backup');
+          
+          setTimeout(() => navigate('/'), 3000);
+          return;
+        } else {
+          console.log('✅ CALLBACK FLOW: State verification successful after normalization');
+        }
+      } else {
+        console.log('✅ CALLBACK FLOW: State verification successful (exact match)');
       }
 
       console.log('✅ CALLBACK FLOW: State verification successful');

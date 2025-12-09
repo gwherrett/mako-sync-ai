@@ -68,9 +68,20 @@ Add these to your Spotify app's redirect URI whitelist:
 - Verify `SPOTIFY_CLIENT_ID` in edge function matches frontend
 - Check client secret is correct in edge function
 
+### "State Parameter Mismatch" Error
+- Check browser console for detailed state debugging
+- May be caused by URL encoding/decoding issues
+- Cross-domain storage issues between main app and callback
+- Clear browser storage and try again
+
 ### Redirects to Spotify Login Instead of OAuth
 - Usually indicates client ID or redirect URI mismatch
 - Check environment variables are deployed correctly
+
+### "Something went wrong. Redirecting back to the main page"
+- Check browser console for detailed error logs
+- Usually state parameter validation failure
+- Check Supabase edge function logs for server-side errors
 
 ## Deployment Notes
 
