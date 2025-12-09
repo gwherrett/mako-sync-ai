@@ -160,7 +160,23 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
         missingMetadata
       });
       
-      let query = supabase.from('local_mp3s').select('*', { count: 'exact' });
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log('🎵 LocalTracksTable: Current user:', {
+        hasUser: !!user,
+        userId: user?.id,
+        userError: userError?.message
+      });
+      
+      if (!user) {
+        console.log('❌ LocalTracksTable: No authenticated user, cannot fetch tracks');
+        setTracks([]);
+        setTotalTracks(0);
+        return;
+      }
+      
+      let query = supabase.from('local_mp3s').select('*', { count: 'exact' }).eq('user_id', user.id);
+      console.log('🎵 LocalTracksTable: Base query created with user_id filter');
       
       // Apply search filter
       if (searchQuery.trim()) {
@@ -216,7 +232,8 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
       }
 
       // Get total count
-      const { count } = await query;
+      const { count, error: countError } = await query;
+      console.log('🎵 LocalTracksTable: Count query result:', { count, countError: countError?.message });
       setTotalTracks(count || 0);
 
       // Get paginated tracks
@@ -224,8 +241,14 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
         .order(sortField, { ascending: sortDirection === 'asc' })
         .range((currentPage - 1) * tracksPerPage, currentPage * tracksPerPage - 1);
 
+      console.log('🎵 LocalTracksTable: Data query result:', {
+        dataCount: data?.length || 0,
+        error: error?.message,
+        totalCount: count
+      });
+
       if (error) {
-        console.error('❌ Error fetching local tracks:', error);
+        console.error('❌ LocalTracksTable: Error fetching local tracks:', error);
         toast({
           title: "Error",
           description: "Failed to fetch local tracks",

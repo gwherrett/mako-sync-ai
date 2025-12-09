@@ -98,8 +98,26 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     try {
       setLoading(true);
       
-      // Build query with filters
-      let query = supabase.from('spotify_liked').select('*', { count: 'exact' });
+      console.log('🎵 TracksTable: Starting fetchTracks...');
+      
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log('🎵 TracksTable: Current user:', {
+        hasUser: !!user,
+        userId: user?.id,
+        userError: userError?.message
+      });
+      
+      if (!user) {
+        console.log('❌ TracksTable: No authenticated user, cannot fetch tracks');
+        setTracks([]);
+        setTotalTracks(0);
+        return;
+      }
+      
+      // Build query with filters - MUST include user_id filter for RLS
+      let query = supabase.from('spotify_liked').select('*', { count: 'exact' }).eq('user_id', user.id);
+      console.log('🎵 TracksTable: Base query created with user_id filter');
       
       // Apply search filter
       if (searchQuery.trim()) {
@@ -143,7 +161,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       }
 
       // Get total count with filters (clone query to avoid mutation issues)
-      let countQuery = supabase.from('spotify_liked').select('*', { count: 'exact', head: true });
+      let countQuery = supabase.from('spotify_liked').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
       
       // Apply the same filters for count query
       if (searchQuery.trim()) {
@@ -174,7 +192,8 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         countQuery = countQuery.gte('added_at', monthAgo.toISOString());
       }
       
-      const { count } = await countQuery;
+      const { count, error: countError } = await countQuery;
+      console.log('🎵 TracksTable: Count query result:', { count, countError: countError?.message });
       setTotalTracks(count || 0);
 
       // Get paginated tracks with filters
@@ -182,8 +201,14 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         .order(sortField, { ascending: sortDirection === 'asc' })
         .range((currentPage - 1) * tracksPerPage, currentPage * tracksPerPage - 1);
 
+      console.log('🎵 TracksTable: Data query result:', {
+        dataCount: data?.length || 0,
+        error: error?.message,
+        totalCount: count
+      });
+
       if (error) {
-        console.error('Error fetching tracks:', error);
+        console.error('❌ TracksTable: Error fetching tracks:', error);
         return;
       }
 
@@ -197,10 +222,20 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
   const fetchFilterOptions = async () => {
     try {
+      console.log('🎵 TracksTable: Fetching filter options...');
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('❌ TracksTable: No user for filter options');
+        return;
+      }
+      
       // Get unique artists filtered by genre and super genre if selected
       let artistQuery = supabase
         .from('spotify_liked')
         .select('artist')
+        .eq('user_id', user.id)
         .not('artist', 'is', null);
       
       if (selectedGenre) {
@@ -224,6 +259,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       let genreQuery = supabase
         .from('spotify_liked')
         .select('genre')
+        .eq('user_id', user.id)
         .not('genre', 'is', null);
 
       if (noSuperGenre) {
@@ -243,6 +279,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       const { data: superGenreData } = await supabase
         .from('spotify_liked')
         .select('super_genre')
+        .eq('user_id', user.id)
         .not('super_genre', 'is', null);
       
       if (superGenreData) {

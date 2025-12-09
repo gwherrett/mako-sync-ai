@@ -63,18 +63,37 @@ export const StatsOverview = () => {
 
   const fetchLikedSongsCount = async () => {
     try {
+      console.log('📊 StatsOverview: Fetching liked songs count...');
+      
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log('📊 StatsOverview: Current user for liked songs:', {
+        hasUser: !!user,
+        userId: user?.id,
+        userError: userError?.message
+      });
+      
+      if (!user) {
+        console.log('❌ StatsOverview: No user for liked songs count');
+        setLikedSongsCount(0);
+        return;
+      }
+      
       const { count, error } = await supabase
         .from('spotify_liked')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      console.log('📊 StatsOverview: Liked songs count result:', { count, error: error?.message });
 
       if (error) {
-        console.error('Error fetching liked songs count:', error);
+        console.error('❌ StatsOverview: Error fetching liked songs count:', error);
         return;
       }
 
       setLikedSongsCount(count || 0);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('💥 StatsOverview: Error:', error);
     } finally {
       setLoading(false);
     }
@@ -82,18 +101,37 @@ export const StatsOverview = () => {
 
   const fetchLocalFilesCount = async () => {
     try {
+      console.log('📊 StatsOverview: Fetching local files count...');
+      
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log('📊 StatsOverview: Current user for local files:', {
+        hasUser: !!user,
+        userId: user?.id,
+        userError: userError?.message
+      });
+      
+      if (!user) {
+        console.log('❌ StatsOverview: No user for local files count');
+        setLocalFilesCount(0);
+        return;
+      }
+      
       const { count, error } = await supabase
         .from('local_mp3s')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      console.log('📊 StatsOverview: Local files count result:', { count, error: error?.message });
 
       if (error) {
-        console.error('Error fetching local files count:', error);
+        console.error('❌ StatsOverview: Error fetching local files count:', error);
         return;
       }
 
       setLocalFilesCount(count || 0);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('💥 StatsOverview: Error:', error);
     } finally {
       setLoading(false);
     }
@@ -101,14 +139,22 @@ export const StatsOverview = () => {
 
   const fetchLastSpotifySync = async () => {
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLastSpotifySync(null);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('spotify_liked')
         .select('created_at')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1);
 
       if (error) {
-        console.error('Error fetching last Spotify sync:', error);
+        console.error('❌ StatsOverview: Error fetching last Spotify sync:', error);
         return;
       }
 
@@ -118,7 +164,7 @@ export const StatsOverview = () => {
         setLastSpotifySync(null);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('💥 StatsOverview: Error:', error);
     } finally {
       setLoading(false);
     }
@@ -126,14 +172,22 @@ export const StatsOverview = () => {
 
   const fetchLastLocalSync = async () => {
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLastLocalSync(null);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('local_mp3s')
         .select('created_at')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1);
 
       if (error) {
-        console.error('Error fetching last local sync:', error);
+        console.error('❌ StatsOverview: Error fetching last local sync:', error);
         return;
       }
 
@@ -143,7 +197,7 @@ export const StatsOverview = () => {
         setLastLocalSync(null);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('💥 StatsOverview: Error:', error);
     } finally {
       setLoading(false);
     }
