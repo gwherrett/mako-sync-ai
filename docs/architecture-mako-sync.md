@@ -422,7 +422,7 @@ Use Supabase dashboard or curl with auth header:
 
 ```bash
 curl -X POST \
-  'https://bzzstdpfmyqttnzhgaoa.supabase.co/functions/v1/spotify-sync-liked' \
+  'https://your-project-id.supabase.co/functions/v1/spotify-sync-liked' \
   -H 'Authorization: Bearer <user_jwt>' \
   -H 'Content-Type: application/json' \
   -d '{"forceFullSync": false}'

@@ -10,7 +10,7 @@
 ## 🚨 CRITICAL FINDINGS
 
 ### **BLOCKER 1: Hardcoded Development Client ID**
-- **Issue**: [`VITE_SPOTIFY_CLIENT_ID`](.env:5) is set to `3bac088a26d64ddfb49d57fb5d451d71`
+- **Issue**: [`VITE_SPOTIFY_CLIENT_ID`](.env:5) is set to a hardcoded development client ID
 - **Impact**: Using development/test credentials in production environment
 - **Risk Level**: **CRITICAL** - OAuth will fail or redirect to wrong app
 - **Fix Required**: Replace with actual production Spotify app client ID
@@ -40,7 +40,7 @@
 
 #### Environment Structure
 - ✅ `.env` file exists and loads correctly
-- ✅ `VITE_SUPABASE_URL` properly configured (`https://bzzstdpfmyqttnzhgaoa.supabase.co`)
+- ✅ `VITE_SUPABASE_URL` properly configured (`https://your-project-id.supabase.co`)
 - ✅ `VITE_SUPABASE_ANON_KEY` appears to be valid JWT format
 - ✅ `VITE_SPOTIFY_REDIRECT_URI` uses HTTPS (`https://mako-sync.vercel.app/spotify-callback`)
 
@@ -84,7 +84,7 @@
 1. **Replace Development Client ID**
    ```bash
    # In .env file, replace:
-   VITE_SPOTIFY_CLIENT_ID="3bac088a26d64ddfb49d57fb5d451d71"
+   VITE_SPOTIFY_CLIENT_ID="hardcoded_dev_client_id"
    # With actual production Spotify app client ID:
    VITE_SPOTIFY_CLIENT_ID="your-production-client-id"
    ```

@@ -11,7 +11,7 @@
 
 1. **Navigate to Supabase Dashboard**
    - Go to: [https://supabase.com/dashboard](https://supabase.com/dashboard)
-   - Select your project: `bzzstdpfmyqttnzhgaoa`
+   - Select your project: `your-project-id`
 
 2. **Access Project Settings**
    - Click on **"Settings"** (gear icon) in the left sidebar
@@ -20,7 +20,7 @@
 3. **Find Database Connection**
    - Look for **"Database"** section
    - You should see connection details including:
-     - Host: `db.bzzstdpfmyqttnzhgaoa.supabase.co`
+     - Host: `db.your-project-id.supabase.co`
      - Port: `5432`
      - Database: `postgres`
      - User: `postgres`
@@ -30,7 +30,7 @@
    - Look for **"Database"** or **"Connection"** information
    - The connection string format will be:
      ```
-     postgresql://postgres:[YOUR-PASSWORD]@db.bzzstdpfmyqttnzhgaoa.supabase.co:5432/postgres
+     postgresql://postgres:[YOUR-PASSWORD]@db.your-project-id.supabase.co:5432/postgres
      ```
 
 5. **Get Your Database Password**
@@ -43,12 +43,12 @@ If you can't find the connection string in the dashboard, you can construct it m
 
 **Format**:
 ```
-postgresql://postgres:YOUR_DATABASE_PASSWORD@db.bzzstdpfmyqttnzhgaoa.supabase.co:5432/postgres
+postgresql://postgres:YOUR_DATABASE_PASSWORD@db.your-project-id.supabase.co:5432/postgres
 ```
 
 **Your specific URL** (replace `YOUR_DATABASE_PASSWORD`):
 ```
-postgresql://postgres:YOUR_DATABASE_PASSWORD@db.bzzstdpfmyqttnzhgaoa.supabase.co:5432/postgres
+postgresql://postgres:YOUR_DATABASE_PASSWORD@db.your-project-id.supabase.co:5432/postgres
 ```
 
 **To get your database password**:
@@ -65,7 +65,7 @@ If you have Supabase CLI installed and authenticated:
 supabase projects list
 
 # Get database URL (requires authentication)
-supabase db show-connection-string --project-ref bzzstdpfmyqttnzhgaoa
+supabase db show-connection-string --project-ref your-project-id
 ```
 
 ### **Method 4: Check Environment Variables**
@@ -87,12 +87,12 @@ grep SUPABASE_DB_URL .env
 Your final `SUPABASE_DB_URL` should look exactly like this:
 
 ```
-postgresql://postgres:YOUR_ACTUAL_PASSWORD@db.bzzstdpfmyqttnzhgaoa.supabase.co:5432/postgres
+postgresql://postgres:YOUR_ACTUAL_PASSWORD@db.your-project-id.supabase.co:5432/postgres
 ```
 
 ### **Example** (with placeholder password):
 ```
-postgresql://postgres:mySecurePassword123@db.bzzstdpfmyqttnzhgaoa.supabase.co:5432/postgres
+postgresql://postgres:mySecurePassword123@db.your-project-id.supabase.co:5432/postgres
 ```
 
 ---
@@ -122,14 +122,14 @@ postgresql://postgres:mySecurePassword123@db.bzzstdpfmyqttnzhgaoa.supabase.co:54
 1. Go to: **Supabase Dashboard → Settings → Edge Functions → Environment Variables**
 2. Add new environment variable:
    - **Name**: `SUPABASE_DB_URL`
-   - **Value**: `postgresql://postgres:YOUR_PASSWORD@db.bzzstdpfmyqttnzhgaoa.supabase.co:5432/postgres`
+   - **Value**: `postgresql://postgres:YOUR_PASSWORD@db.your-project-id.supabase.co:5432/postgres`
 
 ### **Step 3: Verify Configuration**
 Your edge function environment should now have all three required variables:
 ```
-SPOTIFY_CLIENT_ID=3bac088a26d64ddfb49d57fb5d451d71
-SPOTIFY_CLIENT_SECRET=d2041e48739748b7816cde033599c503
-SUPABASE_DB_URL=postgresql://postgres:YOUR_PASSWORD@db.bzzstdpfmyqttnzhgaoa.supabase.co:5432/postgres
+SPOTIFY_CLIENT_ID=your_production_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_production_spotify_client_secret
+SUPABASE_DB_URL=postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres
 ```
 
 ---
@@ -137,7 +137,7 @@ SUPABASE_DB_URL=postgresql://postgres:YOUR_PASSWORD@db.bzzstdpfmyqttnzhgaoa.supa
 ## 🔍 TROUBLESHOOTING
 
 ### **"Can't find connection string"**
-- Make sure you're in the correct project (`bzzstdpfmyqttnzhgaoa`)
+- Make sure you're in the correct project (`your-project-id`)
 - Check you're looking at **"Direct connection"** not "Connection pooling"
 - Refresh the page if the settings don't load
 
@@ -150,7 +150,7 @@ SUPABASE_DB_URL=postgresql://postgres:YOUR_PASSWORD@db.bzzstdpfmyqttnzhgaoa.supa
 ### **"Connection string doesn't work"**
 - Verify the password is correct (no typos)
 - Ensure you're using the **Direct connection** string
-- Check that the project ID matches: `bzzstdpfmyqttnzhgaoa`
+- Check that the project ID matches: `your-project-id`
 
 ---
 

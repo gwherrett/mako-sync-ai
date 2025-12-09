@@ -13,9 +13,9 @@
 **For Supabase Dashboard → Settings → Edge Functions → Environment Variables:**
 
 ```bash
-SPOTIFY_CLIENT_ID=3bac088a26d64ddfb49d57fb5d451d71
-SPOTIFY_CLIENT_SECRET=d2041e48739748b7816cde033599c503
-SUPABASE_DB_URL=postgresql://postgres:PWYt8?E85_nwEY#@db.bzzstdpfmyqttnzhgaoa.supabase.co:5432/postgres
+SPOTIFY_CLIENT_ID=your_production_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_production_spotify_client_secret
+SUPABASE_DB_URL=postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres
 ```
 
 ---
@@ -24,7 +24,7 @@ SUPABASE_DB_URL=postgresql://postgres:PWYt8?E85_nwEY#@db.bzzstdpfmyqttnzhgaoa.su
 
 ### **Step 1: Configure Supabase (5 minutes)**
 1. Go to: [Supabase Dashboard](https://supabase.com/dashboard)
-2. Select project: `bzzstdpfmyqttnzhgaoa`
+2. Select project: `your-project-id`
 3. Navigate: **Settings → Edge Functions → Environment Variables**
 4. Add these three variables exactly as shown above
 
@@ -32,8 +32,8 @@ SUPABASE_DB_URL=postgresql://postgres:PWYt8?E85_nwEY#@db.bzzstdpfmyqttnzhgaoa.su
 1. Deploy your application to production (Vercel/your platform)
 2. Ensure frontend environment variables are set:
    ```bash
-   VITE_SPOTIFY_CLIENT_ID=3bac088a26d64ddfb49d57fb5d451d71
-   VITE_SPOTIFY_REDIRECT_URI=https://mako-sync.vercel.app/spotify-callback
+   VITE_SPOTIFY_CLIENT_ID=your_production_spotify_client_id
+   VITE_SPOTIFY_REDIRECT_URI=https://your-production-domain.com/spotify-callback
    ```
 
 ### **Step 3: Test OAuth Flow (5 minutes)**

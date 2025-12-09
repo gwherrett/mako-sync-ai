@@ -13,7 +13,7 @@ First, authenticate with Supabase CLI:
 supabase login
 
 # Link to your existing project
-supabase link --project-ref bzzstdpfmyqttnzhgaoa
+supabase link --project-ref your-project-id
 ```
 
 ### 2. Database Migrations

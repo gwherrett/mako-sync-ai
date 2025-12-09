@@ -4,7 +4,7 @@
 
 ### 1. Removed Hardcoded Fallbacks
 - **File**: `src/services/spotify.service.ts`
-- **Change**: Removed hardcoded client ID fallback `3bac088a26d64ddfb49d57fb5d451d71`
+- **Change**: Removed hardcoded client ID fallback `hardcoded_dev_client_id`
 - **Impact**: Forces proper environment variable configuration
 
 ### 2. Removed Hardcoded Redirect URI in Edge Function

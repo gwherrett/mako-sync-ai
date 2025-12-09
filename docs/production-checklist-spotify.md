@@ -9,7 +9,7 @@
 ## 🚨 CRITICAL ISSUES FOUND
 
 ### 1. **Environment Variable Mismatch**
-- **Issue**: [`VITE_SPOTIFY_CLIENT_ID`](.env:5) is set to `3bac088a26d64ddfb49d57fb5d451d71` but documentation states this was supposed to be removed
+- **Issue**: [`VITE_SPOTIFY_CLIENT_ID`](.env:5) is set to a hardcoded development client ID but documentation states this was supposed to be removed
 - **Impact**: Using hardcoded development client ID in production
 - **Fix Required**: Set proper production Spotify client ID
 
@@ -31,7 +31,7 @@
 
 #### Frontend Environment Variables
 - [ ] **VITE_SPOTIFY_CLIENT_ID** - Set to production Spotify app client ID
-  - Current: `3bac088a26d64ddfb49d57fb5d451d71` (appears to be dev/test ID)
+  - Current: `hardcoded_dev_client_id` (appears to be dev/test ID)
   - Required: Actual production Spotify app client ID
   - Location: Vercel environment variables
 
@@ -41,7 +41,7 @@
   - Location: Vercel environment variables
 
 - [ ] **VITE_SUPABASE_URL** - Production Supabase URL
-  - Current: `https://bzzstdpfmyqttnzhgaoa.supabase.co`
+  - Current: `https://your-project-id.supabase.co`
   - Status: ✅ Configured
 
 - [ ] **VITE_SUPABASE_ANON_KEY** - Production Supabase anon key

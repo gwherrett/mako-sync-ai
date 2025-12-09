@@ -10,23 +10,23 @@
 
 ### **Spotify App Credentials**
 ```
-SPOTIFY_CLIENT_ID=3bac088a26d64ddfb49d57fb5d451d71
-SPOTIFY_CLIENT_SECRET=d2041e48739748b7816cde033599c503
+SPOTIFY_CLIENT_ID=your_production_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_production_spotify_client_secret
 ```
 
 ### **Frontend Environment Variables** (Vercel)
 ```bash
-VITE_SPOTIFY_CLIENT_ID=3bac088a26d64ddfb49d57fb5d451d71
-VITE_SPOTIFY_REDIRECT_URI=https://mako-sync.vercel.app/spotify-callback
-VITE_SUPABASE_URL=https://bzzstdpfmyqttnzhgaoa.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6enN0ZHBmbXlxdHRuemhnYW9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NzI5NzMsImV4cCI6MjA2NDA0ODk3M30.NXT4XRuPilV2AV6KYY56-vk3AqZ8I2DQKkVjfbMcWoI
+VITE_SPOTIFY_CLIENT_ID=your_production_spotify_client_id
+VITE_SPOTIFY_REDIRECT_URI=https://your-production-domain.com/spotify-callback
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 ### **Backend Environment Variables** (Supabase Edge Functions)
 ```bash
-SPOTIFY_CLIENT_ID=3bac088a26d64ddfb49d57fb5d451d71
-SPOTIFY_CLIENT_SECRET=d2041e48739748b7816cde033599c503
-SUPABASE_DB_URL=postgresql://postgres:[password]@db.bzzstdpfmyqttnzhgaoa.supabase.co:5432/postgres
+SPOTIFY_CLIENT_ID=your_production_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_production_spotify_client_secret
+SUPABASE_DB_URL=postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres
 ```
 
 ---
@@ -61,17 +61,17 @@ With the production credentials confirmed, the Spotify integration is now **PROD
 1. Navigate to: **Supabase Dashboard → Settings → Edge Functions → Environment Variables**
 2. Add these variables:
    ```
-   SPOTIFY_CLIENT_ID=3bac088a26d64ddfb49d57fb5d451d71
-   SPOTIFY_CLIENT_SECRET=d2041e48739748b7816cde033599c503
-   SUPABASE_DB_URL=[your-database-connection-string]
+   SPOTIFY_CLIENT_ID=your_production_spotify_client_id
+   SPOTIFY_CLIENT_SECRET=your_production_spotify_client_secret
+   SUPABASE_DB_URL=your_database_connection_string
    ```
 
 ### **Step 2: Verify Spotify Developer Dashboard**
 1. Navigate to: [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
 2. Confirm app settings:
-   - **Client ID**: `3bac088a26d64ddfb49d57fb5d451d71` ✅
-   - **Client Secret**: `d2041e48739748b7816cde033599c503` ✅
-   - **Redirect URIs**: Must include `https://mako-sync.vercel.app/spotify-callback`
+   - **Client ID**: `your_production_spotify_client_id` ✅
+   - **Client Secret**: `your_production_spotify_client_secret` ✅
+   - **Redirect URIs**: Must include `https://your-production-domain.com/spotify-callback`
 
 ### **Step 3: Deploy and Test**
 1. Deploy application to production

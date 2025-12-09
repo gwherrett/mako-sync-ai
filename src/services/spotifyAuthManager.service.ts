@@ -164,7 +164,7 @@ export class SpotifyAuthManager {
       const { data: { session }, error: sessionError } = await Promise.race([
         supabase.auth.getSession(),
         new Promise<any>((_, reject) =>
-          setTimeout(() => reject(new Error('Session fetch timeout')), 3000)
+          setTimeout(() => reject(new Error('Session fetch timeout')), 10000)
         )
       ]);
 
@@ -190,7 +190,7 @@ export class SpotifyAuthManager {
           .eq('user_id', user.id)
           .maybeSingle(),
         new Promise<any>((_, reject) =>
-          setTimeout(() => reject(new Error('Connection query timeout')), 2000)
+          setTimeout(() => reject(new Error('Connection query timeout')), 5000)
         )
       ]);
 

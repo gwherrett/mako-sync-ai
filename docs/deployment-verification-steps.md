@@ -25,8 +25,8 @@
    ```
    VITE_SPOTIFY_CLIENT_ID=your-production-client-id
    VITE_SPOTIFY_REDIRECT_URI=https://mako-sync.vercel.app/spotify-callback
-   VITE_SUPABASE_URL=https://bzzstdpfmyqttnzhgaoa.supabase.co
-   VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+   VITE_SUPABASE_URL=https://your-project-id.supabase.co
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
 2. **Backend Variables** (Supabase Dashboard → Settings → Edge Functions → Environment Variables):
