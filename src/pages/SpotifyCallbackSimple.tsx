@@ -61,8 +61,13 @@ const SpotifyCallbackSimple = () => {
           return;
         }
 
-        // Get current session
-        const { data: { session } } = await supabase.auth.getSession();
+        // Get current session with timeout protection
+        const { data: { session } } = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Session fetch timeout')), 10000)
+          )
+        ]);
         
         if (!session) {
           console.error('❌ NO SESSION');
