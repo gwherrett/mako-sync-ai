@@ -18,3 +18,10 @@
 - **Token Vault Debugging**: Actual tokens in vault, connection table has `***ENCRYPTED_IN_VAULT***` placeholders - debug vault access, not table values
 - **Edge Function Phase 4 Flags**: Use specific flags (`refresh_only`, `health_check`, etc.) to isolate functionality during debugging
 - **Security Validation Debugging**: SpotifySecurityValidatorService uses regex patterns to detect token exposure - check SECURITY_PATTERNS constants
+
+## **Test Credentials for Consistent Testing:**
+
+**Email:** `spotify.test.user@makosync.com`
+**Password:** `SpotifyTest2024!`
+
+These credentials provide a consistent test account for debugging Spotify Connect functionality and other authentication-related features. Use these for reproducible testing scenarios.
