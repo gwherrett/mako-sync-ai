@@ -12,7 +12,7 @@ import NewProtectedRoute from "@/components/NewProtectedRoute";
 import Index from "./pages/Index";
 import NewAuth from "./pages/NewAuth";
 import ResetPassword from "./pages/ResetPassword";
-import { UnifiedSpotifyCallback } from "./components/spotify/UnifiedSpotifyCallback";
+import SpotifyCallbackSimple from "./pages/SpotifyCallbackSimple";
 import NotFound from "./pages/NotFound";
 import { GenreMapping } from "./pages/GenreMapping";
 import { TrackLevelProcessor } from "./components/NoGenreTracks/TrackLevelProcessor";
@@ -55,7 +55,7 @@ function AppContent() {
         <Routes>
           <Route path="/auth" element={<NewAuth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/spotify-callback" element={<UnifiedSpotifyCallback />} />
+          <Route path="/spotify-callback" element={<SpotifyCallbackSimple />} />
           <Route path="/" element={
             <NewProtectedRoute>
               <Index />
