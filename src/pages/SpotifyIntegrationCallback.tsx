@@ -3,13 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-const SpotifyCallbackSimple = () => {
+/**
+ * SPOTIFY INTEGRATION CALLBACK HANDLER
+ * 
+ * IMPORTANT: This callback handles SPOTIFY OAuth, but requires 
+ * a valid SUPABASE session for the user to be logged into the app.
+ * 
+ * DUAL AUTHENTICATION ARCHITECTURE:
+ * 1. User must first be authenticated with Supabase (app login)
+ * 2. Then they can connect their Spotify account (OAuth integration)
+ * 3. This callback processes the Spotify OAuth response
+ * 4. Requires both systems to work together for full functionality
+ * 
+ * Flow:
+ * - User clicks "Connect Spotify" (requires Supabase session)
+ * - Redirected to Spotify OAuth
+ * - Spotify redirects back here with auth code
+ * - We exchange code for tokens via edge function
+ * - Tokens are stored securely in Supabase
+ */
+const SpotifyIntegrationCallback = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     const processCallback = async () => {
-      console.log('🟡 SIMPLE CALLBACK: Processing OAuth callback');
+      console.log('🟡 SPOTIFY INTEGRATION: Processing OAuth callback');
       
       try {
         // Extract URL parameters
@@ -42,7 +61,7 @@ const SpotifyCallbackSimple = () => {
           return;
         }
 
-        // Verify state parameter
+        // Verify state parameter for security
         const storedState = localStorage.getItem('spotify_auth_state') || 
                            sessionStorage.getItem('spotify_auth_state_backup');
         
@@ -61,26 +80,30 @@ const SpotifyCallbackSimple = () => {
           return;
         }
 
-        // Get current session with timeout protection
+        // CRITICAL: Check for valid Supabase session
+        // This is the app authentication - user must be logged into Mako Sync
         const { data: { session } } = await Promise.race([
           supabase.auth.getSession(),
-          new Promise((_, reject) =>
+          new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('Session fetch timeout')), 10000)
           )
-        ]);
+        ]) as any;
         
+        // Separate error path for missing session
         if (!session) {
-          console.error('❌ NO SESSION');
+          console.error('❌ NO SUPABASE SESSION - User not logged into app');
           toast({
-            title: "Authentication Required",
-            description: "Please log in to connect Spotify",
+            title: "Application Session Required",
+            description: "You must be logged into Mako Sync to connect Spotify",
             variant: "destructive",
           });
-          navigate('/auth');
+          navigate('/'); // Main page, not auth page
           return;
         }
 
-        // Exchange code for tokens via edge function
+        console.log('✅ SUPABASE SESSION VALID - User is signed into the application');
+
+        // Exchange Spotify code for tokens via edge function
         const redirectUri = `${window.location.origin}/spotify-callback`;
         
         console.log('🟡 CALLING EDGE FUNCTION:', { 
@@ -103,22 +126,22 @@ const SpotifyCallbackSimple = () => {
         localStorage.removeItem('spotify_auth_state');
         sessionStorage.removeItem('spotify_auth_state_backup');
 
-        console.log('✅ SPOTIFY CONNECTED SUCCESSFULLY');
+        console.log('✅ SPOTIFY INTEGRATION COMPLETED SUCCESSFULLY');
         
         // Show success and redirect
         toast({
           title: "Spotify Connected!",
-          description: "Your account has been successfully connected.",
+          description: "Your Spotify account has been successfully integrated with Mako Sync.",
         });
         
         navigate('/');
         
       } catch (error: any) {
-        console.error('❌ CALLBACK ERROR:', error);
+        console.error('❌ SPOTIFY INTEGRATION ERROR:', error);
         
         toast({
-          title: "Connection Failed",
-          description: error.message || "Failed to connect to Spotify",
+          title: "Integration Failed",
+          description: error.message || "Failed to integrate with Spotify",
           variant: "destructive",
         });
         
@@ -129,15 +152,23 @@ const SpotifyCallbackSimple = () => {
     processCallback();
   }, [navigate, toast]);
 
-  // Show minimal loading state
+  // Show loading state with clear messaging about dual authentication
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-4 max-w-md">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-        <p className="text-muted-foreground">Connecting to Spotify...</p>
+        <div className="space-y-2">
+          <p className="text-lg font-medium">Connecting to Spotify...</p>
+          <p className="text-sm text-muted-foreground">
+            Integrating your Spotify account with Mako Sync
+          </p>
+          <p className="text-xs text-muted-foreground">
+            You are signed into the application ✓
+          </p>
+        </div>
       </div>
     </div>
   );
 };
 
-export default SpotifyCallbackSimple;
+export default SpotifyIntegrationCallback;
