@@ -19,3 +19,8 @@
 - **Phase 4 Edge Function Architecture**: Special operation flags (`refresh_only`, `health_check`, `validate_vault`, `force_token_rotation`) for targeted functionality
 - **Phase 4 Security Validation Architecture**: Automated token exposure detection using regex patterns, vault integrity validation through edge function calls
 - **Phase 4 Health Monitoring Architecture**: Singleton service creates monitoring intervals and listener management - must call stopMonitoring() to prevent memory leaks
+- **Unified Spotify Auth Architecture**: SpotifyAuthManager singleton consolidates all authentication operations with subscription-based state management
+- **Connection Check Architecture**: 5-second cooldown with promise deduplication prevents race conditions and excessive API calls
+- **State Subscription Architecture**: Observer pattern with automatic cleanup - components subscribe via `subscribe()` method returning unsubscribe function
+- **Token Refresh Architecture**: Integrated with unified manager using SpotifyTokenRefreshService with retry logic and automatic state updates
+- **Health Check Integration**: Unified manager coordinates with health monitoring service for comprehensive connection validation

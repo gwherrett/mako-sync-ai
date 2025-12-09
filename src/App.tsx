@@ -12,12 +12,14 @@ import NewProtectedRoute from "@/components/NewProtectedRoute";
 import Index from "./pages/Index";
 import NewAuth from "./pages/NewAuth";
 import ResetPassword from "./pages/ResetPassword";
-import SpotifyCallback from "./pages/SpotifyCallback";
+import { UnifiedSpotifyCallback } from "./components/spotify/UnifiedSpotifyCallback";
 import NotFound from "./pages/NotFound";
 import { GenreMapping } from "./pages/GenreMapping";
 import { TrackLevelProcessor } from "./components/NoGenreTracks/TrackLevelProcessor";
 import Security from "./pages/Security";
 import AuthDebug from "./pages/AuthDebug";
+import SpotifyAuthTest from "./pages/SpotifyAuthTest";
+import SpotifyAuthValidation from "./pages/SpotifyAuthValidation";
 
 const queryClient = new QueryClient();
 
@@ -53,7 +55,7 @@ function AppContent() {
         <Routes>
           <Route path="/auth" element={<NewAuth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/spotify-callback" element={<SpotifyCallback />} />
+          <Route path="/spotify-callback" element={<UnifiedSpotifyCallback />} />
           <Route path="/" element={
             <NewProtectedRoute>
               <Index />
@@ -75,6 +77,16 @@ function AppContent() {
             </NewProtectedRoute>
           } />
           <Route path="/auth-debug" element={<AuthDebug />} />
+          <Route path="/spotify-auth-test" element={
+            <NewProtectedRoute>
+              <SpotifyAuthTest />
+            </NewProtectedRoute>
+          } />
+          <Route path="/spotify-auth-validation" element={
+            <NewProtectedRoute>
+              <SpotifyAuthValidation />
+            </NewProtectedRoute>
+          } />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

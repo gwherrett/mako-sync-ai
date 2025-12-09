@@ -3,11 +3,11 @@ import React from 'react';
 import { Settings, Loader2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import BrandLogo from '@/components/BrandLogo';
-import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
+import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
 import { useAuth } from '@/contexts/NewAuthContext';
 
 const SpotifyHeader = () => {
-  const { isConnected, isLoading, isSyncing, connectSpotify, syncLikedSongs } = useSpotifyAuth();
+  const { isConnected, isLoading, isSyncing, connectSpotify, syncLikedSongs } = useUnifiedSpotifyAuth();
   const { user, signOut } = useAuth();
 
   return (
@@ -18,10 +18,7 @@ const SpotifyHeader = () => {
           <div>
             <h1 className="text-xl font-bold text-white">Spotify Metadata Sync</h1>
             <p className="text-sm text-gray-400">
-              {isConnected 
-                ? "Connected to Spotify - Ready to sync your liked songs" 
-                : "Extract & sync your liked songs for Serato"
-              }
+              Extract & sync your liked songs for Serato
             </p>
           </div>
         </div>

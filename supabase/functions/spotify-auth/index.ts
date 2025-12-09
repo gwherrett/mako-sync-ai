@@ -8,13 +8,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Enhanced logging for unified system integration
+const logWithContext = (level: 'info' | 'warn' | 'error', message: string, context?: any) => {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    level: level.toUpperCase(),
+    service: 'spotify-auth-edge-function',
+    message,
+    ...(context && { context })
+  };
+  console.log(JSON.stringify(logEntry));
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    console.log('Spotify auth edge function called')
+    logWithContext('info', 'Spotify auth edge function called', {
+      method: req.method,
+      url: req.url,
+      userAgent: req.headers.get('user-agent')
+    });
     
     // Client for user authentication
     const supabaseClient = createClient(
@@ -38,17 +55,28 @@ serve(async (req) => {
     const { data: { user } } = await supabaseClient.auth.getUser()
     
     if (!user) {
-      console.log('Authentication failed: No user found')
+      logWithContext('warn', 'Authentication failed: No user found');
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({
+          error: 'Unauthorized',
+          code: 'AUTH_REQUIRED',
+          timestamp: new Date().toISOString()
+        }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log('User authenticated successfully')
+    logWithContext('info', 'User authenticated successfully', {
+      userId: user.id,
+      userEmail: user.email
+    });
 
     const requestBody = await req.json()
-    console.log('Authorization code received')
+    logWithContext('info', 'Authorization code received', {
+      hasCode: !!requestBody.code,
+      hasState: !!requestBody.state,
+      hasRedirectUri: !!requestBody.redirect_uri
+    });
     
     const { code, state, redirect_uri } = requestBody
 
@@ -56,33 +84,42 @@ serve(async (req) => {
     const redirectUri = redirect_uri;
     
     if (!redirectUri) {
-      console.error('Missing redirect_uri in request body')
+      logWithContext('error', 'Missing redirect_uri in request body');
       return new Response(
-        JSON.stringify({ error: 'redirect_uri is required' }),
+        JSON.stringify({
+          error: 'redirect_uri is required',
+          code: 'MISSING_REDIRECT_URI',
+          timestamp: new Date().toISOString()
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log('Processing Spotify token exchange')
+    logWithContext('info', 'Processing Spotify token exchange', {
+      redirectUri,
+      userId: user.id
+    });
     
     const clientId = Deno.env.get('SPOTIFY_CLIENT_ID')
     const clientSecret = Deno.env.get('SPOTIFY_CLIENT_SECRET')
     
-    console.log('Environment check:', {
+    logWithContext('info', 'Environment check', {
       hasClientId: !!clientId,
       hasClientSecret: !!clientSecret,
       clientIdPreview: clientId?.substring(0, 8) + '...',
       redirectUri
-    })
+    });
     
     if (!clientId || !clientSecret) {
-      console.error('Spotify credentials not configured:', {
+      logWithContext('error', 'Spotify credentials not configured', {
         SPOTIFY_CLIENT_ID: !!clientId,
         SPOTIFY_CLIENT_SECRET: !!clientSecret
-      })
+      });
       return new Response(
         JSON.stringify({
           error: 'Spotify credentials not configured in edge function environment',
+          code: 'MISSING_SPOTIFY_CREDENTIALS',
+          timestamp: new Date().toISOString(),
           debug: {
             hasClientId: !!clientId,
             hasClientSecret: !!clientSecret
@@ -99,7 +136,11 @@ serve(async (req) => {
       redirect_uri: redirectUri,
     })
 
-    console.log('Requesting tokens from Spotify')
+    logWithContext('info', 'Requesting tokens from Spotify', {
+      grantType: 'authorization_code',
+      redirectUri,
+      userId: user.id
+    });
     
     const authHeader = `Basic ${btoa(`${clientId}:${clientSecret}`)}`;
     
@@ -113,26 +154,30 @@ serve(async (req) => {
     })
 
     const tokenData = await tokenResponse.json()
-    console.log('Token exchange response received', { 
+    logWithContext('info', 'Token exchange response received', {
       success: !tokenData.error,
-      status: tokenResponse.status
-    })
+      status: tokenResponse.status,
+      userId: user.id
+    });
 
     if (tokenData.error) {
-      console.error('Token exchange failed:', {
+      logWithContext('error', 'Token exchange failed', {
         error: tokenData.error,
         error_description: tokenData.error_description,
         status: tokenResponse.status,
+        userId: user.id,
         requestBody: {
           grant_type: 'authorization_code',
           code: code?.substring(0, 10) + '...',
           redirect_uri: redirectUri
         }
-      })
+      });
       return new Response(
         JSON.stringify({
           error: `Spotify auth failed: ${tokenData.error}`,
+          code: 'SPOTIFY_TOKEN_EXCHANGE_FAILED',
           details: tokenData.error_description,
+          timestamp: new Date().toISOString(),
           debug: {
             status: tokenResponse.status,
             redirect_uri: redirectUri
@@ -142,10 +187,17 @@ serve(async (req) => {
       )
     }
 
-    console.log('Access token received successfully')
+    logWithContext('info', 'Access token received successfully', {
+      userId: user.id,
+      tokenType: tokenData.token_type,
+      scope: tokenData.scope,
+      expiresIn: tokenData.expires_in
+    });
 
     // Get user profile from Spotify
-    console.log('Fetching Spotify user profile')
+    logWithContext('info', 'Fetching Spotify user profile', {
+      userId: user.id
+    });
     const profileResponse = await fetch('https://api.spotify.com/v1/me', {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
@@ -153,32 +205,49 @@ serve(async (req) => {
     })
 
     const profileData = await profileResponse.json()
-    console.log('Profile retrieved successfully')
-
+    
     if (profileResponse.status !== 200) {
-      console.log('Failed to get Spotify profile')
+      logWithContext('error', 'Failed to get Spotify profile', {
+        status: profileResponse.status,
+        error: profileData.error?.message,
+        userId: user.id
+      });
       return new Response(
-        JSON.stringify({ error: `Failed to get Spotify profile: ${profileData.error?.message || 'Unknown error'}` }),
+        JSON.stringify({
+          error: `Failed to get Spotify profile: ${profileData.error?.message || 'Unknown error'}`,
+          code: 'SPOTIFY_PROFILE_FETCH_FAILED',
+          timestamp: new Date().toISOString()
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log('Spotify profile retrieved successfully')
+    logWithContext('info', 'Spotify profile retrieved successfully', {
+      userId: user.id,
+      spotifyUserId: profileData.id,
+      displayName: profileData.display_name,
+      email: profileData.email
+    });
 
     // Store tokens securely in Vault using Postgres driver for direct SQL access
-    console.log('Storing tokens in vault using Postgres driver')
+    logWithContext('info', 'Storing tokens in vault using Postgres driver', {
+      userId: user.id,
+      spotifyUserId: profileData.id
+    });
     
     const dbUrl = Deno.env.get('SUPABASE_DB_URL')
-    console.log('Database connection check:', {
+    logWithContext('info', 'Database connection check', {
       hasDbUrl: !!dbUrl,
       dbUrlPreview: dbUrl?.substring(0, 20) + '...'
-    })
+    });
     
     if (!dbUrl) {
-      console.error('SUPABASE_DB_URL not configured')
+      logWithContext('error', 'SUPABASE_DB_URL not configured');
       return new Response(
         JSON.stringify({
           error: 'Database connection not configured in edge function environment',
+          code: 'MISSING_DATABASE_URL',
+          timestamp: new Date().toISOString(),
           debug: 'SUPABASE_DB_URL missing'
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -196,7 +265,9 @@ serve(async (req) => {
       
       try {
         // Store access token in vault
-        console.log('Creating access token secret in vault')
+        logWithContext('info', 'Creating access token secret in vault', {
+          userId: user.id
+        });
         const accessTokenResult = await connection.queryObject<{ id: string }>`
           SELECT vault.create_secret(
             ${tokenData.access_token},
@@ -210,10 +281,15 @@ serve(async (req) => {
         }
         
         accessTokenSecretId = accessTokenResult.rows[0].id
-        console.log('Access token stored in vault successfully')
+        logWithContext('info', 'Access token stored in vault successfully', {
+          userId: user.id,
+          secretId: accessTokenSecretId
+        });
 
         // Store refresh token in vault
-        console.log('Creating refresh token secret in vault')
+        logWithContext('info', 'Creating refresh token secret in vault', {
+          userId: user.id
+        });
         const refreshTokenResult = await connection.queryObject<{ id: string }>`
           SELECT vault.create_secret(
             ${tokenData.refresh_token},
@@ -227,18 +303,27 @@ serve(async (req) => {
         }
         
         refreshTokenSecretId = refreshTokenResult.rows[0].id
-        console.log('Refresh token stored in vault successfully')
+        logWithContext('info', 'Refresh token stored in vault successfully', {
+          userId: user.id,
+          secretId: refreshTokenSecretId
+        });
         
       } finally {
         connection.release()
       }
     } catch (vaultError: any) {
-      console.error('Failed to store tokens in vault:', vaultError)
+      logWithContext('error', 'Failed to store tokens in vault', {
+        userId: user.id,
+        error: vaultError.message,
+        stack: vaultError.stack
+      });
       await pool.end()
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: 'Failed to securely store tokens. Please try again.',
-          debug: vaultError.message 
+          code: 'VAULT_STORAGE_FAILED',
+          timestamp: new Date().toISOString(),
+          debug: vaultError.message
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -262,31 +347,65 @@ serve(async (req) => {
       email: profileData.email,
     }
 
-    console.log('Storing connection in database')
+    logWithContext('info', 'Storing connection in database', {
+      userId: user.id,
+      spotifyUserId: profileData.id,
+      displayName: profileData.display_name,
+      accessTokenSecretId,
+      refreshTokenSecretId
+    });
 
     const { error: dbError } = await supabaseClient
       .from('spotify_connections')
       .upsert(connectionData)
 
     if (dbError) {
-      console.log('Database error storing connection')
+      logWithContext('error', 'Database error storing connection', {
+        userId: user.id,
+        error: dbError.message,
+        code: dbError.code
+      });
       return new Response(
-        JSON.stringify({ error: `Database error: ${dbError.message}` }),
+        JSON.stringify({
+          error: `Database error: ${dbError.message}`,
+          code: 'DATABASE_STORAGE_FAILED',
+          timestamp: new Date().toISOString()
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log('Spotify connection created successfully')
+    logWithContext('info', 'Spotify connection created successfully', {
+      userId: user.id,
+      spotifyUserId: profileData.id,
+      connectionId: connectionData.user_id
+    });
     
     return new Response(
-      JSON.stringify({ success: true, message: 'Spotify connected successfully' }),
+      JSON.stringify({
+        success: true,
+        message: 'Spotify connected successfully',
+        timestamp: new Date().toISOString(),
+        data: {
+          spotifyUserId: profileData.id,
+          displayName: profileData.display_name
+        }
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error: any) {
-    console.error('Spotify auth failed:', error.message)
+    logWithContext('error', 'Spotify auth failed with unexpected error', {
+      error: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     return new Response(
-      JSON.stringify({ error: 'Server error occurred' }),
+      JSON.stringify({
+        error: 'Server error occurred',
+        code: 'UNEXPECTED_ERROR',
+        timestamp: new Date().toISOString()
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

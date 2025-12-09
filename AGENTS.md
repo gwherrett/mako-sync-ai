@@ -51,3 +51,11 @@ This file provides guidance to agents when working with code in this repository.
 - **Phase 4 Error Handling**: Uses centralized Phase4ErrorHandlerService with service-specific error categorization and user-friendly toast messages
 - **Security Validation Patterns**: Automated token exposure detection using regex patterns, vault integrity validation through edge function calls
 - **Health Monitoring Singleton**: SpotifyHealthMonitorService must use getInstance() - creates monitoring intervals and listener management
+
+## Unified Spotify Authentication (New)
+
+- **SpotifyAuthManager Singleton**: Must use `SpotifyAuthManager.getInstance()` - never instantiate directly, manages global state with subscription pattern
+- **Connection Check Cooldown**: 5-second cooldown prevents excessive API calls - use `force: true` parameter to bypass
+- **State Subscription Pattern**: Components subscribe to auth state changes via `subscribe()` method, automatically notified of updates
+- **Promise Deduplication**: Multiple simultaneous connection checks return same promise to prevent race conditions
+- **Unified Hook Replacement**: `useUnifiedSpotifyAuth` replaces both `useSpotifyAuth` and `useSpotifyTokens` - no legacy hook imports allowed

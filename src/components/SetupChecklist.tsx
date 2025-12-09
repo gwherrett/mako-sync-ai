@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '@/contexts/NewAuthContext';
-import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
+import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -20,7 +20,7 @@ interface ChecklistItem {
 
 const SetupChecklist: React.FC = () => {
   const { user, isEmailVerified, profile } = useAuth();
-  const { isConnected, connectSpotify } = useSpotifyAuth();
+  const { isConnected, connectSpotify } = useUnifiedSpotifyAuth();
 
   const checklist: ChecklistItem[] = [
     {

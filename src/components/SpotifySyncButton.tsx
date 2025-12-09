@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
+import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Progress } from '@/components/ui/progress';
 import { toast } from '@/hooks/use-toast';
 
 const SpotifySyncButton = () => {
-  const { isConnected, isLoading, isSyncing, connectSpotify, syncLikedSongs } = useSpotifyAuth();
+  const { isConnected, isLoading, isSyncing, connectSpotify, syncLikedSongs } = useUnifiedSpotifyAuth();
   const [syncProgress, setSyncProgress] = useState<{
     tracks_processed: number;
     total_tracks: number | null;

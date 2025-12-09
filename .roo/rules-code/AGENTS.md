@@ -18,3 +18,8 @@
 - **Phase 4 Error Handling**: Use Phase4ErrorHandlerService.handleError() with service-specific categorization for all Phase 4 services
 - **Edge Function Phase 4 Flags**: Use `refresh_only`, `health_check`, `validate_vault`, `force_token_rotation` flags for targeted operations
 - **Security Validation Required**: All token operations must validate through SpotifySecurityValidatorService before execution
+- **Unified Spotify Auth Manager**: Must use `SpotifyAuthManager.getInstance()` singleton - never instantiate directly
+- **Unified Hook Pattern**: Replace `useSpotifyAuth` and `useSpotifyTokens` with `useUnifiedSpotifyAuth` - no legacy imports
+- **Connection Check Cooldown**: SpotifyAuthManager has 5-second cooldown - use `force: true` to bypass for immediate checks
+- **State Subscription Required**: Components must subscribe to auth state changes via `subscribe()` method for real-time updates
+- **Promise Deduplication**: Multiple simultaneous connection checks return same promise - prevents race conditions

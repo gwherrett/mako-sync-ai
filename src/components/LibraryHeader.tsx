@@ -1,15 +1,15 @@
 import React from 'react';
-import { LogOut, Loader2, Shield, Settings, Database, Home } from 'lucide-react';
+import { LogOut, Loader2, Shield, Settings, Database, Home, TestTube, Activity } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import BrandLogo from '@/components/BrandLogo';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/NewAuthContext';
-import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
+import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
 import { cn } from '@/lib/utils';
 
 const LibraryHeader = () => {
   const { user, signOut } = useAuth();
-  const { isConnected, isLoading, connection, connectSpotify } = useSpotifyAuth();
+  const { isConnected, isLoading, connection, connectSpotify } = useUnifiedSpotifyAuth();
 
   const location = useLocation();
 
@@ -18,6 +18,8 @@ const LibraryHeader = () => {
     { path: '/genre-mapping', label: 'Genre Mapping', icon: Settings },
     { path: '/no-genre-tracks', label: 'No Genre Tracks', icon: Database },
     { path: '/security', label: 'Security', icon: Shield },
+    { path: '/spotify-auth-test', label: 'Auth Tests', icon: TestTube },
+    { path: '/spotify-auth-validation', label: 'Auth Validation', icon: Activity },
   ];
 
   return (
@@ -33,21 +35,18 @@ const LibraryHeader = () => {
           </Link>
           
           <div className="flex items-center space-x-3">
-          {/* Spotify Connection Status */}
+          {/* Simple Spotify Connection Status */}
           {isLoading ? (
             <div className="flex items-center space-x-2 text-sm text-gray-400">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Checking Spotify...</span>
             </div>
           ) : isConnected ? (
-            <div className="text-sm text-green-400">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Spotify: {connection?.display_name || 'Connected'}</span>
-              </div>
+            <div className="flex items-center space-x-2 text-sm text-green-400">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Spotify Connected</span>
             </div>
           ) : (
-            <Button 
+            <Button
               onClick={connectSpotify}
               className="spotify-gradient text-black font-medium hover:opacity-90 transition-opacity"
               size="sm"

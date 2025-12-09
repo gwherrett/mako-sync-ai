@@ -18,3 +18,6 @@
 - **Token Vault Documentation**: Actual tokens encrypted in vault, database fields contain `***ENCRYPTED_IN_VAULT***` placeholders for security
 - **Phase 4 Error Handling Documentation**: Centralized error handling with service-specific categorization and user-friendly messages
 - **Security Validation Documentation**: Automated token exposure detection and vault integrity validation through dedicated services
+- **Unified Spotify Auth Documentation**: Complete consolidation documented in `docs/spotify-authentication-migration-guide.md` and `docs/task-spotify-authentication-consolidation.md`
+- **Spotify Integration Living Document**: Comprehensive technical reference at `docs/systems/spotify-integration.md` for unified authentication system
+- **Validation Plan Documentation**: End-to-end testing strategy documented in `docs/spotify-auth-validation-plan.md` for production deployment

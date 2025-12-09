@@ -18,6 +18,10 @@
 - **Token Vault Debugging**: Actual tokens in vault, connection table has `***ENCRYPTED_IN_VAULT***` placeholders - debug vault access, not table values
 - **Edge Function Phase 4 Flags**: Use specific flags (`refresh_only`, `health_check`, etc.) to isolate functionality during debugging
 - **Security Validation Debugging**: SpotifySecurityValidatorService uses regex patterns to detect token exposure - check SECURITY_PATTERNS constants
+- **Unified Auth Manager Debugging**: SpotifyAuthManager.getInstance() has 5-second cooldown - check `state.lastCheck` timestamp for cache behavior
+- **Promise Deduplication Debugging**: Multiple connection checks return same promise - check `checkPromise` property for race condition debugging
+- **State Subscription Debugging**: Components subscribe to auth changes - check listener count and cleanup in `subscribe()` return function
+- **Connection Check Timeout Debugging**: Uses Promise.race with 3-second timeout - check for "timeout" errors vs actual connection failures
 
 ## **Test Credentials for Consistent Testing:**
 
