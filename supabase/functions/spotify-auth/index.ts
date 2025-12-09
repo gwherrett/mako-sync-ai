@@ -52,8 +52,16 @@ serve(async (req) => {
     
     const { code, state, redirect_uri } = requestBody
 
-    // Use the redirect_uri from the request, with fallback to production domain
-    const redirectUri = redirect_uri || 'https://mako-sync.vercel.app/spotify-callback';
+    // Use the redirect_uri from the request - must be provided by client
+    const redirectUri = redirect_uri;
+    
+    if (!redirectUri) {
+      console.error('Missing redirect_uri in request body')
+      return new Response(
+        JSON.stringify({ error: 'redirect_uri is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     console.log('Processing Spotify token exchange')
     

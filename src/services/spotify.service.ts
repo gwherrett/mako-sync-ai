@@ -158,8 +158,12 @@ export class SpotifyService {
         'user-top-read'  // Required for audio features
       ].join(' ');
 
-      // Use environment variable for redirect URI or fallback to current origin
+      // Use environment variable for redirect URI - must be configured for production
       const redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || `${window.location.origin}/spotify-callback`;
+      
+      if (!import.meta.env.VITE_SPOTIFY_REDIRECT_URI && window.location.hostname !== 'localhost') {
+        console.warn('⚠️ SPOTIFY AUTH WARNING: VITE_SPOTIFY_REDIRECT_URI not set for production environment');
+      }
       console.log('🔵 SPOTIFY AUTH: Using redirect URI:', redirectUri);
       console.log('🔍 REDIRECT URI DEBUG:', {
         redirectUri,
@@ -169,8 +173,13 @@ export class SpotifyService {
         isProduction: window.location.hostname !== 'localhost'
       });
       
-      // Get client ID from environment or use fallback
-      const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '3bac088a26d64ddfb49d57fb5d451d71';
+      // Get client ID from environment - must be configured
+      const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
+      
+      if (!clientId) {
+        console.error('❌ SPOTIFY AUTH ERROR: VITE_SPOTIFY_CLIENT_ID not configured');
+        throw new Error('Spotify client ID not configured. Please set VITE_SPOTIFY_CLIENT_ID environment variable.');
+      }
       console.log('🔍 SPOTIFY CLIENT ID DEBUG:', {
         clientId,
         isProduction: window.location.hostname !== 'localhost',
