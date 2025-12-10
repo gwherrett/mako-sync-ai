@@ -13,11 +13,7 @@
 - **Pagination Requirements**: Supabase 1000-row limit with silent truncation - critical for large datasets
 - **Role Security Design**: Roles stored separately from profiles to prevent privilege escalation attacks
 - **Build Modes**: `npm run build:dev` creates development build with different configuration than standard build
-- **Phase 4 Documentation**: Comprehensive setup guide at `docs/supabase-phase4-configuration.md` and `README-PHASE4-SETUP.md` for deployment
-- **Phase 4 Services Architecture**: New singleton services (SpotifyHealthMonitorService, SpotifySecurityValidatorService) with getInstance() pattern
 - **Token Vault Documentation**: Actual tokens encrypted in vault, database fields contain `***ENCRYPTED_IN_VAULT***` placeholders for security
-- **Phase 4 Error Handling Documentation**: Centralized error handling with service-specific categorization and user-friendly messages
-- **Security Validation Documentation**: Automated token exposure detection and vault integrity validation through dedicated services
-- **Unified Spotify Auth Documentation**: Complete consolidation documented in `docs/spotify-authentication-migration-guide.md` and `docs/task-spotify-authentication-consolidation.md`
-- **Spotify Integration Living Document**: Comprehensive technical reference at `docs/systems/spotify-integration.md` for unified authentication system
-- **Validation Plan Documentation**: End-to-end testing strategy documented in `docs/spotify-auth-validation-plan.md` for production deployment
+- **Unified Spotify Auth Documentation**: Consolidation documented in `docs/spotify-authentication-migration-guide.md` and `docs/task-spotify-authentication-consolidation.md` - reflects partial completion with OAuth callback issues
+- **Spotify Integration Living Document**: Technical reference at `docs/systems/spotify-integration.md` - updated to reflect OAuth callback completion issues
+- **Authentication System Documentation**: Complete reference at `docs/systems/authentication.md` - App OAuth working, Spotify OAuth has callback issues

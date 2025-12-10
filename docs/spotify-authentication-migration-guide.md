@@ -55,7 +55,6 @@ Find and replace these imports across your codebase:
 # Find files using old services
 grep -r "import.*SpotifyService" src/
 grep -r "import.*useSpotifyAuth" src/
-grep -r "import.*useSpotifyTokens" src/
 ```
 
 **Replace:**
@@ -63,7 +62,6 @@ grep -r "import.*useSpotifyTokens" src/
 // Old imports
 import { SpotifyService } from '@/services/spotify.service';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
-import { useSpotifyTokens } from '@/hooks/useSpotifyTokens';
 
 // New imports
 import { SpotifyAuthManager } from '@/services/spotifyAuthManager.service';
@@ -103,33 +101,7 @@ const {
 } = useUnifiedSpotifyAuth();
 ```
 
-#### 2.2 Replace useSpotifyTokens Hook
-
-**Before:**
-```typescript
-const {
-  connection,
-  isConnected,
-  tokenHealth,
-  refreshTokens
-} = useSpotifyTokens({ autoRefresh: true });
-```
-
-**After:**
-```typescript
-const {
-  connection,
-  isConnected,
-  healthStatus,
-  refreshTokens
-} = useUnifiedSpotifyAuth({
-  autoRefresh: true,
-  healthMonitoring: true,
-  securityValidation: true
-});
-```
-
-#### 2.3 Update Hook Configuration
+#### 2.2 Update Hook Configuration
 
 The new hook provides enhanced configuration options:
 
@@ -333,7 +305,7 @@ The edge functions remain compatible. No changes required to:
 ### Migration Validation
 
 - [ ] **Service Layer**: All SpotifyService calls replaced
-- [ ] **Hook Usage**: All useSpotifyAuth/useSpotifyTokens replaced
+- [ ] **Hook Usage**: All useSpotifyAuth hooks replaced
 - [ ] **Component Updates**: All connection status components updated
 - [ ] **Error Handling**: Error patterns updated to use new system
 - [ ] **Test Coverage**: Tests updated and passing

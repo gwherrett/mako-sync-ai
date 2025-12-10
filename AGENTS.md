@@ -43,19 +43,12 @@ This file provides guidance to agents when working with code in this repository.
 - `npm run build:dev` - Development build with different mode
 - No test runner configured - only acceptance test documentation in `src/__tests__/`
 
-## Phase 4 Security & Monitoring
-
-- **Phase 4 Services Pattern**: New services use singleton pattern with getInstance() - SpotifyHealthMonitorService, SpotifySecurityValidatorService
-- **Token Vault Migration**: Spotify tokens stored as vault secret IDs in `access_token_secret_id`/`refresh_token_secret_id` fields, actual token fields contain `***ENCRYPTED_IN_VAULT***` placeholders
-- **Edge Function Flags**: Phase 4 adds special operation flags - `refresh_only`, `health_check`, `validate_vault`, `force_token_rotation` for targeted operations
-- **Phase 4 Error Handling**: Uses centralized Phase4ErrorHandlerService with service-specific error categorization and user-friendly toast messages
-- **Security Validation Patterns**: Automated token exposure detection using regex patterns, vault integrity validation through edge function calls
-- **Health Monitoring Singleton**: SpotifyHealthMonitorService must use getInstance() - creates monitoring intervals and listener management
-
-## Unified Spotify Authentication (New)
+## Unified Spotify Authentication
 
 - **SpotifyAuthManager Singleton**: Must use `SpotifyAuthManager.getInstance()` - never instantiate directly, manages global state with subscription pattern
 - **Connection Check Cooldown**: 5-second cooldown prevents excessive API calls - use `force: true` parameter to bypass
 - **State Subscription Pattern**: Components subscribe to auth state changes via `subscribe()` method, automatically notified of updates
 - **Promise Deduplication**: Multiple simultaneous connection checks return same promise to prevent race conditions
-- **Unified Hook Replacement**: `useUnifiedSpotifyAuth` replaces both `useSpotifyAuth` and `useSpotifyTokens` - no legacy hook imports allowed
+- **Unified Hook Only**: Only `useUnifiedSpotifyAuth` exists - legacy hooks removed during cleanup
+- **Token Vault Storage**: Spotify tokens stored as vault secret IDs in `access_token_secret_id`/`refresh_token_secret_id` fields, actual token fields contain `***ENCRYPTED_IN_VAULT***` placeholders
+- **OAuth Callback Issue**: SpotifyIntegrationCallback flow never completes properly - needs debugging

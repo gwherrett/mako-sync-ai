@@ -13,14 +13,9 @@
 - **Database Security Model**: RLS policies use `auth.uid() = user_id` for user data, `has_role(auth.uid(), 'admin')` for admin access
 - **Build System Architecture**: Supports development builds via `npm run build:dev` with different mode configuration
 - **Testing Architecture**: No test runner configured - uses acceptance test documentation pattern in `src/__tests__/`
-- **Phase 4 Singleton Architecture**: SpotifyHealthMonitorService, SpotifySecurityValidatorService use singleton pattern with getInstance() - never instantiate directly
-- **Phase 4 Token Security Architecture**: Tokens encrypted in Supabase Vault, database fields contain `***ENCRYPTED_IN_VAULT***` placeholders, vault secret IDs stored separately
-- **Phase 4 Error Handling Architecture**: Centralized Phase4ErrorHandlerService with service-specific error categorization and user-friendly toast notifications
-- **Phase 4 Edge Function Architecture**: Special operation flags (`refresh_only`, `health_check`, `validate_vault`, `force_token_rotation`) for targeted functionality
-- **Phase 4 Security Validation Architecture**: Automated token exposure detection using regex patterns, vault integrity validation through edge function calls
-- **Phase 4 Health Monitoring Architecture**: Singleton service creates monitoring intervals and listener management - must call stopMonitoring() to prevent memory leaks
+- **Token Security Architecture**: Tokens encrypted in Supabase Vault, database fields contain `***ENCRYPTED_IN_VAULT***` placeholders, vault secret IDs stored separately
 - **Unified Spotify Auth Architecture**: SpotifyAuthManager singleton consolidates all authentication operations with subscription-based state management
 - **Connection Check Architecture**: 5-second cooldown with promise deduplication prevents race conditions and excessive API calls
 - **State Subscription Architecture**: Observer pattern with automatic cleanup - components subscribe via `subscribe()` method returning unsubscribe function
-- **Token Refresh Architecture**: Integrated with unified manager using SpotifyTokenRefreshService with retry logic and automatic state updates
-- **Health Check Integration**: Unified manager coordinates with health monitoring service for comprehensive connection validation
+- **OAuth Callback Architecture**: SpotifyIntegrationCallback handles OAuth flow but never completes properly - architectural issue needs investigation
+- **Legacy Code Removal**: All legacy Spotify services and hooks removed during cleanup - only unified system remains
