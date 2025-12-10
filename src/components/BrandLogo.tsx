@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import makoSharkImage from '/favicon.png';
 
 interface BrandLogoProps {
   size?: number;
@@ -88,7 +87,7 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ size = 40, className = '' }) => {
         style={{ width: size, height: size }}
       >
         <img
-          src={makoSharkImage}
+          src="/favicon.png"
           alt="Mako Shark Logo"
           className="w-full h-full object-cover"
           onError={handleImageError}
