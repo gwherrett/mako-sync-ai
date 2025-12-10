@@ -50,14 +50,17 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
       
       const requestOptions = options as RequestInit;
       
+      // Properly merge headers - handle both Headers object and plain object
+      const existingHeaders = requestOptions.headers instanceof Headers
+        ? Object.fromEntries(requestOptions.headers.entries())
+        : (requestOptions.headers || {});
+      
       return fetch(url, {
         ...requestOptions,
         signal: controller.signal,
-        // Add retry headers for better network handling
         headers: {
-          ...(requestOptions.headers || {}),
+          ...existingHeaders,  // Preserve Supabase SDK headers (apikey, authorization)
           'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive'
         }
       }).catch(error => {
         if (error.name === 'AbortError') {

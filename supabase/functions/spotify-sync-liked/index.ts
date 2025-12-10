@@ -3,7 +3,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 import type { SpotifyConnection } from './types.ts'
 import { getValidAccessToken, refreshSpotifyToken } from './spotify-auth.ts'
-import { fetchAudioFeatures } from './spotify-api.ts'
 import { extractUniqueArtistIds, processSongsData } from './data-processing.ts'
 import { getArtistGenresWithCache } from './artist-genres.ts'
 
@@ -822,18 +821,19 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Spotify sync error:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error);
     
     // Handle specific Spotify errors with proper status codes
-    if (error.message.includes('refresh token is invalid') || 
-        error.message.includes('Spotify connection has expired')) {
+    if (errorMessage.includes('refresh token is invalid') ||
+        errorMessage.includes('Spotify connection has expired')) {
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ error: errorMessage }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
     
-    if (error.message.includes('Spotify token invalid') || 
-        error.message.includes('403')) {
+    if (errorMessage.includes('Spotify token invalid') ||
+        errorMessage.includes('403')) {
       return new Response(
         JSON.stringify({ error: 'Spotify authentication expired. Please disconnect and reconnect your Spotify account.' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -841,7 +841,7 @@ serve(async (req) => {
     }
     
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
