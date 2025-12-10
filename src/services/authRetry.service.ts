@@ -329,18 +329,6 @@ export class AuthRetryService {
     return status;
   }
 
-  /**
-   * Manually reset circuit breaker (for admin/debugging)
-   */
-  static resetCircuitBreakerManually(operationType?: string): void {
-    if (operationType) {
-      this.resetCircuitBreaker(operationType);
-      console.log(`Circuit breaker manually reset for ${operationType}`);
-    } else {
-      this.circuitBreakerStates.clear();
-      console.log('All circuit breakers manually reset');
-    }
-  }
 
   /**
    * Health check for auth operations

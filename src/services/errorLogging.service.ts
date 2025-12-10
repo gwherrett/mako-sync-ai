@@ -145,25 +145,6 @@ export class ErrorLoggingService {
     });
   }
 
-  /**
-   * Log performance metrics
-   */
-  static logPerformance(
-    operation: string,
-    duration: number,
-    context: Partial<ErrorContext> = {},
-    metadata: Record<string, any> = {}
-  ): void {
-    this.log('info', 'performance', `${operation} completed in ${duration}ms`, {
-      context: this.enrichContext(context),
-      metadata: {
-        ...metadata,
-        duration,
-        operation,
-        eventType: 'performance'
-      }
-    });
-  }
 
   /**
    * Core logging method
@@ -540,35 +521,6 @@ export class ErrorLoggingService {
     );
   }
 
-  /**
-   * Public API methods
-   */
-  static getLogs(filters: {
-    level?: LogEntry['level'];
-    category?: string;
-    since?: Date;
-    limit?: number;
-  } = {}): LogEntry[] {
-    let logs = [...this.logBuffer];
-    
-    if (filters.level) {
-      logs = logs.filter(log => log.level === filters.level);
-    }
-    
-    if (filters.category) {
-      logs = logs.filter(log => log.category === filters.category);
-    }
-    
-    if (filters.since) {
-      logs = logs.filter(log => log.timestamp >= filters.since!);
-    }
-    
-    if (filters.limit) {
-      logs = logs.slice(-filters.limit);
-    }
-    
-    return logs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }
 
   static getMetrics(): LogMetrics {
     return { ...this.metrics };

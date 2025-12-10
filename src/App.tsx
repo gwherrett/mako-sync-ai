@@ -18,7 +18,6 @@ import { GenreMapping } from "./pages/GenreMapping";
 import { TrackLevelProcessor } from "./components/NoGenreTracks/TrackLevelProcessor";
 import Security from "./pages/Security";
 import AuthDebug from "./pages/AuthDebug";
-import SpotifyAuthTest from "./pages/SpotifyAuthTest";
 import SpotifyAuthValidation from "./pages/SpotifyAuthValidation";
 
 const queryClient = new QueryClient();
@@ -77,11 +76,6 @@ function AppContent() {
             </NewProtectedRoute>
           } />
           <Route path="/auth-debug" element={<AuthDebug />} />
-          <Route path="/spotify-auth-test" element={
-            <NewProtectedRoute>
-              <SpotifyAuthTest />
-            </NewProtectedRoute>
-          } />
           <Route path="/spotify-auth-validation" element={
             <NewProtectedRoute>
               <SpotifyAuthValidation />

@@ -374,24 +374,6 @@ export class AuthStateRecoveryService {
     return true;
   }
 
-  /**
-   * Manual recovery trigger
-   */
-  static async triggerManualRecovery(): Promise<RecoveryResult> {
-    console.log('Manual recovery triggered');
-    
-    // Reset recovery attempts for manual trigger
-    this.recoveryAttempts = 0;
-    
-    const result = await this.recoverAuthState({
-      enableAutoRecovery: true,
-      maxRecoveryAttempts: 5, // Allow more attempts for manual recovery
-      fallbackToGuest: false // Don't fallback automatically for manual recovery
-    });
-
-    result.recoveryMethod = 'manual';
-    return result;
-  }
 
   /**
    * Check if recovery is needed
@@ -440,30 +422,7 @@ export class AuthStateRecoveryService {
     console.log('Recovery state reset');
   }
 
-  /**
-   * Get recovery status
-   */
-  static getRecoveryStatus(): {
-    inProgress: boolean;
-    attempts: number;
-    lastAttempt: Date | null;
-    canAttempt: boolean;
-  } {
-    return {
-      inProgress: this.recoveryInProgress,
-      attempts: this.recoveryAttempts,
-      lastAttempt: this.lastRecoveryAttempt,
-      canAttempt: this.recoveryAttempts < this.DEFAULT_OPTIONS.maxRecoveryAttempts && !this.recoveryInProgress
-    };
-  }
 
-  /**
-   * Clear stored backup
-   */
-  static clearBackup(): void {
-    localStorage.removeItem(this.STORAGE_KEY);
-    console.log('Auth state backup cleared');
-  }
 
   /**
    * Utility methods
