@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SpotifyAuthManager } from '@/services/spotifyAuthManager.service';
+import { useAuth } from '@/contexts/NewAuthContext';
 import { Loader2, Music } from 'lucide-react';
 
 export const UnifiedSpotifyCallback: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { loading: authLoading, isAuthenticated } = useAuth();
   const [isProcessing, setIsProcessing] = useState(true);
 
   useEffect(() => {
@@ -21,7 +23,13 @@ export const UnifiedSpotifyCallback: React.FC = () => {
     sessionStorage.setItem(executionFlag, 'true');
     
     const processCallback = async () => {
-      console.log('🟡 UNIFIED CALLBACK: Starting callback processing');
+      const startTime = Date.now();
+      console.log('🟡 UNIFIED CALLBACK: Starting callback processing', {
+        timestamp: new Date().toISOString(),
+        authLoading,
+        isAuthenticated,
+        url: window.location.href
+      });
       
       // Show initial processing toast
       toast({
@@ -30,15 +38,21 @@ export const UnifiedSpotifyCallback: React.FC = () => {
       });
       
       try {
+        // Step 1: Parse URL parameters
+        console.log('📋 UNIFIED CALLBACK: Step 1 - Parsing URL parameters');
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
         const state = urlParams.get('state');
         const error = urlParams.get('error');
 
-        console.log('🟡 UNIFIED CALLBACK: URL parameters:', {
+        console.log('🟡 UNIFIED CALLBACK: URL parameters parsed:', {
           hasCode: !!code,
+          codeLength: code?.length,
           hasState: !!state,
-          error
+          stateValue: state?.substring(0, 10) + '...',
+          error,
+          step: 1,
+          elapsed: Date.now() - startTime
         });
 
         if (error) {
@@ -48,6 +62,7 @@ export const UnifiedSpotifyCallback: React.FC = () => {
             description: `Error: ${error}`,
             variant: "destructive",
           });
+          sessionStorage.removeItem(executionFlag);
           setTimeout(() => navigate('/'), 2000);
           return;
         }
@@ -59,13 +74,24 @@ export const UnifiedSpotifyCallback: React.FC = () => {
             description: "Missing authorization code or state",
             variant: "destructive",
           });
+          sessionStorage.removeItem(executionFlag);
           setTimeout(() => navigate('/'), 2000);
           return;
         }
 
-        // Verify state parameter
+        // Step 2: Verify state parameter
+        console.log('🔐 UNIFIED CALLBACK: Step 2 - Verifying state parameter');
         const storedState = localStorage.getItem('spotify_auth_state');
         const backupState = sessionStorage.getItem('spotify_auth_state_backup');
+        
+        console.log('🔐 UNIFIED CALLBACK: State verification:', {
+          receivedState: state?.substring(0, 10) + '...',
+          storedState: storedState?.substring(0, 10) + '...',
+          backupState: backupState?.substring(0, 10) + '...',
+          stateMatches: state === storedState || state === backupState,
+          step: 2,
+          elapsed: Date.now() - startTime
+        });
         
         if (state !== storedState && state !== backupState) {
           console.log('❌ UNIFIED CALLBACK: State parameter mismatch');
@@ -84,55 +110,166 @@ export const UnifiedSpotifyCallback: React.FC = () => {
           return;
         }
 
+        // Step 3: Wait for auth context to stabilize if needed
+        console.log('⏳ UNIFIED CALLBACK: Step 3 - Checking auth context readiness');
+        if (authLoading) {
+          console.log('⏳ UNIFIED CALLBACK: Auth context still loading, waiting...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          console.log('⏳ UNIFIED CALLBACK: Auth context wait completed');
+        }
+
         // Show validation success
         toast({
           title: "Authorization Validated",
           description: "Exchanging tokens with Spotify...",
         });
 
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        // Step 4: Get session with timeout protection
+        console.log('📡 UNIFIED CALLBACK: Step 4 - Getting session with timeout protection');
+        const sessionStartTime = Date.now();
+        
+        const sessionPromise = supabase.auth.getSession().then(result => {
+          const elapsed = Date.now() - sessionStartTime;
+          console.log('✅ UNIFIED CALLBACK: Session fetch completed', {
+            elapsed,
+            hasSession: !!result.data.session,
+            hasUser: !!result.data.session?.user,
+            error: result.error?.message,
+            step: 4
+          });
+          return result;
+        }).catch(error => {
+          const elapsed = Date.now() - sessionStartTime;
+          console.error('❌ UNIFIED CALLBACK: Session fetch failed', {
+            elapsed,
+            error: error.message,
+            step: 4
+          });
+          throw error;
+        });
+        
+        const timeoutPromise = new Promise<any>((_, reject) =>
+          setTimeout(() => {
+            const elapsed = Date.now() - sessionStartTime;
+            console.error('❌ UNIFIED CALLBACK: Session check timeout', {
+              elapsed,
+              timeout: 5000,
+              step: 4
+            });
+            reject(new Error('Session check timeout'));
+          }, 5000)
+        );
+
+        const { data: { session }, error: sessionError } = await Promise.race([
+          sessionPromise,
+          timeoutPromise
+        ]);
         
         if (sessionError || !session) {
-          console.log('❌ UNIFIED CALLBACK: No valid session');
+          console.log('❌ UNIFIED CALLBACK: No valid session', {
+            sessionError: sessionError?.message,
+            hasSession: !!session,
+            step: 4,
+            elapsed: Date.now() - startTime
+          });
           toast({
             title: "Authentication Required",
             description: "Please log in to connect Spotify",
             variant: "destructive",
           });
+          sessionStorage.removeItem(executionFlag);
           setTimeout(() => navigate('/auth'), 2000);
           return;
         }
 
+        // Step 5: Call edge function with timeout
+        console.log('🚀 UNIFIED CALLBACK: Step 5 - Calling spotify-auth edge function');
+        const edgeFunctionStartTime = Date.now();
         const redirectUri = `${window.location.origin}/spotify-callback`;
         
-        console.log('🟡 UNIFIED CALLBACK: Calling spotify-auth edge function');
-        
-        const response = await supabase.functions.invoke('spotify-auth', {
+        const edgeFunctionPromise = supabase.functions.invoke('spotify-auth', {
           body: { code, state, redirect_uri: redirectUri },
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
+        }).then(result => {
+          const elapsed = Date.now() - edgeFunctionStartTime;
+          console.log('✅ UNIFIED CALLBACK: Edge function completed', {
+            elapsed,
+            hasError: !!result.error,
+            error: result.error?.message,
+            step: 5
+          });
+          return result;
+        }).catch(error => {
+          const elapsed = Date.now() - edgeFunctionStartTime;
+          console.error('❌ UNIFIED CALLBACK: Edge function failed', {
+            elapsed,
+            error: error.message,
+            step: 5
+          });
+          throw error;
         });
 
+        const edgeFunctionTimeoutPromise = new Promise<any>((_, reject) =>
+          setTimeout(() => {
+            const elapsed = Date.now() - edgeFunctionStartTime;
+            console.error('❌ UNIFIED CALLBACK: Edge function timeout', {
+              elapsed,
+              timeout: 10000,
+              step: 5
+            });
+            reject(new Error('Edge function timeout'));
+          }, 10000)
+        );
+
+        const response = await Promise.race([
+          edgeFunctionPromise,
+          edgeFunctionTimeoutPromise
+        ]);
+
         if (response.error) {
-          console.error('❌ UNIFIED CALLBACK: Edge function error:', response.error);
+          console.error('❌ UNIFIED CALLBACK: Edge function error:', {
+            error: response.error,
+            step: 5,
+            elapsed: Date.now() - startTime
+          });
           toast({
             title: "Connection Failed",
             description: `Failed to connect: ${response.error.message}`,
             variant: "destructive",
           });
+          sessionStorage.removeItem(executionFlag);
           setTimeout(() => navigate('/'), 2000);
           return;
         }
 
-        // Force the auth manager to refresh its state
+        // Step 6: Force auth manager refresh
+        console.log('🔄 UNIFIED CALLBACK: Step 6 - Refreshing auth manager state');
+        const authManagerStartTime = Date.now();
+        
         const authManager = SpotifyAuthManager.getInstance();
-        await authManager.checkConnection(true);
+        const authManagerResult = await authManager.checkConnection(true);
+        
+        console.log('✅ UNIFIED CALLBACK: Auth manager refresh completed', {
+          elapsed: Date.now() - authManagerStartTime,
+          success: authManagerResult.success,
+          error: authManagerResult.error,
+          step: 6
+        });
 
-        // Clean up stored state and execution flag
+        // Step 7: Clean up and complete
+        console.log('🧹 UNIFIED CALLBACK: Step 7 - Cleaning up and completing');
         localStorage.removeItem('spotify_auth_state');
         sessionStorage.removeItem('spotify_auth_state_backup');
         sessionStorage.removeItem(executionFlag);
+
+        const totalElapsed = Date.now() - startTime;
+        console.log('✅ UNIFIED CALLBACK: Process completed successfully', {
+          totalElapsed,
+          steps: 7,
+          timestamp: new Date().toISOString()
+        });
 
         // Show success message
         toast({
@@ -144,7 +281,13 @@ export const UnifiedSpotifyCallback: React.FC = () => {
         setTimeout(() => navigate('/'), 1500);
 
       } catch (error: any) {
-        console.error('❌ UNIFIED CALLBACK: Critical error:', error);
+        const totalElapsed = Date.now() - startTime;
+        console.error('❌ UNIFIED CALLBACK: Critical error:', {
+          error: error.message,
+          stack: error.stack,
+          totalElapsed,
+          timestamp: new Date().toISOString()
+        });
         
         // Clean up execution flag on error
         sessionStorage.removeItem(executionFlag);
@@ -161,7 +304,7 @@ export const UnifiedSpotifyCallback: React.FC = () => {
     };
 
     processCallback();
-  }, [navigate, toast]);
+  }, [navigate, toast, authLoading, isAuthenticated]);
 
   // Simple loading screen while processing
   if (isProcessing) {
