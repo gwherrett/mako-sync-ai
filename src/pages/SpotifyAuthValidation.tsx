@@ -154,7 +154,7 @@ const SpotifyAuthValidation: React.FC = () => {
               <div>
                 <h1 className="text-3xl font-bold text-white flex items-center gap-2">
                   <TestTube className="w-8 h-8" />
-                  Spotify Authentication Validation
+                  Spotify Auth
                 </h1>
                 <p className="text-gray-400 mt-1">
                   Comprehensive testing and validation of the unified Spotify authentication system

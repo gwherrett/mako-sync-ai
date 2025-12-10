@@ -1,16 +1,13 @@
 import React from 'react';
-import { LogOut, Loader2, Shield, Settings, Database, Home, Activity } from 'lucide-react';
+import { LogOut, Shield, Settings, Database, Home, Activity } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import BrandLogo from '@/components/BrandLogo';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/NewAuthContext';
-import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
 import { cn } from '@/lib/utils';
 
 const LibraryHeader = () => {
   const { user, signOut } = useAuth();
-  const { isConnected, isLoading, connection, connectSpotify } = useUnifiedSpotifyAuth();
-
   const location = useLocation();
 
   const navItems = [
@@ -18,7 +15,7 @@ const LibraryHeader = () => {
     { path: '/genre-mapping', label: 'Genre Mapping', icon: Settings },
     { path: '/no-genre-tracks', label: 'No Genre Tracks', icon: Database },
     { path: '/security', label: 'Security', icon: Shield },
-    { path: '/spotify-auth-validation', label: 'Auth Validation', icon: Activity },
+    { path: '/spotify-auth-validation', label: 'Spotify Auth', icon: Activity },
   ];
 
   return (
@@ -34,26 +31,6 @@ const LibraryHeader = () => {
           </Link>
           
           <div className="flex items-center space-x-3">
-          {/* Simple Spotify Connection Status */}
-          {isLoading ? (
-            <div className="flex items-center space-x-2 text-sm text-gray-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
-            </div>
-          ) : isConnected ? (
-            <div className="flex items-center space-x-2 text-sm text-green-400">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>Spotify Connected</span>
-            </div>
-          ) : (
-            <Button
-              onClick={connectSpotify}
-              className="spotify-gradient text-black font-medium hover:opacity-90 transition-opacity"
-              size="sm"
-            >
-              Connect Spotify
-            </Button>
-          )}
-          
           <Button
             onClick={signOut}
             variant="outline"
