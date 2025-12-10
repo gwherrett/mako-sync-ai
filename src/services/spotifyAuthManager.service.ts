@@ -1,9 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { SpotifyConnection } from '@/types/spotify';
-import { SpotifyTokenRefreshService } from './spotifyTokenRefresh.service';
-import { SpotifyHealthMonitorService } from './spotifyHealthMonitor.service';
-import { SpotifySecurityValidatorService } from './spotifySecurityValidator.service';
-import { Phase4ErrorHandlerService } from './phase4ErrorHandler.service';
 
 /**
  * Unified Spotify Authentication Manager
@@ -51,7 +47,7 @@ export class SpotifyAuthManager {
   private state: SpotifyAuthState;
   private config: SpotifyAuthConfig;
   private listeners: Set<(state: SpotifyAuthState) => void> = new Set();
-  private healthMonitor: SpotifyHealthMonitorService | null = null;
+  private healthMonitor: any = null;
   private checkPromise: Promise<SpotifyOperationResult> | null = null;
   
   // Connection check cooldown to prevent excessive API calls
@@ -177,9 +173,9 @@ export class SpotifyAuthManager {
         new Promise<any>((_, reject) =>
           setTimeout(() => {
             const elapsed = Date.now() - sessionStartTime;
-            console.error(`❌ SPOTIFY AUTH MANAGER: Session fetch timeout after ${elapsed}ms (limit: 20000ms)`);
+            console.error(`❌ SPOTIFY AUTH MANAGER: Session fetch timeout after ${elapsed}ms (limit: 5000ms)`);
             reject(new Error('Session fetch timeout - SpotifyAuthManager'));
-          }, 20000)
+          }, 5000)
         )
       ]);
 
@@ -222,9 +218,9 @@ export class SpotifyAuthManager {
         new Promise<any>((_, reject) =>
           setTimeout(() => {
             const elapsed = Date.now() - connectionStartTime;
-            console.error(`❌ SPOTIFY AUTH MANAGER: Connection query timeout after ${elapsed}ms (limit: 20000ms)`);
+            console.error(`❌ SPOTIFY AUTH MANAGER: Connection query timeout after ${elapsed}ms (limit: 5000ms)`);
             reject(new Error('Connection query timeout - SpotifyAuthManager'));
-          }, 20000)
+          }, 5000)
         )
       ]);
 
@@ -246,11 +242,11 @@ export class SpotifyAuthManager {
         // Validate token health if security validation is enabled
         let healthStatus: SpotifyAuthState['healthStatus'] = 'healthy';
         
+        // Simple token validation - check if tokens exist
         if (this.config.securityValidation) {
           try {
-            const tokenHealth = SpotifyTokenRefreshService.validateTokenHealth(connection);
-            if (!tokenHealth.isValid) {
-              healthStatus = tokenHealth.status === 'expired' ? 'error' : 'warning';
+            if (!connection.access_token || !connection.refresh_token) {
+              healthStatus = 'error';
             }
           } catch (error) {
             console.warn('Token health validation failed:', error);
@@ -306,8 +302,12 @@ export class SpotifyAuthManager {
         healthStatus: 'error',
       });
       
-      // Use Phase 4 error handler for consistent error handling
-      Phase4ErrorHandlerService.handleError(error, 'SpotifyAuthManager', 'checkConnection');
+      // Log error for debugging
+      console.error('❌ SPOTIFY AUTH MANAGER: Connection check error:', {
+        error: errorMessage,
+        duration,
+        timeout: '5000ms'
+      });
       
       return {
         success: false,
@@ -380,7 +380,7 @@ export class SpotifyAuthManager {
       const errorMessage = `Spotify auth failed: ${error.message}`;
       this.updateState({ error: errorMessage });
       
-      Phase4ErrorHandlerService.handleError(error, 'SpotifyAuthManager', 'connectSpotify');
+      console.error('❌ SPOTIFY AUTH MANAGER: Connect error:', error);
       
       return { success: false, error: errorMessage };
     }
@@ -430,7 +430,7 @@ export class SpotifyAuthManager {
       const errorMessage = `Disconnect failed: ${error.message}`;
       this.updateState({ error: errorMessage });
       
-      Phase4ErrorHandlerService.handleError(error, 'SpotifyAuthManager', 'disconnectSpotify');
+      console.error('❌ SPOTIFY AUTH MANAGER: Disconnect error:', error);
       
       return { success: false, error: errorMessage };
     }
@@ -447,10 +447,25 @@ export class SpotifyAuthManager {
     }
 
     try {
-      const result = await SpotifyTokenRefreshService.refreshTokenWithRetry(
-        this.state.connection,
-        this.config.retryConfig
-      );
+      // Simple token refresh - call edge function
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No session available for token refresh');
+      }
+
+      const response = await supabase.functions.invoke('spotify-sync-liked', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: {
+          refresh_only: true
+        }
+      });
+
+      const result = {
+        success: !response.error,
+        error: response.error?.message
+      };
 
       if (result.success) {
         // Update connection state after successful refresh
@@ -463,7 +478,7 @@ export class SpotifyAuthManager {
       const errorMessage = `Token refresh failed: ${error.message}`;
       this.updateState({ error: errorMessage });
       
-      Phase4ErrorHandlerService.handleError(error, 'SpotifyAuthManager', 'refreshTokens');
+      console.error('❌ SPOTIFY AUTH MANAGER: Token refresh error:', error);
       
       return { success: false, error: errorMessage };
     }
@@ -506,7 +521,7 @@ export class SpotifyAuthManager {
     } catch (error: any) {
       const errorMessage = `Sync failed: ${error.message}`;
       
-      Phase4ErrorHandlerService.handleError(error, 'SpotifyAuthManager', 'syncLikedSongs');
+      console.error('❌ SPOTIFY AUTH MANAGER: Sync error:', error);
       
       return { success: false, error: errorMessage };
     }
@@ -550,7 +565,7 @@ export class SpotifyAuthManager {
       this.updateState({ healthStatus: 'error' });
       
       const errorMessage = `Health check failed: ${error.message}`;
-      Phase4ErrorHandlerService.handleError(error, 'SpotifyAuthManager', 'performHealthCheck');
+      console.error('❌ SPOTIFY AUTH MANAGER: Health check error:', error);
       
       return { success: false, error: errorMessage };
     }
@@ -567,27 +582,23 @@ export class SpotifyAuthManager {
     }
 
     try {
-      const validation = await SpotifySecurityValidatorService.validateTokenSecurity(
-        this.state.connection
-      );
-
-      const healthStatus: SpotifyAuthState['healthStatus'] =
-        validation.isValid ? 'healthy' :
-        validation.issues.some(i => i.severity === 'critical') ? 'error' : 'warning';
+      // Simple security validation - check if connection exists and has tokens
+      const isValid = !!(this.state.connection?.access_token && this.state.connection?.refresh_token);
+      const healthStatus: SpotifyAuthState['healthStatus'] = isValid ? 'healthy' : 'error';
 
       this.updateState({ healthStatus });
 
       console.log('✅ SPOTIFY AUTH MANAGER: Security validation completed');
       return {
-        success: validation.isValid,
-        data: validation,
-        error: validation.isValid ? undefined : 'Security issues detected'
+        success: isValid,
+        data: { isValid },
+        error: isValid ? undefined : 'Security issues detected'
       };
     } catch (error: any) {
       this.updateState({ healthStatus: 'error' });
       
       const errorMessage = `Security validation failed: ${error.message}`;
-      Phase4ErrorHandlerService.handleError(error, 'SpotifyAuthManager', 'validateSecurity');
+      console.error('❌ SPOTIFY AUTH MANAGER: Security validation error:', error);
       
       return { success: false, error: errorMessage };
     }
@@ -602,11 +613,11 @@ export class SpotifyAuthManager {
     }
 
     try {
-      this.healthMonitor = SpotifyHealthMonitorService.getInstance({
-        checkInterval: 30000, // 30 seconds
-        enableAlerts: true,
-        enableAutoRefresh: this.config.autoRefresh,
-      });
+      // Simple health monitoring - just log that it's initialized
+      this.healthMonitor = {
+        initialized: true,
+        stopMonitoring: () => console.log('Health monitoring stopped')
+      };
 
       console.log('✅ SPOTIFY AUTH MANAGER: Health monitoring initialized');
     } catch (error) {

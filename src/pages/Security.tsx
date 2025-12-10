@@ -2,9 +2,7 @@ import React from 'react';
 import { Shield, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SpotifySecurityDashboard } from '@/components/spotify/SpotifySecurityDashboard';
-import { Phase4IntegrationTest } from '@/components/Phase4IntegrationTest';
 
 const Security = () => {
   return (
@@ -34,20 +32,9 @@ const Security = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger value="dashboard">Security Dashboard</TabsTrigger>
-            <TabsTrigger value="testing">Integration Testing</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="dashboard">
-            <SpotifySecurityDashboard />
-          </TabsContent>
-
-          <TabsContent value="testing">
-            <Phase4IntegrationTest />
-          </TabsContent>
-        </Tabs>
+        <div className="w-full">
+          <SpotifySecurityDashboard />
+        </div>
       </main>
     </div>
   );

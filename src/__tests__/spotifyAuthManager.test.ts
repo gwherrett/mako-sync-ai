@@ -4,10 +4,6 @@ import type { SpotifyConnection } from '@/types/spotify';
 
 // Mock dependencies
 jest.mock('@/integrations/supabase/client');
-jest.mock('@/services/spotifyTokenRefresh.service');
-jest.mock('@/services/spotifyHealthMonitor.service');
-jest.mock('@/services/spotifySecurityValidator.service');
-jest.mock('@/services/phase4ErrorHandler.service');
 
 const mockSupabase = supabase as any;
 
@@ -330,11 +326,14 @@ describe('SpotifyAuthManager', () => {
       // Set up connection state
       authManager['state'].connection = mockConnection;
 
-      // Mock SpotifyTokenRefreshService
-      const { SpotifyTokenRefreshService } = await import('@/services/spotifyTokenRefresh.service');
-      (SpotifyTokenRefreshService.refreshTokenWithRetry as jest.MockedFunction<any>).mockResolvedValue({
-        success: true,
-        accessToken: 'new-access-token'
+      mockSupabase.auth.getSession.mockResolvedValue({
+        data: { session: { access_token: 'test-token' } },
+        error: null
+      });
+
+      mockSupabase.functions.invoke.mockResolvedValue({
+        data: { success: true },
+        error: null
       });
 
       const result = await authManager.refreshTokens();
@@ -430,36 +429,17 @@ describe('SpotifyAuthManager', () => {
     it('should validate security successfully', async () => {
       authManager['state'].connection = mockConnection;
 
-      const { SpotifySecurityValidatorService } = await import('@/services/spotifySecurityValidator.service');
-      (SpotifySecurityValidatorService.validateTokenSecurity as jest.MockedFunction<any>).mockResolvedValue({
-        isValid: true,
-        issues: [],
-        riskLevel: 'low',
-        recommendations: []
-      });
-
       const result = await authManager.validateSecurity();
 
       expect(result.success).toBe(true);
       expect(authManager.getState().healthStatus).toBe('healthy');
     });
 
-    it('should handle security issues', async () => {
-      authManager['state'].connection = mockConnection;
-
-      const { SpotifySecurityValidatorService } = await import('@/services/spotifySecurityValidator.service');
-      (SpotifySecurityValidatorService.validateTokenSecurity as jest.MockedFunction<any>).mockResolvedValue({
-        isValid: false,
-        issues: [{ severity: 'critical', type: 'token_exposure' }],
-        riskLevel: 'critical',
-        recommendations: ['Rotate tokens immediately']
-      });
-
+    it('should handle missing connection for security validation', async () => {
       const result = await authManager.validateSecurity();
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Security issues detected');
-      expect(authManager.getState().healthStatus).toBe('error');
+      expect(result.error).toBe('No connection available for security validation');
     });
   });
 

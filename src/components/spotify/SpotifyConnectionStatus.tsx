@@ -18,8 +18,7 @@ import {
   Calendar,
   Activity
 } from 'lucide-react';
-import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
-import { useSpotifyTokens } from '@/hooks/useSpotifyTokens';
+import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
 import { cn } from '@/lib/utils';
 import type { SpotifyConnection } from '@/types/spotify';
 
@@ -35,30 +34,59 @@ export const SpotifyConnectionStatus = ({
   onConnectionChange
 }: SpotifyConnectionStatusProps) => {
   const {
-    connectSpotify,
-    disconnectSpotify,
-    isSyncing
-  } = useSpotifyAuth();
-
-  const {
     connection,
     isConnected,
     isLoading,
-    tokenHealth,
-    healthMessage,
-    timeUntilExpiry,
-    refreshTokens,
+    connectSpotify,
+    disconnectSpotify,
+    refreshConnection,
     isRefreshing,
-    needsRefresh,
-    isHealthy,
-    isWarning,
-    isExpired,
-    hasError
-  } = useSpotifyTokens({
-    autoRefresh: true,
-    warningThreshold: 60, // 1 hour warning
-    refreshThreshold: 30, // 30 minutes auto-refresh
-  });
+    isSyncing
+  } = useUnifiedSpotifyAuth();
+
+  // Calculate token health from connection data
+  const getTokenHealth = () => {
+    if (!connection) return { status: 'error', expiresIn: 0 };
+    
+    const now = new Date();
+    const expiresAt = new Date(connection.expires_at);
+    const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+    const minutesUntilExpiry = Math.max(0, Math.floor(timeUntilExpiry / (1000 * 60)));
+    
+    if (timeUntilExpiry <= 0) return { status: 'expired', expiresIn: 0 };
+    if (minutesUntilExpiry <= 30) return { status: 'warning', expiresIn: minutesUntilExpiry };
+    return { status: 'healthy', expiresIn: minutesUntilExpiry };
+  };
+
+  const tokenHealth = getTokenHealth();
+  const isHealthy = tokenHealth.status === 'healthy';
+  const isWarning = tokenHealth.status === 'warning';
+  const isExpired = tokenHealth.status === 'expired';
+  const hasError = tokenHealth.status === 'error';
+  const needsRefresh = isWarning || isExpired;
+
+  const getTimeUntilExpiry = () => {
+    if (!connection || tokenHealth.expiresIn <= 0) return 'Expired';
+    
+    const minutes = tokenHealth.expiresIn;
+    if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    
+    if (hours < 24) {
+      return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours} hour${hours !== 1 ? 's' : ''}`;
+    }
+    
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+    return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days} day${days !== 1 ? 's' : ''}`;
+  };
+
+  const timeUntilExpiry = getTimeUntilExpiry();
+  const healthMessage = isConnected
+    ? (isHealthy ? 'Connection is healthy' : `Expires in ${timeUntilExpiry}`)
+    : 'Not connected to Spotify';
 
   // Notify parent of connection changes
   useEffect(() => {
@@ -196,7 +224,7 @@ export const SpotifyConnectionStatus = ({
           ) : (
             <>
               <Button
-                onClick={refreshTokens}
+                onClick={refreshConnection}
                 variant="outline"
                 size="sm"
                 disabled={isRefreshing || isSyncing}
@@ -264,11 +292,11 @@ export const SpotifyConnectionStatus = ({
               </div>
             </div>
 
-            {/* Last Refresh Info */}
-            {tokenHealth.lastRefresh && (
+            {/* Last Update Info */}
+            {connection.updated_at && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Activity className="h-3 w-3" />
-                <span>Last refreshed: {tokenHealth.lastRefresh.toLocaleTimeString()}</span>
+                <span>Last updated: {formatDate(connection.updated_at)}</span>
               </div>
             )}
 

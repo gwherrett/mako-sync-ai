@@ -5,9 +5,9 @@ import type { SpotifyConnection } from '@/types/spotify';
 
 /**
  * Unified Spotify Authentication Hook
- * 
- * Consolidates functionality from useSpotifyAuth and useSpotifyTokens
- * into a single, comprehensive hook that uses the SpotifyAuthManager service.
+ *
+ * Consolidates functionality from useSpotifyAuth into a single, comprehensive
+ * hook that uses the SpotifyAuthManager service.
  */
 
 export interface UseUnifiedSpotifyAuthConfig {

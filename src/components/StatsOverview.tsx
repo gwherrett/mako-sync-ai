@@ -65,19 +65,22 @@ export const StatsOverview = () => {
     try {
       console.log('📊 StatsOverview: Fetching liked songs count...');
       
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      console.log('📊 StatsOverview: Current user for liked songs:', {
-        hasUser: !!user,
-        userId: user?.id,
-        userError: userError?.message
+      // Get current session to ensure proper auth context
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log('📊 StatsOverview: Current session for liked songs:', {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        userId: session?.user?.id,
+        sessionError: sessionError?.message
       });
       
-      if (!user) {
-        console.log('❌ StatsOverview: No user for liked songs count');
+      if (!session?.user) {
+        console.log('❌ StatsOverview: No session for liked songs count');
         setLikedSongsCount(0);
         return;
       }
+      
+      const user = session.user;
       
       const { count, error } = await supabase
         .from('spotify_liked')
@@ -103,19 +106,22 @@ export const StatsOverview = () => {
     try {
       console.log('📊 StatsOverview: Fetching local files count...');
       
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      console.log('📊 StatsOverview: Current user for local files:', {
-        hasUser: !!user,
-        userId: user?.id,
-        userError: userError?.message
+      // Get current session to ensure proper auth context
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log('📊 StatsOverview: Current session for local files:', {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        userId: session?.user?.id,
+        sessionError: sessionError?.message
       });
       
-      if (!user) {
-        console.log('❌ StatsOverview: No user for local files count');
+      if (!session?.user) {
+        console.log('❌ StatsOverview: No session for local files count');
         setLocalFilesCount(0);
         return;
       }
+      
+      const user = session.user;
       
       const { count, error } = await supabase
         .from('local_mp3s')
@@ -139,12 +145,14 @@ export const StatsOverview = () => {
 
   const fetchLastSpotifySync = async () => {
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Get current session to ensure proper auth context
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         setLastSpotifySync(null);
         return;
       }
+      
+      const user = session.user;
       
       const { data, error } = await supabase
         .from('spotify_liked')
@@ -172,12 +180,14 @@ export const StatsOverview = () => {
 
   const fetchLastLocalSync = async () => {
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Get current session to ensure proper auth context
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         setLastLocalSync(null);
         return;
       }
+      
+      const user = session.user;
       
       const { data, error } = await supabase
         .from('local_mp3s')

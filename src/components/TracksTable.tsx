@@ -100,20 +100,23 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       
       console.log('🎵 TracksTable: Starting fetchTracks...');
       
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      console.log('🎵 TracksTable: Current user:', {
-        hasUser: !!user,
-        userId: user?.id,
-        userError: userError?.message
+      // Get current session instead of just user to ensure proper auth context
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log('🎵 TracksTable: Current session:', {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        userId: session?.user?.id,
+        sessionError: sessionError?.message
       });
       
-      if (!user) {
-        console.log('❌ TracksTable: No authenticated user, cannot fetch tracks');
+      if (!session?.user) {
+        console.log('❌ TracksTable: No authenticated session, cannot fetch tracks');
         setTracks([]);
         setTotalTracks(0);
         return;
       }
+      
+      const user = session.user;
       
       // Build query with filters - MUST include user_id filter for RLS
       let query = supabase.from('spotify_liked').select('*', { count: 'exact' }).eq('user_id', user.id);
@@ -224,12 +227,14 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     try {
       console.log('🎵 TracksTable: Fetching filter options...');
       
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.log('❌ TracksTable: No user for filter options');
+      // Get current session to ensure proper auth context
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        console.log('❌ TracksTable: No session for filter options');
         return;
       }
+      
+      const user = session.user;
       
       // Get unique artists filtered by genre and super genre if selected
       let artistQuery = supabase
