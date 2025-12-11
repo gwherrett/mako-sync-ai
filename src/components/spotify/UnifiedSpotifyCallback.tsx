@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +11,19 @@ export const UnifiedSpotifyCallback: React.FC = () => {
   const { toast } = useToast();
   const { loading: authLoading, isAuthenticated, session } = useAuth();
   const [isProcessing, setIsProcessing] = useState(true);
+
+  // Create refs to track current state values and avoid stale closures
+  const authLoadingRef = useRef(authLoading);
+  const sessionRef = useRef(session);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    authLoadingRef.current = authLoading;
+  }, [authLoading]);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   useEffect(() => {
     // Prevent multiple executions
@@ -115,10 +128,11 @@ export const UnifiedSpotifyCallback: React.FC = () => {
         const maxWaitTime = 5000;
         const startWait = Date.now();
 
-        while (authLoading && (Date.now() - startWait) < maxWaitTime) {
+        while (authLoadingRef.current && (Date.now() - startWait) < maxWaitTime) {
           console.log('⏳ UNIFIED CALLBACK: Auth still loading, waiting 100ms...', {
             elapsed: Date.now() - startWait,
-            maxWait: maxWaitTime
+            maxWait: maxWaitTime,
+            authLoadingRef: authLoadingRef.current
           });
           await new Promise(resolve => setTimeout(resolve, 100));
         }
@@ -140,9 +154,9 @@ export const UnifiedSpotifyCallback: React.FC = () => {
 
         console.log('✅ UNIFIED CALLBACK: Auth context ready', {
           elapsed: Date.now() - startWait,
-          authLoading,
+          authLoading: authLoadingRef.current,
           isAuthenticated,
-          hasSession: !!session
+          hasSession: !!sessionRef.current
         });
 
         // Show validation success
@@ -152,18 +166,19 @@ export const UnifiedSpotifyCallback: React.FC = () => {
         });
 
         // Step 4: Use session from auth context
+        const currentSession = sessionRef.current;
         console.log('📡 UNIFIED CALLBACK: Step 4 - Using session from auth context', {
-          hasSession: !!session,
-          hasAccessToken: !!session?.access_token,
-          hasUser: !!session?.user,
-          userId: session?.user?.id,
+          hasSession: !!currentSession,
+          hasAccessToken: !!currentSession?.access_token,
+          hasUser: !!currentSession?.user,
+          userId: currentSession?.user?.id,
           step: 4
         });
 
-        if (!session || !session.access_token) {
+        if (!currentSession || !currentSession.access_token) {
           console.log('❌ UNIFIED CALLBACK: No valid session in auth context', {
-            hasSession: !!session,
-            hasAccessToken: !!session?.access_token,
+            hasSession: !!currentSession,
+            hasAccessToken: !!currentSession?.access_token,
             isAuthenticated,
             step: 4,
             elapsed: Date.now() - startTime
@@ -186,7 +201,7 @@ export const UnifiedSpotifyCallback: React.FC = () => {
         const edgeFunctionPromise = supabase.functions.invoke('spotify-auth', {
           body: { code, state, redirect_uri: redirectUri },
           headers: {
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${currentSession.access_token}`,
           },
         }).then(result => {
           const elapsed = Date.now() - edgeFunctionStartTime;
