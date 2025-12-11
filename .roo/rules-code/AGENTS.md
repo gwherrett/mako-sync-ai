@@ -20,3 +20,8 @@
 - **State Subscription Required**: Components must subscribe to auth state changes via `subscribe()` method for real-time updates
 - **Promise Deduplication**: Multiple simultaneous connection checks return same promise - prevents race conditions
 - **OAuth Callback Issue**: SpotifyIntegrationCallback flow never completes properly - needs debugging
+- **Supabase Client Configuration**: Never add custom fetch wrappers with AbortController - conflicts with SDK's internal handling, use default configuration only
+- **Session Cache Direct Calls**: Use direct `supabase.auth.getSession()` calls instead of timeout wrappers during critical flows to prevent cascading failures
+- **Edge Function Timeout Requirements**: Cold-start edge functions need 45+ second timeouts for complex operations (auth, token exchange, vault storage, database upserts)
+- **Error Type Classification**: Implement specific error types (NETWORK_TIMEOUT, SERVER_TIMEOUT, NETWORK_ERROR, SERVER_ERROR) for proper user messaging
+- **Session State Preservation**: Failed operations must not trigger additional session checks that could corrupt auth state - preserve existing session

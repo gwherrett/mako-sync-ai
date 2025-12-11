@@ -51,4 +51,7 @@ This file provides guidance to agents when working with code in this repository.
 - **Promise Deduplication**: Multiple simultaneous connection checks return same promise to prevent race conditions
 - **Unified Hook Only**: Only `useUnifiedSpotifyAuth` exists - legacy hooks removed during cleanup
 - **Token Vault Storage**: Spotify tokens stored as vault secret IDs in `access_token_secret_id`/`refresh_token_secret_id` fields, actual token fields contain `***ENCRYPTED_IN_VAULT***` placeholders
-- **OAuth Callback Issue**: SpotifyIntegrationCallback flow never completes properly - needs debugging
+- **Edge Function Timeout Requirements**: Cold-start edge functions require 45+ second timeouts for complex operations (authentication, token exchange, vault storage, database upserts)
+- **Session Cache Direct Access**: Critical flows must use direct `supabase.auth.getSession()` calls to prevent cascading timeout failures from session cache wrappers
+- **Supabase Client Configuration**: Never add custom fetch wrappers - use default SDK configuration to prevent conflicts with internal handling
+- **Error Classification System**: Implement specific error types (NETWORK_TIMEOUT, SERVER_TIMEOUT, NETWORK_ERROR, SERVER_ERROR) for proper user messaging and debugging

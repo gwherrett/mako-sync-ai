@@ -14,6 +14,8 @@
 - **Role Security Design**: Roles stored separately from profiles to prevent privilege escalation attacks
 - **Build Modes**: `npm run build:dev` creates development build with different configuration than standard build
 - **Token Vault Documentation**: Actual tokens encrypted in vault, database fields contain `***ENCRYPTED_IN_VAULT***` placeholders for security
-- **Unified Spotify Auth Documentation**: Consolidation documented in `docs/spotify-authentication-migration-guide.md` and `docs/task-spotify-authentication-consolidation.md` - reflects partial completion with OAuth callback issues
-- **Spotify Integration Living Document**: Technical reference at `docs/systems/spotify-integration.md` - updated to reflect OAuth callback completion issues
-- **Authentication System Documentation**: Complete reference at `docs/systems/authentication.md` - App OAuth working, Spotify OAuth has callback issues
+- **Unified Spotify Auth Documentation**: Consolidation documented in `docs/spotify-authentication-migration-guide.md` and `docs/task-spotify-authentication-consolidation.md` - OAuth callback issues resolved with UnifiedSpotifyCallback
+- **Spotify Integration Living Document**: Technical reference at `docs/systems/spotify-integration.md` - OAuth callback flow now complete with enhanced error handling
+- **Authentication System Documentation**: Complete reference at `docs/systems/authentication.md` - Both App OAuth and Spotify OAuth fully functional
+- **Edge Function Debugging Documentation**: Supabase dashboard Functions > [function-name] > Logs contains actual execution logs, not browser console
+- **Session Cache Service Documentation**: Direct `getSession()` calls bypass timeout wrappers that can cause cascading failures during critical authentication flows

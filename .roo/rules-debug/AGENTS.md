@@ -19,6 +19,11 @@
 - **State Subscription Debugging**: Components subscribe to auth changes - check listener count and cleanup in `subscribe()` return function
 - **Connection Check Timeout Debugging**: Uses Promise.race with 3-second timeout - check for "timeout" errors vs actual connection failures
 - **OAuth Callback Issue**: SpotifyIntegrationCallback flow never completes properly - check edge function logs and state validation
+- **Custom Fetch Wrapper Conflicts**: Supabase client custom fetch wrappers with AbortController conflict with SDK's internal handling - remove custom timeouts
+- **Session Cache Timeout Cascading**: 8-second timeout in sessionCache.service.ts causes false-negative session checks during critical flows - use direct getSession() calls
+- **Edge Function Cold Start Timeouts**: 10-second timeouts too aggressive for cold-start edge functions that authenticate, exchange tokens, create vault secrets, and upsert database records - use 45+ seconds
+- **Network vs Server Error Differentiation**: Must distinguish between NETWORK_TIMEOUT (never reached server), SERVER_TIMEOUT (reached server but slow), NETWORK_ERROR (connectivity), and SERVER_ERROR (server-side) for proper user messaging
+- **Session Preservation on Callback Failure**: Failed Spotify callbacks must not trigger additional session checks that might corrupt auth state - preserve existing session and navigate with longer delay
 
 ## **Test Credentials for Consistent Testing:**
 

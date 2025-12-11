@@ -193,61 +193,117 @@ export const UnifiedSpotifyCallback: React.FC = () => {
           return;
         }
 
-        // Step 5: Call edge function with enhanced timeout and logging
-        console.log('🚀 UNIFIED CALLBACK: Step 5 - Calling spotify-auth edge function');
+        // Step 5: Call edge function with direct fetch (bypassing SDK)
+        console.log('🚀 UNIFIED CALLBACK: Step 5 - Calling spotify-auth edge function with direct fetch');
         const edgeFunctionStartTime = Date.now();
         const redirectUri = `${window.location.origin}/spotify-callback`;
         
-        // Pre-flight debug logging
+        // Get Supabase configuration
         const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://bzzstdpfmyqttnzhgaoa.supabase.co";
-        console.log('🚀 CALLING EDGE FUNCTION:', {
-          url: `${SUPABASE_URL}/functions/v1/spotify-auth`,
+        const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ||
+          import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6enN0ZHBmbXlxdHRuemhnYW9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NzI5NzMsImV4cCI6MjA2NDA0ODk3M30.NXT4XRuPilV2AV6KYY56-vk3AqZ8I2DQKkVjfbMcWoI";
+        
+        const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/spotify-auth`;
+        
+        console.log('🚀 CALLING EDGE FUNCTION (DIRECT FETCH):', {
+          url: edgeFunctionUrl,
           redirectUri,
           codeLength: code?.length,
           hasAuth: !!currentSession.access_token,
+          hasAnonKey: !!SUPABASE_ANON_KEY,
           timestamp: new Date().toISOString(),
           step: 5
         });
         
-        const edgeFunctionPromise = supabase.functions.invoke('spotify-auth', {
-          body: { code, state, redirect_uri: redirectUri },
-          headers: {
-            Authorization: `Bearer ${currentSession.access_token}`,
-          },
-        }).then(result => {
-          const elapsed = Date.now() - edgeFunctionStartTime;
-          console.log('✅ UNIFIED CALLBACK: Edge function completed', {
-            elapsed,
-            hasError: !!result.error,
-            error: result.error?.message,
-            step: 5,
-            timestamp: new Date().toISOString()
+        // Step 5a: Test CORS preflight explicitly
+        console.log('🔍 PRE-FLIGHT: Testing OPTIONS request...');
+        try {
+          const preflightResponse = await fetch(edgeFunctionUrl, {
+            method: 'OPTIONS',
           });
-          return result;
-        }).catch(error => {
-          const elapsed = Date.now() - edgeFunctionStartTime;
-          const errorType = error.name === 'AbortError' ? 'NETWORK_TIMEOUT' :
-                           error.message?.includes('timeout') ? 'SERVER_TIMEOUT' :
-                           error.message?.includes('fetch') ? 'NETWORK_ERROR' : 'SERVER_ERROR';
-          
-          console.error('❌ UNIFIED CALLBACK: Edge function failed', {
-            elapsed,
-            error: error.message,
-            errorType,
-            errorName: error.name,
-            step: 5,
-            timestamp: new Date().toISOString()
+          console.log('✅ PRE-FLIGHT: OPTIONS response:', {
+            status: preflightResponse.status,
+            statusText: preflightResponse.statusText,
+            headers: Object.fromEntries(preflightResponse.headers.entries())
           });
-          
-          // Enhance error with type information
-          error.errorType = errorType;
-          throw error;
-        });
+        } catch (preflightError: any) {
+          console.error('❌ PRE-FLIGHT: OPTIONS failed:', {
+            message: preflightError.message,
+            name: preflightError.name,
+            type: preflightError.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK'
+          });
+        }
+        
+        // Step 5b: Make the actual request with direct fetch
+        const edgeFunctionPromise = (async () => {
+          try {
+            console.log('📡 DIRECT FETCH: Starting POST request...');
+            const response = await fetch(edgeFunctionUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentSession.access_token}`,
+                'apikey': SUPABASE_ANON_KEY,
+              },
+              body: JSON.stringify({ code, state, redirect_uri: redirectUri }),
+            });
+            
+            const elapsed = Date.now() - edgeFunctionStartTime;
+            console.log('📡 DIRECT FETCH: Response received:', {
+              status: response.status,
+              statusText: response.statusText,
+              ok: response.ok,
+              elapsed,
+              headers: Object.fromEntries(response.headers.entries())
+            });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error('❌ DIRECT FETCH: Edge function HTTP error:', {
+                status: response.status,
+                statusText: response.statusText,
+                errorText,
+                elapsed
+              });
+              throw new Error(`Edge function error ${response.status}: ${errorText}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ DIRECT FETCH: Edge function completed successfully:', {
+              elapsed,
+              hasData: !!data,
+              step: 5,
+              timestamp: new Date().toISOString()
+            });
+            
+            return { data, error: null };
+            
+          } catch (networkError: any) {
+            const elapsed = Date.now() - edgeFunctionStartTime;
+            const errorType = networkError.name === 'AbortError' ? 'NETWORK_TIMEOUT' :
+                             networkError.message?.includes('timeout') ? 'SERVER_TIMEOUT' :
+                             networkError.message?.includes('fetch') || networkError.message?.includes('Failed to fetch') ? 'NETWORK_ERROR' : 'SERVER_ERROR';
+            
+            console.error('❌ DIRECT FETCH: Network error:', {
+              message: networkError.message,
+              name: networkError.name,
+              type: errorType,
+              elapsed,
+              step: 5,
+              timestamp: new Date().toISOString()
+            });
+            
+            // Enhance error with type information
+            networkError.errorType = errorType;
+            throw networkError;
+          }
+        })();
 
         const edgeFunctionTimeoutPromise = new Promise<any>((_, reject) =>
           setTimeout(() => {
             const elapsed = Date.now() - edgeFunctionStartTime;
-            console.error('❌ UNIFIED CALLBACK: Edge function timeout', {
+            console.error('❌ DIRECT FETCH: Edge function timeout', {
               elapsed,
               timeout: 45000,
               step: 5,
@@ -256,7 +312,7 @@ export const UnifiedSpotifyCallback: React.FC = () => {
             const timeoutError = new Error('Edge function timeout - never reached server');
             (timeoutError as any).errorType = 'NETWORK_TIMEOUT';
             reject(timeoutError);
-          }, 45000) // Increased from 10s to 45s for cold-start edge functions
+          }, 45000) // 45s timeout for cold-start edge functions
         );
 
         const response = await Promise.race([

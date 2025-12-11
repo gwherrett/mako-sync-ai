@@ -17,5 +17,10 @@
 - **Unified Spotify Auth Architecture**: SpotifyAuthManager singleton consolidates all authentication operations with subscription-based state management
 - **Connection Check Architecture**: 5-second cooldown with promise deduplication prevents race conditions and excessive API calls
 - **State Subscription Architecture**: Observer pattern with automatic cleanup - components subscribe via `subscribe()` method returning unsubscribe function
-- **OAuth Callback Architecture**: SpotifyIntegrationCallback handles OAuth flow but never completes properly - architectural issue needs investigation
+- **OAuth Callback Architecture**: UnifiedSpotifyCallback handles complete OAuth flow with enhanced error handling and session preservation
 - **Legacy Code Removal**: All legacy Spotify services and hooks removed during cleanup - only unified system remains
+- **Supabase Client Architecture**: Must use default SDK configuration without custom fetch wrappers to prevent internal conflicts
+- **Session Cache Architecture**: Direct `getSession()` calls required for critical flows to prevent cascading timeout failures from wrapper timeouts
+- **Edge Function Timeout Architecture**: Cold-start functions require 45+ second timeouts due to complex operations (auth, token exchange, vault storage, database operations)
+- **Error Handling Architecture**: Structured error classification system with specific types for network vs server issues to provide appropriate user messaging
+- **Session State Preservation Architecture**: Failed operations must preserve existing auth state and avoid triggering additional session checks that could corrupt state
