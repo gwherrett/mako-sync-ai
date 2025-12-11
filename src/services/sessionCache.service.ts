@@ -21,6 +21,9 @@ class SessionCacheService {
   private pendingRequest: Promise<{ session: Session | null; error: any }> | null = null;
   private readonly CACHE_DURATION = 30000; // 30 seconds
   private readonly REQUEST_TIMEOUT = 30000; // 30 seconds - removed aggressive timeout for critical flows
+  
+  // Track request contexts to prevent cross-contamination
+  private requestContexts: Map<string, Promise<{ session: Session | null; error: any }>> = new Map();
 
   static getInstance(): SessionCacheService {
     if (!this.instance) {
@@ -31,8 +34,10 @@ class SessionCacheService {
 
   /**
    * Get session with caching and deduplication - simplified without timeout wrapper
+   * @param force - Force fresh session fetch
+   * @param context - Request context to prevent cross-contamination between auth flows
    */
-  async getSession(force: boolean = false): Promise<{ session: Session | null; error: any }> {
+  async getSession(force: boolean = false, context?: string): Promise<{ session: Session | null; error: any }> {
     const now = Date.now();
 
     // Return cached session if valid and not forced
@@ -48,37 +53,70 @@ class SessionCacheService {
       };
     }
 
-    // Return existing pending request if one is in progress
-    if (this.pendingRequest && !force) {
+    // Handle context-specific requests to prevent cross-contamination
+    if (context) {
+      const existingContextRequest = this.requestContexts.get(context);
+      if (existingContextRequest && !force) {
+        console.log(`🔍 SESSION CACHE: Returning existing request for context: ${context}`);
+        return existingContextRequest;
+      }
+    }
+
+    // Return existing pending request if one is in progress (only for non-critical contexts)
+    if (this.pendingRequest && !force && !context) {
       console.log('🔍 SESSION CACHE: Returning existing pending request');
       return this.pendingRequest;
     }
 
-    console.log('🔍 SESSION CACHE: Starting new session fetch (direct call, no timeout wrapper)');
+    console.log('🔍 SESSION CACHE: Starting new session fetch (direct call, no timeout wrapper)', {
+      context: context || 'default',
+      forced: force
+    });
 
     // Create new request - direct call without timeout wrapper
-    this.pendingRequest = this.fetchSessionDirect();
+    const sessionRequest = this.fetchSessionDirect();
+    
+    // Store request by context if provided
+    if (context) {
+      this.requestContexts.set(context, sessionRequest);
+    } else {
+      this.pendingRequest = sessionRequest;
+    }
     
     try {
-      const result = await this.pendingRequest;
+      const result = await sessionRequest;
       
-      // Cache the result
-      this.cache = {
-        session: result.session,
-        error: result.error,
-        timestamp: now,
-        isValid: !result.error
-      };
+      // Validate session integrity before caching
+      const isValidSession = result.session &&
+                           result.session.user &&
+                           result.session.access_token &&
+                           !result.error;
+      
+      // Only cache valid sessions or clear errors
+      if (isValidSession || !result.error) {
+        this.cache = {
+          session: result.session,
+          error: result.error,
+          timestamp: now,
+          isValid: isValidSession
+        };
+      }
 
       console.log('✅ SESSION CACHE: Session fetch completed', {
         hasSession: !!result.session,
         hasError: !!result.error,
-        cached: false
+        cached: false,
+        context: context || 'default',
+        sessionValid: isValidSession
       });
 
       return result;
     } finally {
-      this.pendingRequest = null;
+      if (context) {
+        this.requestContexts.delete(context);
+      } else {
+        this.pendingRequest = null;
+      }
     }
   }
 
@@ -102,23 +140,26 @@ class SessionCacheService {
     console.log('🧹 SESSION CACHE: Clearing cache');
     this.cache = null;
     this.pendingRequest = null;
+    this.requestContexts.clear();
   }
 
   /**
    * Get cache status for debugging
    */
-  getCacheStatus(): { 
-    hasCached: boolean; 
-    cacheAge: number | null; 
-    isValid: boolean; 
+  getCacheStatus(): {
+    hasCached: boolean;
+    cacheAge: number | null;
+    isValid: boolean;
     hasPending: boolean;
+    activeContexts: number;
   } {
     const now = Date.now();
     return {
       hasCached: !!this.cache,
       cacheAge: this.cache ? now - this.cache.timestamp : null,
       isValid: this.cache?.isValid || false,
-      hasPending: !!this.pendingRequest
+      hasPending: !!this.pendingRequest,
+      activeContexts: this.requestContexts.size
     };
   }
 }

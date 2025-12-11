@@ -157,11 +157,11 @@ export class SpotifyAuthManager {
     });
 
     try {
-      // Get current user from session using cache service
+      // Get current user from session using cache service with isolated context
       console.log('🔍 SPOTIFY AUTH MANAGER: Starting session fetch via cache...');
       const sessionStartTime = Date.now();
       
-      const { session, error: sessionError } = await sessionCache.getSession();
+      const { session, error: sessionError } = await sessionCache.getSession(false, 'spotify-auth');
       
       const sessionElapsed = Date.now() - sessionStartTime;
       console.log(`✅ SPOTIFY AUTH MANAGER: Session fetch completed in ${sessionElapsed}ms via cache`, {
@@ -350,7 +350,7 @@ export class SpotifyAuthManager {
     console.log('🔵 SPOTIFY AUTH MANAGER: Starting connection process...');
     
     try {
-      const { session } = await sessionCache.getSession();
+      const { session } = await sessionCache.getSession(false, 'spotify-connect');
       
       if (!session?.user) {
         const error = 'Please log in to connect Spotify';
@@ -430,7 +430,7 @@ export class SpotifyAuthManager {
     console.log('🔴 SPOTIFY AUTH MANAGER: Disconnecting from Spotify...');
     
     try {
-      const { session } = await sessionCache.getSession();
+      const { session } = await sessionCache.getSession(false, 'spotify-disconnect');
       
       if (!session?.user) {
         // SESSION DEBUG: Log session state during Spotify disconnect attempt without auth
@@ -505,7 +505,7 @@ export class SpotifyAuthManager {
 
     try {
       // Simple token refresh - call edge function
-      const { session } = await sessionCache.getSession();
+      const { session } = await sessionCache.getSession(false, 'spotify-refresh');
       if (!session) {
         throw new Error('No session available for token refresh');
       }
@@ -558,7 +558,7 @@ export class SpotifyAuthManager {
     console.log('🎵 SPOTIFY AUTH MANAGER: Starting liked songs sync...');
     
     try {
-      const { session } = await sessionCache.getSession();
+      const { session } = await sessionCache.getSession(false, 'spotify-sync');
       
       if (!session) {
         return { success: false, error: 'Please log in to sync liked songs' };
@@ -605,7 +605,7 @@ export class SpotifyAuthManager {
     }
 
     try {
-      const { session } = await sessionCache.getSession();
+      const { session } = await sessionCache.getSession(false, 'spotify-health');
       
       if (!session) {
         return { success: false, error: 'No session available' };
