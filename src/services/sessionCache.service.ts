@@ -121,12 +121,54 @@ class SessionCacheService {
   }
 
   /**
-   * Direct session fetch without timeout wrapper - let Supabase SDK handle timeouts naturally
+   * Direct session fetch with server validation - prevents stale token issues
    */
   private async fetchSessionDirect(): Promise<{ session: Session | null; error: any }> {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
-      return { session, error };
+      
+      if (error) {
+        return { session: null, error };
+      }
+      
+      if (!session) {
+        return { session: null, error: null };
+      }
+      
+      // Validate session with server to prevent stale token issues
+      console.log('🔍 SESSION CACHE: Validating session with server...');
+      const validationStart = Date.now();
+      
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        const validationTime = Date.now() - validationStart;
+        
+        if (userError || !user) {
+          console.log(`❌ SESSION CACHE: Session validation failed after ${validationTime}ms`, {
+            error: userError?.message,
+            hasUser: !!user,
+            sessionExpiry: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+            staleTokenDetected: true
+          });
+          
+          // Session is stale - clear it and return null
+          await supabase.auth.signOut({ scope: 'local' });
+          return { session: null, error: userError || new Error('Stale token detected') };
+        }
+        
+        console.log(`✅ SESSION CACHE: Session validated successfully after ${validationTime}ms`, {
+          userId: user.id,
+          sessionExpiry: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null
+        });
+        
+        return { session, error: null };
+      } catch (validationError: any) {
+        console.error('❌ SESSION CACHE: Session validation error:', validationError.message);
+        
+        // If validation fails, treat as stale token
+        await supabase.auth.signOut({ scope: 'local' });
+        return { session: null, error: validationError };
+      }
     } catch (error: any) {
       console.error('❌ SESSION CACHE: Session fetch error:', error.message);
       return { session: null, error };

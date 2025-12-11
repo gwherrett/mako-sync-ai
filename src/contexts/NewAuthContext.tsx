@@ -193,7 +193,25 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (error) {
         const isTimeoutError = error.message?.includes('timeout');
+        const isStaleTokenError = error.message?.includes('Stale token detected');
         console.error('❌ INIT DEBUG: Error getting session:', error);
+        
+        if (isStaleTokenError) {
+          console.log('🔄 INIT DEBUG: Stale token detected, clearing session and showing login');
+          
+          // Clear any cached session data
+          sessionCache.clearCache();
+          
+          // Show user-friendly stale token message
+          toast({
+            title: 'Session Expired',
+            description: 'Your session has expired. Please sign in again.',
+            variant: 'destructive'
+          });
+          
+          clearUserData();
+          return;
+        }
         
         if (isTimeoutError) {
           console.log('⏳ INIT DEBUG: Timeout detected, attempting recovery...');

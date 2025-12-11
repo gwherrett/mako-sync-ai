@@ -101,7 +101,7 @@ export class AuthService {
   }
 
   /**
-   * Get current session
+   * Get current session with server validation to prevent stale token issues
    */
   static async getCurrentSession(): Promise<{ session: Session | null; error: AuthError | null }> {
     try {
@@ -109,17 +109,59 @@ export class AuthService {
       
       const { data, error } = await supabase.auth.getSession();
       
-      console.log('📡 AUTH SERVICE: getCurrentSession result', {
-        hasSession: !!data?.session,
-        hasUser: !!data?.session?.user,
-        error: error?.message,
-        userId: data?.session?.user?.id
-      });
+      if (error) {
+        console.log('❌ AUTH SERVICE: Session fetch error:', error.message);
+        return { session: null, error };
+      }
       
-      return {
-        session: data.session,
-        error
-      };
+      if (!data.session) {
+        console.log('📡 AUTH SERVICE: No session found');
+        return { session: null, error: null };
+      }
+      
+      // Validate session with server to prevent stale token issues on browser reopen
+      console.log('📡 AUTH SERVICE: Validating session with server...');
+      const validationStart = Date.now();
+      
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        const validationTime = Date.now() - validationStart;
+        
+        if (userError || !user) {
+          console.log(`❌ AUTH SERVICE: Session validation failed after ${validationTime}ms`, {
+            error: userError?.message,
+            hasUser: !!user,
+            sessionExpiry: data.session.expires_at ? new Date(data.session.expires_at * 1000).toISOString() : null,
+            staleTokenDetected: true,
+            browserReopen: 'Likely stale token from browser storage'
+          });
+          
+          // Clear stale session
+          await supabase.auth.signOut({ scope: 'local' });
+          return { session: null, error: userError || new Error('Stale token detected') as AuthError };
+        }
+        
+        console.log(`✅ AUTH SERVICE: Session validated successfully after ${validationTime}ms`, {
+          hasSession: !!data.session,
+          hasUser: !!user,
+          userId: user.id,
+          sessionExpiry: data.session.expires_at ? new Date(data.session.expires_at * 1000).toISOString() : null
+        });
+        
+        return {
+          session: data.session,
+          error: null
+        };
+      } catch (validationError) {
+        console.error('❌ AUTH SERVICE: Session validation error:', validationError);
+        
+        // If validation fails, treat as stale token
+        await supabase.auth.signOut({ scope: 'local' });
+        return {
+          session: null,
+          error: validationError as AuthError
+        };
+      }
     } catch (error) {
       console.error('❌ AUTH SERVICE: getCurrentSession error:', error);
       return {
