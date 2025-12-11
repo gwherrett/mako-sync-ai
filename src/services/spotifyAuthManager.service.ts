@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { sessionCache } from '@/services/sessionCache.service';
 import type { SpotifyConnection } from '@/types/spotify';
 
 /**
@@ -156,28 +157,18 @@ export class SpotifyAuthManager {
     });
 
     try {
-      // Get current user from session instead of triggering auth state changes
-      console.log('🔍 SPOTIFY AUTH MANAGER: Starting session fetch...');
+      // Get current user from session using cache service
+      console.log('🔍 SPOTIFY AUTH MANAGER: Starting session fetch via cache...');
       const sessionStartTime = Date.now();
       
-      const { data: { session }, error: sessionError } = await Promise.race([
-        supabase.auth.getSession().then(result => {
-          const elapsed = Date.now() - sessionStartTime;
-          console.log(`✅ SPOTIFY AUTH MANAGER: Session fetch completed in ${elapsed}ms`);
-          return result;
-        }).catch(error => {
-          const elapsed = Date.now() - sessionStartTime;
-          console.error(`❌ SPOTIFY AUTH MANAGER: Session fetch failed after ${elapsed}ms:`, error);
-          throw error;
-        }),
-        new Promise<any>((_, reject) =>
-          setTimeout(() => {
-            const elapsed = Date.now() - sessionStartTime;
-            console.error(`❌ SPOTIFY AUTH MANAGER: Session fetch timeout after ${elapsed}ms (limit: 5000ms)`);
-            reject(new Error('Session fetch timeout - SpotifyAuthManager'));
-          }, 5000)
-        )
-      ]);
+      const { session, error: sessionError } = await sessionCache.getSession();
+      
+      const sessionElapsed = Date.now() - sessionStartTime;
+      console.log(`✅ SPOTIFY AUTH MANAGER: Session fetch completed in ${sessionElapsed}ms via cache`, {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        cacheStatus: sessionCache.getCacheStatus()
+      });
 
       if (sessionError || !session?.user) {
         const error = 'User not authenticated';
@@ -324,7 +315,7 @@ export class SpotifyAuthManager {
     console.log('🔵 SPOTIFY AUTH MANAGER: Starting connection process...');
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await sessionCache.getSession();
       
       if (!session?.user) {
         const error = 'Please log in to connect Spotify';
@@ -393,7 +384,7 @@ export class SpotifyAuthManager {
     console.log('🔴 SPOTIFY AUTH MANAGER: Disconnecting from Spotify...');
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await sessionCache.getSession();
       
       if (!session?.user) {
         return { success: false, error: 'No user found' };
@@ -448,7 +439,7 @@ export class SpotifyAuthManager {
 
     try {
       // Simple token refresh - call edge function
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await sessionCache.getSession();
       if (!session) {
         throw new Error('No session available for token refresh');
       }
@@ -491,7 +482,7 @@ export class SpotifyAuthManager {
     console.log('🎵 SPOTIFY AUTH MANAGER: Starting liked songs sync...');
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await sessionCache.getSession();
       
       if (!session) {
         return { success: false, error: 'Please log in to sync liked songs' };
@@ -538,7 +529,7 @@ export class SpotifyAuthManager {
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await sessionCache.getSession();
       
       if (!session) {
         return { success: false, error: 'No session available' };

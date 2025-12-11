@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SpotifyAuthManager } from '@/services/spotifyAuthManager.service';
+import { sessionCache } from '@/services/sessionCache.service';
 import { useAuth } from '@/contexts/NewAuthContext';
 import { Loader2, Music } from 'lucide-react';
 
@@ -124,46 +125,21 @@ export const UnifiedSpotifyCallback: React.FC = () => {
           description: "Exchanging tokens with Spotify...",
         });
 
-        // Step 4: Get session with timeout protection
-        console.log('📡 UNIFIED CALLBACK: Step 4 - Getting session with timeout protection');
+        // Step 4: Get session using cached service
+        console.log('📡 UNIFIED CALLBACK: Step 4 - Getting session using cache service');
         const sessionStartTime = Date.now();
         
-        const sessionPromise = supabase.auth.getSession().then(result => {
-          const elapsed = Date.now() - sessionStartTime;
-          console.log('✅ UNIFIED CALLBACK: Session fetch completed', {
-            elapsed,
-            hasSession: !!result.data.session,
-            hasUser: !!result.data.session?.user,
-            error: result.error?.message,
-            step: 4
-          });
-          return result;
-        }).catch(error => {
-          const elapsed = Date.now() - sessionStartTime;
-          console.error('❌ UNIFIED CALLBACK: Session fetch failed', {
-            elapsed,
-            error: error.message,
-            step: 4
-          });
-          throw error;
-        });
+        const { session, error: sessionError } = await sessionCache.getSession();
         
-        const timeoutPromise = new Promise<any>((_, reject) =>
-          setTimeout(() => {
-            const elapsed = Date.now() - sessionStartTime;
-            console.error('❌ UNIFIED CALLBACK: Session check timeout', {
-              elapsed,
-              timeout: 5000,
-              step: 4
-            });
-            reject(new Error('Session check timeout'));
-          }, 5000)
-        );
-
-        const { data: { session }, error: sessionError } = await Promise.race([
-          sessionPromise,
-          timeoutPromise
-        ]);
+        const sessionElapsed = Date.now() - sessionStartTime;
+        console.log('✅ UNIFIED CALLBACK: Session fetch completed via cache', {
+          elapsed: sessionElapsed,
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          error: sessionError?.message,
+          step: 4,
+          cacheStatus: sessionCache.getCacheStatus()
+        });
         
         if (sessionError || !session) {
           console.log('❌ UNIFIED CALLBACK: No valid session', {

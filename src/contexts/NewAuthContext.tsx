@@ -8,6 +8,7 @@ import { AuthRetryService } from '@/services/authRetry.service';
 import { AuthStateRecoveryService } from '@/services/authStateRecovery.service';
 import { ErrorHandlingService } from '@/services/errorHandling.service';
 import { ErrorLoggingService } from '@/services/errorLogging.service';
+import { sessionCache } from '@/services/sessionCache.service';
 import { useAuthErrors } from '@/hooks/useAuthErrors';
 import { useToast } from '@/hooks/use-toast';
 
@@ -439,6 +440,11 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       console.log('🔴 DEBUG: No error, calling clearUserData()');
       clearUserData();
+      
+      // Clear session cache on sign out
+      sessionCache.clearCache();
+      console.log('🔴 DEBUG: Session cache cleared');
+      
       console.log('🔴 DEBUG: Showing success toast');
       toast({
         title: 'Signed Out',
