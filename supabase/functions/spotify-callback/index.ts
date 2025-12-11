@@ -1,3 +1,5 @@
+// Deployment test - triggering GitHub Actions
+// 
 // DISABLED: This edge function was conflicting with the React route /spotify-callback
 // The React component SpotifyCallback.tsx handles the OAuth flow instead
 //
