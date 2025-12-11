@@ -78,10 +78,22 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [role, setRole] = useState<'admin' | 'user' | null>(null);
   const [loading, setLoading] = useState(true);
   
+  // Update refs when state changes
+  useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { sessionRef.current = session; }, [session]);
+  useEffect(() => { profileRef.current = profile; }, [profile]);
+  useEffect(() => { roleRef.current = role; }, [role]);
+  
   // Error handling
   const { error, setError, clearError, setLoading: setErrorLoading, handleError } = useAuthErrors();
   const { toast } = useToast();
   const initializationRef = useRef(false);
+  
+  // Refs for logging without causing re-renders
+  const userRef = useRef<User | null>(null);
+  const sessionRef = useRef<Session | null>(null);
+  const profileRef = useRef<UserProfile | null>(null);
+  const roleRef = useRef<'admin' | 'user' | null>(null);
   const [lastErrorContext, setLastErrorContext] = useState<any>(null);
   const [errorRecoveryAvailable, setErrorRecoveryAvailable] = useState(false);
   
@@ -119,19 +131,19 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  // Clear user data
+  // Clear user data - stabilized with no state dependencies
   const clearUserData = useCallback(() => {
     console.log('🔴 DEBUG: clearUserData called');
     
-    // SESSION DEBUG: Log session state before clearing
+    // SESSION DEBUG: Log session state before clearing using refs
     console.log('🔍 SESSION DEBUG (Clear User Data): Session state before clearing user data', {
-      hadUser: !!user,
-      hadSession: !!session,
-      userId: user?.id,
-      userEmail: user?.email,
-      sessionExpiry: session?.expires_at,
-      hadProfile: !!profile,
-      hadRole: !!role,
+      hadUser: !!userRef.current,
+      hadSession: !!sessionRef.current,
+      userId: userRef.current?.id,
+      userEmail: userRef.current?.email,
+      sessionExpiry: sessionRef.current?.expires_at,
+      hadProfile: !!profileRef.current,
+      hadRole: !!roleRef.current,
       clearingReason: 'User data being cleared - session will be nullified',
       timestamp: new Date().toISOString()
     });
@@ -152,7 +164,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
     
     console.log('🔴 DEBUG: clearUserData completed - all state cleared');
-  }, [user, session, profile, role]);
+  }, []); // Empty dependency array - no state dependencies
 
   // Initialize auth state
   const initializeAuth = useCallback(async () => {
@@ -246,7 +258,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('🏁 INIT DEBUG: Setting loading to false');
       setLoading(false);
     }
-  }, [clearUserData, loadUserData]);
+  }, [loadUserData]);
 
   // Auth state change handler
   useEffect(() => {
@@ -350,7 +362,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('🧹 AUTH DEBUG: Cleaning up auth subscription');
       subscription.unsubscribe();
     };
-  }, [initializeAuth, loadUserData, clearUserData]);
+  }, [initializeAuth]);
 
   // Auth actions
   const signUp = useCallback(async (data: SignUpData): Promise<boolean> => {
@@ -590,7 +602,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('🔴 DEBUG: SignOut finally block, setting loading false');
       setErrorLoading(false);
     }
-  }, [setErrorLoading, clearError, handleError, toast, clearUserData, user, session, profile, role]);
+  }, [setErrorLoading, clearError, handleError, toast, clearUserData]);
 
   const resendConfirmation = useCallback(async (email: string): Promise<boolean> => {
     setErrorLoading(true);
