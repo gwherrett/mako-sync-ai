@@ -3,14 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SpotifyAuthManager } from '@/services/spotifyAuthManager.service';
-import { sessionCache } from '@/services/sessionCache.service';
 import { useAuth } from '@/contexts/NewAuthContext';
 import { Loader2, Music } from 'lucide-react';
 
 export const UnifiedSpotifyCallback: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { loading: authLoading, isAuthenticated } = useAuth();
+  const { loading: authLoading, isAuthenticated, session } = useAuth();
   const [isProcessing, setIsProcessing] = useState(true);
 
   useEffect(() => {
@@ -111,13 +110,40 @@ export const UnifiedSpotifyCallback: React.FC = () => {
           return;
         }
 
-        // Step 3: Wait for auth context to stabilize if needed
-        console.log('⏳ UNIFIED CALLBACK: Step 3 - Checking auth context readiness');
-        if (authLoading) {
-          console.log('⏳ UNIFIED CALLBACK: Auth context still loading, waiting...');
-          await new Promise(resolve => setTimeout(resolve, 500));
-          console.log('⏳ UNIFIED CALLBACK: Auth context wait completed');
+        // Step 3: Wait for auth context to stabilize
+        console.log('⏳ UNIFIED CALLBACK: Step 3 - Waiting for auth context');
+        const maxWaitTime = 5000;
+        const startWait = Date.now();
+
+        while (authLoading && (Date.now() - startWait) < maxWaitTime) {
+          console.log('⏳ UNIFIED CALLBACK: Auth still loading, waiting 100ms...', {
+            elapsed: Date.now() - startWait,
+            maxWait: maxWaitTime
+          });
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
+
+        if (Date.now() - startWait >= maxWaitTime) {
+          console.error('❌ UNIFIED CALLBACK: Auth context timeout', {
+            elapsed: Date.now() - startWait,
+            maxWait: maxWaitTime
+          });
+          toast({
+            title: "Authentication Timeout",
+            description: "Authentication is taking too long. Please try again.",
+            variant: "destructive",
+          });
+          sessionStorage.removeItem(executionFlag);
+          setTimeout(() => navigate('/auth'), 2000);
+          return;
+        }
+
+        console.log('✅ UNIFIED CALLBACK: Auth context ready', {
+          elapsed: Date.now() - startWait,
+          authLoading,
+          isAuthenticated,
+          hasSession: !!session
+        });
 
         // Show validation success
         toast({
@@ -125,26 +151,20 @@ export const UnifiedSpotifyCallback: React.FC = () => {
           description: "Exchanging tokens with Spotify...",
         });
 
-        // Step 4: Get session using cached service
-        console.log('📡 UNIFIED CALLBACK: Step 4 - Getting session using cache service');
-        const sessionStartTime = Date.now();
-        
-        const { session, error: sessionError } = await sessionCache.getSession();
-        
-        const sessionElapsed = Date.now() - sessionStartTime;
-        console.log('✅ UNIFIED CALLBACK: Session fetch completed via cache', {
-          elapsed: sessionElapsed,
+        // Step 4: Use session from auth context
+        console.log('📡 UNIFIED CALLBACK: Step 4 - Using session from auth context', {
           hasSession: !!session,
+          hasAccessToken: !!session?.access_token,
           hasUser: !!session?.user,
-          error: sessionError?.message,
-          step: 4,
-          cacheStatus: sessionCache.getCacheStatus()
+          userId: session?.user?.id,
+          step: 4
         });
-        
-        if (sessionError || !session) {
-          console.log('❌ UNIFIED CALLBACK: No valid session', {
-            sessionError: sessionError?.message,
+
+        if (!session || !session.access_token) {
+          console.log('❌ UNIFIED CALLBACK: No valid session in auth context', {
             hasSession: !!session,
+            hasAccessToken: !!session?.access_token,
+            isAuthenticated,
             step: 4,
             elapsed: Date.now() - startTime
           });
