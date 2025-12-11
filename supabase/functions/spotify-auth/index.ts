@@ -255,6 +255,7 @@ serve(async (req) => {
     
     // Create Postgres connection pool - use connection string for internal socket connection
     const pool = new Pool(dbUrl, 1)
+    let poolEnded = false
 
     let accessTokenSecretId: string
     let refreshTokenSecretId: string
@@ -263,6 +264,15 @@ serve(async (req) => {
       const connection = await pool.connect()
       
       try {
+        // Delete existing access token secret if it exists (upsert pattern)
+        logWithContext('info', 'Deleting existing access token secret if present', {
+          userId: user.id
+        });
+        await connection.queryObject`
+          DELETE FROM vault.secrets
+          WHERE name = ${'spotify_access_token_' + user.id}
+        `;
+
         // Store access token in vault
         logWithContext('info', 'Creating access token secret in vault', {
           userId: user.id
@@ -284,6 +294,15 @@ serve(async (req) => {
           userId: user.id,
           secretId: accessTokenSecretId
         });
+
+        // Delete existing refresh token secret if it exists (upsert pattern)
+        logWithContext('info', 'Deleting existing refresh token secret if present', {
+          userId: user.id
+        });
+        await connection.queryObject`
+          DELETE FROM vault.secrets
+          WHERE name = ${'spotify_refresh_token_' + user.id}
+        `;
 
         // Store refresh token in vault
         logWithContext('info', 'Creating refresh token secret in vault', {
@@ -316,7 +335,10 @@ serve(async (req) => {
         error: vaultError.message,
         stack: vaultError.stack
       });
-      await pool.end()
+      if (!poolEnded) {
+        await pool.end()
+        poolEnded = true
+      }
       return new Response(
         JSON.stringify({
           error: 'Failed to securely store tokens. Please try again.',
@@ -327,7 +349,10 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     } finally {
-      await pool.end()
+      if (!poolEnded) {
+        await pool.end()
+        poolEnded = true
+      }
     }
 
     // Store connection with vault references only (no plain text fallback)
