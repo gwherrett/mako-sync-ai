@@ -77,6 +77,17 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
   // Subscribe to auth manager state changes
   useEffect(() => {
     const unsubscribe = authManager.current.subscribe((newState) => {
+      // SESSION DEBUG: Log session implications of Spotify auth state changes
+      console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth): Spotify auth state change implications for user session', {
+        spotifyConnected: newState.isConnected,
+        spotifyError: newState.error,
+        spotifyHealthStatus: newState.healthStatus,
+        spotifyConnectionId: newState.connection?.id,
+        sessionImpact: newState.error ? 'Spotify errors should not affect user session' : 'Spotify state change should not affect user session',
+        userSessionPreservation: 'User authentication session should remain intact regardless of Spotify connection status',
+        timestamp: new Date().toISOString()
+      });
+      
       setAuthState(newState);
       
       // Notify connection change callback
@@ -97,9 +108,21 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
     
     if (shouldCheck) {
       console.log('🔍 UNIFIED SPOTIFY AUTH: Performing initial connection check');
+      console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Initial Check): Session preservation during initial Spotify connection check', {
+        checkReason: 'Initial connection check due to stale data',
+        timeSinceLastCheck,
+        sessionPreservation: 'User session should be preserved during Spotify connection check',
+        timestamp: new Date().toISOString()
+      });
       authManager.current.checkConnection();
     } else {
       console.log('🔍 UNIFIED SPOTIFY AUTH: Using cached connection status');
+      console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Cached): Session preservation with cached Spotify status', {
+        cacheReason: 'Using cached Spotify connection status',
+        timeSinceLastCheck,
+        sessionPreservation: 'User session unaffected by cached Spotify status',
+        timestamp: new Date().toISOString()
+      });
     }
 
     return unsubscribe;
@@ -120,15 +143,39 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
     setLastOperation(() => connectSpotify);
     
     try {
+      // SESSION DEBUG: Log session state before Spotify connect
+      console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Connect Start): Session state before Spotify connect attempt', {
+        connectAttempt: true,
+        userSessionRequired: 'Valid user session required for Spotify connection',
+        sessionPreservation: 'User session should be preserved during Spotify connection process',
+        timestamp: new Date().toISOString()
+      });
+      
       const result = await authManager.current.connectSpotify();
       
       if (result.success) {
+        // SESSION DEBUG: Log session state after successful connect initiation
+        console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Connect Success): Session state after successful Spotify connect initiation', {
+          connectInitiated: true,
+          redirecting: 'User will be redirected to Spotify for authorization',
+          sessionPreservation: 'User session should be preserved during OAuth redirect',
+          timestamp: new Date().toISOString()
+        });
+        
         toast({
           title: "Connecting to Spotify",
           description: "Redirecting to Spotify for authorization...",
         });
         return true;
       } else {
+        // SESSION DEBUG: Log session state after connect failure
+        console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Connect Failed): Session state after Spotify connect failure', {
+          connectFailed: true,
+          error: result.error,
+          sessionPreservation: 'User session should be preserved despite Spotify connect failure',
+          timestamp: new Date().toISOString()
+        });
+        
         toast({
           title: "Connection Failed",
           description: result.error || "Failed to connect to Spotify",
@@ -137,6 +184,14 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
         return false;
       }
     } catch (error: any) {
+      // SESSION DEBUG: Log session state during connect exception
+      console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Connect Exception): Session state during Spotify connect exception', {
+        connectException: true,
+        error: error.message,
+        sessionPreservation: 'User session should be preserved despite Spotify connect exception',
+        timestamp: new Date().toISOString()
+      });
+      
       toast({
         title: "Connection Error",
         description: error.message || "An unexpected error occurred",
@@ -156,15 +211,39 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
     setLastOperation(() => disconnectSpotify);
     
     try {
+      // SESSION DEBUG: Log session state before Spotify disconnect
+      console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Disconnect Start): Session state before Spotify disconnect attempt', {
+        disconnectAttempt: true,
+        userSessionRequired: 'Valid user session required for Spotify disconnect',
+        sessionPreservation: 'User session should be preserved during Spotify disconnect process',
+        timestamp: new Date().toISOString()
+      });
+      
       const result = await authManager.current.disconnectSpotify();
       
       if (result.success) {
+        // SESSION DEBUG: Log session state after successful disconnect
+        console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Disconnect Success): Session state after successful Spotify disconnect', {
+          disconnectSuccessful: true,
+          spotifyConnectionRemoved: 'Spotify connection has been removed',
+          sessionPreservation: 'User session should remain intact after Spotify disconnect',
+          timestamp: new Date().toISOString()
+        });
+        
         toast({
           title: "Spotify Disconnected",
           description: "Successfully disconnected from Spotify",
         });
         return true;
       } else {
+        // SESSION DEBUG: Log session state after disconnect failure
+        console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Disconnect Failed): Session state after Spotify disconnect failure', {
+          disconnectFailed: true,
+          error: result.error,
+          sessionPreservation: 'User session should be preserved despite Spotify disconnect failure',
+          timestamp: new Date().toISOString()
+        });
+        
         toast({
           title: "Disconnect Failed",
           description: result.error || "Failed to disconnect from Spotify",
@@ -173,6 +252,14 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
         return false;
       }
     } catch (error: any) {
+      // SESSION DEBUG: Log session state during disconnect exception
+      console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Disconnect Exception): Session state during Spotify disconnect exception', {
+        disconnectException: true,
+        error: error.message,
+        sessionPreservation: 'User session should be preserved despite Spotify disconnect exception',
+        timestamp: new Date().toISOString()
+      });
+      
       toast({
         title: "Disconnect Error",
         description: error.message || "An unexpected error occurred",
@@ -260,9 +347,34 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
   // Check connection
   const checkConnection = useCallback(async (force: boolean = false): Promise<boolean> => {
     try {
+      // SESSION DEBUG: Log session state before connection check
+      console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Check Connection): Session state before Spotify connection check', {
+        connectionCheck: true,
+        forced: force,
+        sessionPreservation: 'User session should not be affected by Spotify connection check',
+        timestamp: new Date().toISOString()
+      });
+      
       const result = await authManager.current.checkConnection(force);
+      
+      // SESSION DEBUG: Log session state after connection check
+      console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Check Connection Result): Session state after Spotify connection check', {
+        connectionCheckResult: result.success,
+        error: result.error,
+        sessionPreservation: 'User session should remain intact regardless of Spotify connection check result',
+        timestamp: new Date().toISOString()
+      });
+      
       return result.success;
     } catch (error: any) {
+      // SESSION DEBUG: Log session state during connection check error
+      console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Check Connection Error): Session state during Spotify connection check error', {
+        connectionCheckError: true,
+        error: error.message,
+        sessionPreservation: 'User session should be preserved despite Spotify connection check error',
+        timestamp: new Date().toISOString()
+      });
+      
       console.error('Connection check failed:', error);
       return false;
     }

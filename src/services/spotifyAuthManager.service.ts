@@ -172,6 +172,19 @@ export class SpotifyAuthManager {
 
       if (sessionError || !session?.user) {
         const error = 'User not authenticated';
+        
+        // SESSION DEBUG: Log session state during authentication failure
+        console.log('🔍 SESSION DEBUG (SpotifyAuthManager - No Auth): Session state during authentication failure', {
+          sessionError: sessionError?.message,
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          userId: session?.user?.id,
+          sessionExpiry: session?.expires_at,
+          authenticationLost: 'User session appears to be lost or invalid',
+          spotifyConnectionImpact: 'Cannot check Spotify connection without valid user session',
+          timestamp: new Date().toISOString()
+        });
+        
         this.updateState({
           isConnected: false,
           connection: null,
@@ -217,6 +230,17 @@ export class SpotifyAuthManager {
 
       if (connectionError) {
         const error = `Database error: ${connectionError.message}`;
+        
+        // SESSION DEBUG: Log session state during database error
+        console.log('🔍 SESSION DEBUG (SpotifyAuthManager - DB Error): Session state during database error', {
+          hasUser: !!user,
+          userId: user?.id,
+          databaseError: connectionError.message,
+          sessionStillValid: 'User session should still be valid despite database error',
+          spotifyConnectionStatus: 'Cannot determine Spotify connection due to database error',
+          timestamp: new Date().toISOString()
+        });
+        
         this.updateState({
           isConnected: false,
           connection: null,
@@ -285,6 +309,17 @@ export class SpotifyAuthManager {
         type: error.constructor.name
       });
       
+      // SESSION DEBUG: Log session state during connection check error
+      console.log('🔍 SESSION DEBUG (SpotifyAuthManager - Check Error): Session state during connection check error', {
+        connectionCheckError: errorMessage,
+        errorType: error.constructor.name,
+        duration,
+        sessionCacheStatus: 'Session cache may have been accessed but connection check failed',
+        userAuthenticationImpact: 'User session should not be affected by Spotify connection check failure',
+        spotifyConnectionStatus: 'Cannot determine Spotify connection due to check error',
+        timestamp: new Date().toISOString()
+      });
+      
       this.updateState({
         isConnected: false,
         connection: null,
@@ -319,6 +354,17 @@ export class SpotifyAuthManager {
       
       if (!session?.user) {
         const error = 'Please log in to connect Spotify';
+        
+        // SESSION DEBUG: Log session state during Spotify connect attempt without auth
+        console.log('🔍 SESSION DEBUG (SpotifyAuthManager - Connect No Auth): Session state during Spotify connect without authentication', {
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          userId: session?.user?.id,
+          connectAttempt: 'User attempted to connect Spotify without valid session',
+          authenticationRequired: 'Valid user session required for Spotify connection',
+          timestamp: new Date().toISOString()
+        });
+        
         this.updateState({ error });
         return { success: false, error };
       }
@@ -387,6 +433,16 @@ export class SpotifyAuthManager {
       const { session } = await sessionCache.getSession();
       
       if (!session?.user) {
+        // SESSION DEBUG: Log session state during Spotify disconnect attempt without auth
+        console.log('🔍 SESSION DEBUG (SpotifyAuthManager - Disconnect No Auth): Session state during Spotify disconnect without authentication', {
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          userId: session?.user?.id,
+          disconnectAttempt: 'User attempted to disconnect Spotify without valid session',
+          sessionStatus: 'No valid user session found for disconnect operation',
+          timestamp: new Date().toISOString()
+        });
+        
         return { success: false, error: 'No user found' };
       }
       
@@ -419,6 +475,16 @@ export class SpotifyAuthManager {
       return { success: true };
     } catch (error: any) {
       const errorMessage = `Disconnect failed: ${error.message}`;
+      
+      // SESSION DEBUG: Log session state during disconnect error
+      console.log('🔍 SESSION DEBUG (SpotifyAuthManager - Disconnect Error): Session state during Spotify disconnect error', {
+        disconnectError: error.message,
+        errorType: error.constructor.name,
+        userSessionImpact: 'User session should not be affected by Spotify disconnect error',
+        spotifyConnectionStatus: 'Spotify connection status unclear due to disconnect error',
+        timestamp: new Date().toISOString()
+      });
+      
       this.updateState({ error: errorMessage });
       
       console.error('❌ SPOTIFY AUTH MANAGER: Disconnect error:', error);
@@ -467,6 +533,16 @@ export class SpotifyAuthManager {
       return result;
     } catch (error: any) {
       const errorMessage = `Token refresh failed: ${error.message}`;
+      
+      // SESSION DEBUG: Log session state during token refresh error
+      console.log('🔍 SESSION DEBUG (SpotifyAuthManager - Token Refresh Error): Session state during Spotify token refresh error', {
+        tokenRefreshError: error.message,
+        errorType: error.constructor.name,
+        userSessionImpact: 'User session should not be affected by Spotify token refresh error',
+        spotifyTokenStatus: 'Spotify tokens may be expired or invalid',
+        timestamp: new Date().toISOString()
+      });
+      
       this.updateState({ error: errorMessage });
       
       console.error('❌ SPOTIFY AUTH MANAGER: Token refresh error:', error);

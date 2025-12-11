@@ -122,12 +122,37 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Clear user data
   const clearUserData = useCallback(() => {
     console.log('🔴 DEBUG: clearUserData called');
+    
+    // SESSION DEBUG: Log session state before clearing
+    console.log('🔍 SESSION DEBUG (Clear User Data): Session state before clearing user data', {
+      hadUser: !!user,
+      hadSession: !!session,
+      userId: user?.id,
+      userEmail: user?.email,
+      sessionExpiry: session?.expires_at,
+      hadProfile: !!profile,
+      hadRole: !!role,
+      clearingReason: 'User data being cleared - session will be nullified',
+      timestamp: new Date().toISOString()
+    });
+    
     setUser(null);
     setSession(null);
     setProfile(null);
     setRole(null);
+    
+    // SESSION DEBUG: Confirm session cleared
+    console.log('🔍 SESSION DEBUG (Clear User Data): Session state after clearing user data', {
+      userCleared: true,
+      sessionCleared: true,
+      profileCleared: true,
+      roleCleared: true,
+      authStateReset: 'All authentication state has been reset to null',
+      timestamp: new Date().toISOString()
+    });
+    
     console.log('🔴 DEBUG: clearUserData completed - all state cleared');
-  }, []);
+  }, [user, session, profile, role]);
 
   // Initialize auth state
   const initializeAuth = useCallback(async () => {
@@ -238,9 +263,42 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           initializationComplete: initializationRef.current
         });
         
+        // SESSION DEBUG: Log detailed session state during auth changes
+        console.log('🔍 SESSION DEBUG (Auth State Change): Detailed session analysis during auth state change', {
+          event,
+          previousSession: {
+            existed: !!user,
+            userId: user?.id,
+            email: user?.email,
+            emailVerified: user?.email_confirmed_at != null
+          },
+          newSession: session ? {
+            userId: session.user?.id,
+            email: session.user?.email,
+            emailVerified: session.user?.email_confirmed_at != null,
+            hasAccessToken: !!session.access_token,
+            hasRefreshToken: !!session.refresh_token,
+            expiresAt: session.expires_at,
+            tokenType: session.token_type
+          } : null,
+          sessionTransition: {
+            from: user ? 'authenticated' : 'unauthenticated',
+            to: session?.user ? 'authenticated' : 'unauthenticated',
+            sessionPreserved: event !== 'SIGNED_OUT',
+            potentialSessionLoss: !session && !!user
+          },
+          timestamp: new Date().toISOString()
+        });
+        
         // Prevent race conditions during initialization
         if (!initializationRef.current && event !== 'INITIAL_SESSION') {
           console.log('⚠️ AUTH DEBUG: Ignoring auth change during initialization');
+          console.log('🔍 SESSION DEBUG (Initialization Skip): Session state preserved during initialization', {
+            currentUser: user?.id,
+            currentSession: !!session,
+            preservationReason: 'Race condition prevention during initialization',
+            timestamp: new Date().toISOString()
+          });
           return;
         }
         
@@ -250,13 +308,33 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ AUTH DEBUG: SIGNED_IN event - loading user data');
+          console.log('🔍 SESSION DEBUG (Sign In): Session established during sign in', {
+            userId: session.user.id,
+            sessionId: session.access_token?.substring(0, 10) + '...',
+            sessionExpiry: session.expires_at,
+            userDataLoading: 'Deferred to prevent deadlocks',
+            timestamp: new Date().toISOString()
+          });
           // Defer data loading to prevent deadlocks
           setTimeout(() => {
             loadUserData(session.user.id);
           }, 0);
         } else if (event === 'SIGNED_OUT') {
           console.log('🚪 AUTH DEBUG: SIGNED_OUT event - clearing user data');
+          console.log('🔍 SESSION DEBUG (Sign Out): Session cleared during sign out', {
+            previousUserId: user?.id,
+            sessionCleared: true,
+            userDataCleared: 'Will be cleared by clearUserData()',
+            timestamp: new Date().toISOString()
+          });
           clearUserData();
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          console.log('🔍 SESSION DEBUG (Token Refresh): Session refreshed', {
+            userId: session.user?.id,
+            newTokenExpiry: session.expires_at,
+            sessionMaintained: true,
+            timestamp: new Date().toISOString()
+          });
         }
         
         console.log('🔄 AUTH DEBUG: Setting loading to false after auth change');
@@ -424,6 +502,20 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = useCallback(async (): Promise<void> => {
     console.log('🔴 DEBUG: signOut called');
+    
+    // SESSION DEBUG: Log session state before sign out
+    console.log('🔍 SESSION DEBUG (Sign Out Start): Session state before sign out process', {
+      hasUser: !!user,
+      hasSession: !!session,
+      userId: user?.id,
+      userEmail: user?.email,
+      sessionExpiry: session?.expires_at,
+      hasProfile: !!profile,
+      hasRole: !!role,
+      signOutInitiated: true,
+      timestamp: new Date().toISOString()
+    });
+    
     setErrorLoading(true);
     clearError();
 
@@ -434,16 +526,46 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (error) {
         console.log('🔴 DEBUG: SignOut error detected:', error);
+        
+        // SESSION DEBUG: Log session state during sign out error
+        console.log('🔍 SESSION DEBUG (Sign Out Error): Session state during sign out error', {
+          hasUser: !!user,
+          hasSession: !!session,
+          userId: user?.id,
+          signOutError: error.message,
+          sessionPreserved: 'Session should be preserved due to sign out error',
+          timestamp: new Date().toISOString()
+        });
+        
         handleError(error, 'Failed to sign out. Please try again.');
         return;
       }
 
       console.log('🔴 DEBUG: No error, calling clearUserData()');
+      
+      // SESSION DEBUG: Log session state before clearing
+      console.log('🔍 SESSION DEBUG (Sign Out Success): Session state before clearing after successful sign out', {
+        hasUser: !!user,
+        hasSession: !!session,
+        userId: user?.id,
+        aboutToClear: 'Session and user data will be cleared',
+        timestamp: new Date().toISOString()
+      });
+      
       clearUserData();
       
       // Clear session cache on sign out
       sessionCache.clearCache();
       console.log('🔴 DEBUG: Session cache cleared');
+      
+      // SESSION DEBUG: Confirm session cleared after sign out
+      console.log('🔍 SESSION DEBUG (Sign Out Complete): Session state after successful sign out', {
+        userCleared: true,
+        sessionCleared: true,
+        sessionCacheCleared: true,
+        signOutComplete: true,
+        timestamp: new Date().toISOString()
+      });
       
       console.log('🔴 DEBUG: Showing success toast');
       toast({
@@ -452,12 +574,23 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
     } catch (error) {
       console.log('🔴 DEBUG: SignOut caught exception:', error);
+      
+      // SESSION DEBUG: Log session state during sign out exception
+      console.log('🔍 SESSION DEBUG (Sign Out Exception): Session state during sign out exception', {
+        hasUser: !!user,
+        hasSession: !!session,
+        userId: user?.id,
+        exception: (error as Error).message,
+        sessionPreserved: 'Session should be preserved due to sign out exception',
+        timestamp: new Date().toISOString()
+      });
+      
       handleError(error as AuthError);
     } finally {
       console.log('🔴 DEBUG: SignOut finally block, setting loading false');
       setErrorLoading(false);
     }
-  }, [setErrorLoading, clearError, handleError, toast, clearUserData]);
+  }, [setErrorLoading, clearError, handleError, toast, clearUserData, user, session, profile, role]);
 
   const resendConfirmation = useCallback(async (email: string): Promise<boolean> => {
     setErrorLoading(true);

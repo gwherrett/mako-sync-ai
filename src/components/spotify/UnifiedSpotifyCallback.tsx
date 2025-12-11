@@ -70,18 +70,55 @@ export const UnifiedSpotifyCallback: React.FC = () => {
 
         if (error) {
           console.log('❌ UNIFIED CALLBACK: Spotify returned error:', error);
+          
+          // SESSION DEBUG: Log session state before error handling
+          console.log('🔍 SESSION DEBUG (Spotify Error): Session state before error handling', {
+            hasSession: !!sessionRef.current,
+            hasAccessToken: !!sessionRef.current?.access_token,
+            hasUser: !!sessionRef.current?.user,
+            userId: sessionRef.current?.user?.id,
+            sessionExpiry: sessionRef.current?.expires_at,
+            isAuthenticated,
+            authLoading: authLoadingRef.current,
+            error,
+            timestamp: new Date().toISOString()
+          });
+          
           toast({
             title: "Spotify Connection Failed",
             description: `Error: ${error}`,
             variant: "destructive",
           });
           sessionStorage.removeItem(executionFlag);
+          
+          // SESSION DEBUG: Log session state after cleanup
+          console.log('🔍 SESSION DEBUG (Spotify Error): Session state after cleanup', {
+            hasSession: !!sessionRef.current,
+            hasAccessToken: !!sessionRef.current?.access_token,
+            preservedSession: 'Session should be preserved - no session clearing operations performed',
+            timestamp: new Date().toISOString()
+          });
+          
           setTimeout(() => navigate('/'), 2000);
           return;
         }
 
         if (!code || !state) {
           console.log('❌ UNIFIED CALLBACK: Missing required parameters');
+          
+          // SESSION DEBUG: Log session state for missing parameters
+          console.log('🔍 SESSION DEBUG (Missing Params): Session state during parameter validation failure', {
+            hasSession: !!sessionRef.current,
+            hasAccessToken: !!sessionRef.current?.access_token,
+            hasUser: !!sessionRef.current?.user,
+            userId: sessionRef.current?.user?.id,
+            isAuthenticated,
+            missingCode: !code,
+            missingState: !state,
+            preservedSession: 'Session should be preserved - no session clearing operations performed',
+            timestamp: new Date().toISOString()
+          });
+          
           toast({
             title: "Authentication Error",
             description: "Missing authorization code or state",
@@ -108,6 +145,21 @@ export const UnifiedSpotifyCallback: React.FC = () => {
         
         if (state !== storedState && state !== backupState) {
           console.log('❌ UNIFIED CALLBACK: State parameter mismatch');
+          
+          // SESSION DEBUG: Log session state for state mismatch
+          console.log('🔍 SESSION DEBUG (State Mismatch): Session state during security validation failure', {
+            hasSession: !!sessionRef.current,
+            hasAccessToken: !!sessionRef.current?.access_token,
+            hasUser: !!sessionRef.current?.user,
+            userId: sessionRef.current?.user?.id,
+            isAuthenticated,
+            receivedState: state?.substring(0, 10) + '...',
+            storedState: storedState?.substring(0, 10) + '...',
+            backupState: backupState?.substring(0, 10) + '...',
+            preservedSession: 'Session should be preserved - no session clearing operations performed',
+            timestamp: new Date().toISOString()
+          });
+          
           toast({
             title: "Security Error",
             description: "Invalid state parameter - please try connecting again",
@@ -142,6 +194,21 @@ export const UnifiedSpotifyCallback: React.FC = () => {
             elapsed: Date.now() - startWait,
             maxWait: maxWaitTime
           });
+          
+          // SESSION DEBUG: Log session state for auth timeout
+          console.log('🔍 SESSION DEBUG (Auth Timeout): Session state during auth context timeout', {
+            hasSession: !!sessionRef.current,
+            hasAccessToken: !!sessionRef.current?.access_token,
+            hasUser: !!sessionRef.current?.user,
+            userId: sessionRef.current?.user?.id,
+            isAuthenticated,
+            authLoadingRef: authLoadingRef.current,
+            timeoutElapsed: Date.now() - startWait,
+            maxWaitTime,
+            preservedSession: 'Session should be preserved - redirecting to /auth to maintain session',
+            timestamp: new Date().toISOString()
+          });
+          
           toast({
             title: "Authentication Timeout",
             description: "Authentication is taking too long. Please try again.",
@@ -183,6 +250,30 @@ export const UnifiedSpotifyCallback: React.FC = () => {
             step: 4,
             elapsed: Date.now() - startTime
           });
+          
+          // SESSION DEBUG: Log detailed session state for missing session
+          console.log('🔍 SESSION DEBUG (No Session): Detailed session analysis during session validation failure', {
+            currentSession: currentSession ? {
+              hasAccessToken: !!currentSession.access_token,
+              hasRefreshToken: !!currentSession.refresh_token,
+              hasUser: !!currentSession.user,
+              userId: currentSession.user?.id,
+              expiresAt: currentSession.expires_at,
+              tokenType: currentSession.token_type
+            } : null,
+            sessionRef: sessionRef.current ? {
+              hasAccessToken: !!sessionRef.current.access_token,
+              hasRefreshToken: !!sessionRef.current.refresh_token,
+              hasUser: !!sessionRef.current.user,
+              userId: sessionRef.current.user?.id,
+              expiresAt: sessionRef.current.expires_at
+            } : null,
+            isAuthenticated,
+            authLoadingRef: authLoadingRef.current,
+            sessionLost: 'Session appears to have been lost during Spotify auth flow',
+            timestamp: new Date().toISOString()
+          });
+          
           toast({
             title: "Authentication Required",
             description: "Please log in to connect Spotify",
@@ -326,6 +417,19 @@ export const UnifiedSpotifyCallback: React.FC = () => {
             step: 5,
             elapsed: Date.now() - startTime
           });
+          
+          // SESSION DEBUG: Log session state for edge function error
+          console.log('🔍 SESSION DEBUG (Edge Function Error): Session state during edge function failure', {
+            hasSession: !!sessionRef.current,
+            hasAccessToken: !!sessionRef.current?.access_token,
+            hasUser: !!sessionRef.current?.user,
+            userId: sessionRef.current?.user?.id,
+            isAuthenticated,
+            edgeFunctionError: response.error?.message,
+            preservedSession: 'Session should be preserved - edge function failure should not affect existing session',
+            timestamp: new Date().toISOString()
+          });
+          
           toast({
             title: "Connection Failed",
             description: `Failed to connect: ${response.error.message}`,
@@ -374,6 +478,21 @@ export const UnifiedSpotifyCallback: React.FC = () => {
 
       } catch (error: any) {
         console.error('❌ UNIFIED CALLBACK: Critical error:', error);
+        
+        // SESSION DEBUG: Log session state during critical error
+        console.log('🔍 SESSION DEBUG (Critical Error): Session state during critical callback error', {
+          hasSession: !!sessionRef.current,
+          hasAccessToken: !!sessionRef.current?.access_token,
+          hasUser: !!sessionRef.current?.user,
+          userId: sessionRef.current?.user?.id,
+          isAuthenticated,
+          authLoadingRef: authLoadingRef.current,
+          criticalError: error.message,
+          errorType: error.errorType || 'unknown',
+          errorName: error.name,
+          preservedSession: 'Session preservation strategy - avoiding additional session checks that might corrupt auth state',
+          timestamp: new Date().toISOString()
+        });
         
         // DON'T trigger a session check that might fail
         // Just navigate with existing session intact
