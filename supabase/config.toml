@@ -28,3 +28,15 @@ verify_jwt = true
 
 [functions.spotify-resync-tracks]
 verify_jwt = true
+
+[functions.spotify-auth]
+verify_jwt = true
+
+[functions.spotify-callback]
+verify_jwt = false
+
+[functions.spotify-sync-liked]
+verify_jwt = true
+
+[functions.genre-mapping]
+verify_jwt = true
