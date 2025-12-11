@@ -20,7 +20,7 @@ class SessionCacheService {
   private cache: CachedSession | null = null;
   private pendingRequest: Promise<{ session: Session | null; error: any }> | null = null;
   private readonly CACHE_DURATION = 30000; // 30 seconds
-  private readonly REQUEST_TIMEOUT = 8000; // 8 seconds - less than Supabase's 15s but more than current 5s
+  private readonly REQUEST_TIMEOUT = 30000; // 30 seconds - removed aggressive timeout for critical flows
 
   static getInstance(): SessionCacheService {
     if (!this.instance) {
@@ -30,7 +30,7 @@ class SessionCacheService {
   }
 
   /**
-   * Get session with caching and deduplication
+   * Get session with caching and deduplication - simplified without timeout wrapper
    */
   async getSession(force: boolean = false): Promise<{ session: Session | null; error: any }> {
     const now = Date.now();
@@ -54,14 +54,10 @@ class SessionCacheService {
       return this.pendingRequest;
     }
 
-    console.log('🔍 SESSION CACHE: Starting new session fetch', {
-      force,
-      cacheAge: this.cache ? now - this.cache.timestamp : 'no-cache',
-      timeout: this.REQUEST_TIMEOUT
-    });
+    console.log('🔍 SESSION CACHE: Starting new session fetch (direct call, no timeout wrapper)');
 
-    // Create new request with timeout
-    this.pendingRequest = this.fetchSessionWithTimeout();
+    // Create new request - direct call without timeout wrapper
+    this.pendingRequest = this.fetchSessionDirect();
     
     try {
       const result = await this.pendingRequest;
@@ -87,51 +83,14 @@ class SessionCacheService {
   }
 
   /**
-   * Fetch session with timeout protection
+   * Direct session fetch without timeout wrapper - let Supabase SDK handle timeouts naturally
    */
-  private async fetchSessionWithTimeout(): Promise<{ session: Session | null; error: any }> {
-    const startTime = Date.now();
-
+  private async fetchSessionDirect(): Promise<{ session: Session | null; error: any }> {
     try {
-      const sessionPromise = supabase.auth.getSession().then(result => {
-        const elapsed = Date.now() - startTime;
-        console.log('✅ SESSION CACHE: Supabase getSession completed', {
-          elapsed,
-          hasSession: !!result.data.session,
-          hasError: !!result.error
-        });
-        return result;
-      }).catch(error => {
-        const elapsed = Date.now() - startTime;
-        console.error('❌ SESSION CACHE: Supabase getSession failed', {
-          elapsed,
-          error: error.message
-        });
-        throw error;
-      });
-
-      const timeoutPromise = new Promise<any>((_, reject) =>
-        setTimeout(() => {
-          const elapsed = Date.now() - startTime;
-          console.error('❌ SESSION CACHE: Session fetch timeout', {
-            elapsed,
-            timeout: this.REQUEST_TIMEOUT
-          });
-          reject(new Error('Session fetch timeout - SessionCache'));
-        }, this.REQUEST_TIMEOUT)
-      );
-
-      const { data: { session }, error } = await Promise.race([
-        sessionPromise,
-        timeoutPromise
-      ]);
-
+      const { data: { session }, error } = await supabase.auth.getSession();
       return { session, error };
     } catch (error: any) {
-      console.error('❌ SESSION CACHE: Session fetch error:', {
-        error: error.message,
-        elapsed: Date.now() - startTime
-      });
+      console.error('❌ SESSION CACHE: Session fetch error:', error.message);
       return { session: null, error };
     }
   }

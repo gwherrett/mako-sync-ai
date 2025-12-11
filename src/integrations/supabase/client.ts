@@ -39,40 +39,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     // Increase timeout for auth operations
     flowType: 'pkce'
   },
-  global: {
-    // Enhanced fetch configuration for better network resilience
-    fetch: (url, options = {}) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.error('🚨 SUPABASE CLIENT: Network request timeout after 15000ms for:', url);
-        controller.abort();
-      }, 15000); // 15s timeout - more reasonable for user-facing operations
-      
-      const requestOptions = options as RequestInit;
-      
-      // Properly merge headers - handle both Headers object and plain object
-      const existingHeaders = requestOptions.headers instanceof Headers
-        ? Object.fromEntries(requestOptions.headers.entries())
-        : (requestOptions.headers || {});
-      
-      return fetch(url, {
-        ...requestOptions,
-        signal: controller.signal,
-        headers: {
-          ...existingHeaders,  // Preserve Supabase SDK headers (apikey, authorization)
-          'Cache-Control': 'no-cache',
-        }
-      }).catch(error => {
-        if (error.name === 'AbortError') {
-          console.error('🚨 SUPABASE CLIENT: Request aborted due to timeout for:', url);
-          throw new Error('Network request timeout - Supabase Client');
-        }
-        throw error;
-      }).finally(() => {
-        clearTimeout(timeoutId);
-      });
-    }
-  },
   db: {
     // Database connection settings
     schema: 'public'

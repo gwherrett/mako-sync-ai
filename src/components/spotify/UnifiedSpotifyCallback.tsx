@@ -193,10 +193,21 @@ export const UnifiedSpotifyCallback: React.FC = () => {
           return;
         }
 
-        // Step 5: Call edge function with timeout
+        // Step 5: Call edge function with enhanced timeout and logging
         console.log('🚀 UNIFIED CALLBACK: Step 5 - Calling spotify-auth edge function');
         const edgeFunctionStartTime = Date.now();
         const redirectUri = `${window.location.origin}/spotify-callback`;
+        
+        // Pre-flight debug logging
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://bzzstdpfmyqttnzhgaoa.supabase.co";
+        console.log('🚀 CALLING EDGE FUNCTION:', {
+          url: `${SUPABASE_URL}/functions/v1/spotify-auth`,
+          redirectUri,
+          codeLength: code?.length,
+          hasAuth: !!currentSession.access_token,
+          timestamp: new Date().toISOString(),
+          step: 5
+        });
         
         const edgeFunctionPromise = supabase.functions.invoke('spotify-auth', {
           body: { code, state, redirect_uri: redirectUri },
@@ -209,16 +220,27 @@ export const UnifiedSpotifyCallback: React.FC = () => {
             elapsed,
             hasError: !!result.error,
             error: result.error?.message,
-            step: 5
+            step: 5,
+            timestamp: new Date().toISOString()
           });
           return result;
         }).catch(error => {
           const elapsed = Date.now() - edgeFunctionStartTime;
+          const errorType = error.name === 'AbortError' ? 'NETWORK_TIMEOUT' :
+                           error.message?.includes('timeout') ? 'SERVER_TIMEOUT' :
+                           error.message?.includes('fetch') ? 'NETWORK_ERROR' : 'SERVER_ERROR';
+          
           console.error('❌ UNIFIED CALLBACK: Edge function failed', {
             elapsed,
             error: error.message,
-            step: 5
+            errorType,
+            errorName: error.name,
+            step: 5,
+            timestamp: new Date().toISOString()
           });
+          
+          // Enhance error with type information
+          error.errorType = errorType;
           throw error;
         });
 
@@ -227,11 +249,14 @@ export const UnifiedSpotifyCallback: React.FC = () => {
             const elapsed = Date.now() - edgeFunctionStartTime;
             console.error('❌ UNIFIED CALLBACK: Edge function timeout', {
               elapsed,
-              timeout: 10000,
-              step: 5
+              timeout: 45000,
+              step: 5,
+              timestamp: new Date().toISOString()
             });
-            reject(new Error('Edge function timeout'));
-          }, 10000)
+            const timeoutError = new Error('Edge function timeout - never reached server');
+            (timeoutError as any).errorType = 'NETWORK_TIMEOUT';
+            reject(timeoutError);
+          }, 45000) // Increased from 10s to 45s for cold-start edge functions
         );
 
         const response = await Promise.race([
@@ -292,23 +317,20 @@ export const UnifiedSpotifyCallback: React.FC = () => {
         setTimeout(() => navigate('/'), 1500);
 
       } catch (error: any) {
-        const totalElapsed = Date.now() - startTime;
-        console.error('❌ UNIFIED CALLBACK: Critical error:', {
-          error: error.message,
-          stack: error.stack,
-          totalElapsed,
-          timestamp: new Date().toISOString()
-        });
+        console.error('❌ UNIFIED CALLBACK: Critical error:', error);
         
-        // Clean up execution flag on error
+        // DON'T trigger a session check that might fail
+        // Just navigate with existing session intact
         sessionStorage.removeItem(executionFlag);
         
         toast({
           title: "Connection Failed",
-          description: `Failed to connect to Spotify: ${error.message}`,
+          description: `Failed to connect to Spotify: ${error.message}. Please try again.`,
           variant: "destructive",
         });
-        setTimeout(() => navigate('/'), 2000);
+        
+        // Use a longer delay to ensure toast is visible
+        setTimeout(() => navigate('/'), 3000);
       } finally {
         setIsProcessing(false);
       }
