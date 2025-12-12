@@ -25,3 +25,4 @@
 - **Edge Function Timeout Requirements**: Cold-start edge functions need 45+ second timeouts for complex operations (auth, token exchange, vault storage, database upserts)
 - **Error Type Classification**: Implement specific error types (NETWORK_TIMEOUT, SERVER_TIMEOUT, NETWORK_ERROR, SERVER_ERROR) for proper user messaging
 - **Session State Preservation**: Failed operations must not trigger additional session checks that could corrupt auth state - preserve existing session
+- **Promise Timeout Protection**: Use `withTimeout()` from `src/utils/promiseUtils.ts` for operations that may hang - critical for auth operations like signOut

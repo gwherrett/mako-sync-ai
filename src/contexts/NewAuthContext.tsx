@@ -558,6 +558,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
       
+      // Clear user data and cache
       clearUserData();
       sessionCache.clearCache();
       
@@ -565,9 +566,14 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         title: 'Signed Out',
         description: 'You have been successfully signed out.',
       });
+      
     } catch (error) {
       console.error('🔴 DEBUG: SignOut exception:', error);
       handleError(error as AuthError);
+      
+      // Even if signOut fails, clear local state and navigate
+      clearUserData();
+      sessionCache.clearCache();
     } finally {
       setErrorLoading(false);
     }

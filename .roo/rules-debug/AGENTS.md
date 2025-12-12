@@ -24,6 +24,7 @@
 - **Edge Function Cold Start Timeouts**: 10-second timeouts too aggressive for cold-start edge functions that authenticate, exchange tokens, create vault secrets, and upsert database records - use 45+ seconds
 - **Network vs Server Error Differentiation**: Must distinguish between NETWORK_TIMEOUT (never reached server), SERVER_TIMEOUT (reached server but slow), NETWORK_ERROR (connectivity), and SERVER_ERROR (server-side) for proper user messaging
 - **Session Preservation on Callback Failure**: Failed Spotify callbacks must not trigger additional session checks that might corrupt auth state - preserve existing session and navigate with longer delay
+- **Promise Timeout Protection**: Use `withTimeout()` from `src/utils/promiseUtils.ts` to prevent hanging operations - critical for signOut which can hang indefinitely without timeout protection
 
 ## **Test Credentials for Consistent Testing:**
 

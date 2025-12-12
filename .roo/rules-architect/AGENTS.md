@@ -24,3 +24,4 @@
 - **Edge Function Timeout Architecture**: Cold-start functions require 45+ second timeouts due to complex operations (auth, token exchange, vault storage, database operations)
 - **Error Handling Architecture**: Structured error classification system with specific types for network vs server issues to provide appropriate user messaging
 - **Session State Preservation Architecture**: Failed operations must preserve existing auth state and avoid triggering additional session checks that could corrupt state
+- **Promise Timeout Architecture**: Use `withTimeout()` utility from `src/utils/promiseUtils.ts` to prevent hanging operations - essential for auth flows that may hang indefinitely

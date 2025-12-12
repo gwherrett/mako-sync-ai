@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthError } from '@supabase/supabase-js';
+import { withTimeout } from '@/utils/promiseUtils';
 
 export interface AuthResult {
   user: User | null;
@@ -76,26 +77,43 @@ export class AuthService {
   }
 
   /**
-   * Sign out the current user
+   * Sign out the current user with timeout protection and local fallback
    */
   static async signOut(): Promise<{ error: AuthError | null }> {
     try {
-      console.log('🔴 DEBUG: AuthService.signOut - Browser:', navigator.userAgent.includes('Edg') ? 'Edge' : 'Other');
-      console.log('🔴 DEBUG: AuthService.signOut - calling supabase.auth.signOut() with global scope');
+      console.log('🔴 DEBUG: AuthService.signOut - attempting global sign out with timeout');
       
-      const { error } = await supabase.auth.signOut({ scope: 'global' });
-      console.log('🔴 DEBUG: AuthService.signOut - supabase result:', { error });
-      
-      if (error) {
-        console.log('🔴 DEBUG: SignOut failed with global scope, trying local scope for Edge compatibility');
-        const { error: localError } = await supabase.auth.signOut({ scope: 'local' });
-        console.log('🔴 DEBUG: AuthService.signOut - local scope result:', { error: localError });
-        return { error: localError };
+      // Try global signout with 5 second timeout
+      try {
+        const result = await withTimeout(
+          supabase.auth.signOut({ scope: 'global' }),
+          5000,
+          'Sign out request timed out'
+        );
+        console.log('🔴 DEBUG: AuthService.signOut - global scope result:', result);
+        return { error: result.error };
+      } catch (timeoutError) {
+        console.warn('⚠️ DEBUG: Global signout timed out, falling back to local signout');
+        
+        // Fallback: local signout
+        const { error } = await supabase.auth.signOut({ scope: 'local' });
+        if (error) {
+          console.warn('⚠️ DEBUG: Local signout also failed, forcing manual cleanup');
+        }
+        
+        // Force clear all auth storage regardless
+        localStorage.removeItem('sb-bzzstdpfmyqttnzhgaoa-auth-token');
+        sessionStorage.clear();
+        
+        return { error: null }; // Consider success if we cleared local state
       }
-      
-      return { error };
     } catch (error) {
       console.error('🔴 DEBUG: AuthService.signOut error:', error);
+      
+      // Last resort: manually clear storage
+      localStorage.removeItem('sb-bzzstdpfmyqttnzhgaoa-auth-token');
+      sessionStorage.clear();
+      
       return { error: error as AuthError };
     }
   }

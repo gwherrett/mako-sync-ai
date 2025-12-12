@@ -55,3 +55,4 @@ This file provides guidance to agents when working with code in this repository.
 - **Session Cache Direct Access**: Critical flows must use direct `supabase.auth.getSession()` calls to prevent cascading timeout failures from session cache wrappers
 - **Supabase Client Configuration**: Never add custom fetch wrappers - use default SDK configuration to prevent conflicts with internal handling
 - **Error Classification System**: Implement specific error types (NETWORK_TIMEOUT, SERVER_TIMEOUT, NETWORK_ERROR, SERVER_ERROR) for proper user messaging and debugging
+- **Promise Timeout Protection**: Use `withTimeout()` utility from `src/utils/promiseUtils.ts` for operations that may hang indefinitely - critical for auth operations like signOut
