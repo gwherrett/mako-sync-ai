@@ -533,91 +533,42 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signOut = useCallback(async (): Promise<void> => {
     console.log('🔴 DEBUG: signOut called');
     
-    // SESSION DEBUG: Log session state before sign out
+    // SESSION DEBUG: Log session state before sign out using refs to avoid stale closures
     console.log('🔍 SESSION DEBUG (Sign Out Start): Session state before sign out process', {
-      hasUser: !!user,
-      hasSession: !!session,
-      userId: user?.id,
-      userEmail: user?.email,
-      sessionExpiry: session?.expires_at,
-      hasProfile: !!profile,
-      hasRole: !!role,
+      hasUser: !!userRef.current,
+      hasSession: !!sessionRef.current,
+      userId: userRef.current?.id,
+      userEmail: userRef.current?.email,
+      sessionExpiry: sessionRef.current?.expires_at,
+      hasProfile: !!profileRef.current,
+      hasRole: !!roleRef.current,
       signOutInitiated: true,
       timestamp: new Date().toISOString()
     });
     
-    setErrorLoading(true);
-    clearError();
-
     try {
-      console.log('🔴 DEBUG: Calling AuthService.signOut()');
+      setErrorLoading(true);
+      clearError();
+      
       const { error } = await AuthService.signOut();
-      console.log('🔴 DEBUG: AuthService.signOut() result:', { error });
       
       if (error) {
-        console.log('🔴 DEBUG: SignOut error detected:', error);
-        
-        // SESSION DEBUG: Log session state during sign out error
-        console.log('🔍 SESSION DEBUG (Sign Out Error): Session state during sign out error', {
-          hasUser: !!user,
-          hasSession: !!session,
-          userId: user?.id,
-          signOutError: error.message,
-          sessionPreserved: 'Session should be preserved due to sign out error',
-          timestamp: new Date().toISOString()
-        });
-        
+        console.error('🔴 DEBUG: SignOut error:', error);
         handleError(error, 'Failed to sign out. Please try again.');
         return;
       }
-
-      console.log('🔴 DEBUG: No error, calling clearUserData()');
-      
-      // SESSION DEBUG: Log session state before clearing
-      console.log('🔍 SESSION DEBUG (Sign Out Success): Session state before clearing after successful sign out', {
-        hasUser: !!user,
-        hasSession: !!session,
-        userId: user?.id,
-        aboutToClear: 'Session and user data will be cleared',
-        timestamp: new Date().toISOString()
-      });
       
       clearUserData();
-      
-      // Clear session cache on sign out
       sessionCache.clearCache();
-      console.log('🔴 DEBUG: Session cache cleared');
       
-      // SESSION DEBUG: Confirm session cleared after sign out
-      console.log('🔍 SESSION DEBUG (Sign Out Complete): Session state after successful sign out', {
-        userCleared: true,
-        sessionCleared: true,
-        sessionCacheCleared: true,
-        signOutComplete: true,
-        timestamp: new Date().toISOString()
-      });
-      
-      console.log('🔴 DEBUG: Showing success toast');
       toast({
         title: 'Signed Out',
         description: 'You have been successfully signed out.',
       });
     } catch (error) {
-      console.log('🔴 DEBUG: SignOut caught exception:', error);
-      
-      // SESSION DEBUG: Log session state during sign out exception
-      console.log('🔍 SESSION DEBUG (Sign Out Exception): Session state during sign out exception', {
-        hasUser: !!user,
-        hasSession: !!session,
-        userId: user?.id,
-        exception: (error as Error).message,
-        sessionPreserved: 'Session should be preserved due to sign out exception',
-        timestamp: new Date().toISOString()
-      });
-      
+      console.error('🔴 DEBUG: SignOut exception:', error);
       handleError(error as AuthError);
     } finally {
-      console.log('🔴 DEBUG: SignOut finally block, setting loading false');
       setErrorLoading(false);
     }
   }, [setErrorLoading, clearError, handleError, toast, clearUserData]);

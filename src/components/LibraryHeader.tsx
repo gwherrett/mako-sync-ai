@@ -10,6 +10,16 @@ const LibraryHeader = () => {
   const { user, signOut } = useAuth();
   const location = useLocation();
 
+  const handleSignOut = async () => {
+    console.log('🔴 SIGNOUT CLICK: Button clicked!');
+    try {
+      await signOut();
+      console.log('🔴 SIGNOUT CLICK: signOut completed');
+    } catch (err) {
+      console.error('🔴 SIGNOUT CLICK: Error:', err);
+    }
+  };
+
   const navItems = [
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/genre-mapping', label: 'Genre Mapping', icon: Settings },
@@ -32,7 +42,7 @@ const LibraryHeader = () => {
           
           <div className="flex items-center space-x-3">
           <Button
-            onClick={signOut}
+            onClick={handleSignOut}
             variant="outline"
             size="sm"
             className="text-white border-white/20 hover:bg-white/10"
