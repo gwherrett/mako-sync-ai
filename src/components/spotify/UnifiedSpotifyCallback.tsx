@@ -4,13 +4,56 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SpotifyAuthManager } from '@/services/spotifyAuthManager.service';
 import { useAuth } from '@/contexts/NewAuthContext';
-import { Loader2, Music } from 'lucide-react';
+import { Loader2, Music, AlertCircle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { withTimeout } from '@/utils/promiseUtils';
+
+// Retry configuration
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [1000, 3000, 5000]; // 1s, 3s, 5s
+
+// Progress steps
+const CALLBACK_STEPS = [
+  "Validating authorization...",
+  "Verifying security token...",
+  "Exchanging tokens with Spotify...",
+  "Storing credentials securely...",
+  "Finalizing connection..."
+];
+
+// Retry wrapper for edge function calls
+const callEdgeFunctionWithRetry = async (
+  url: string,
+  options: RequestInit,
+  attempt = 0
+): Promise<Response> => {
+  try {
+    const response = await fetch(url, options);
+    if (!response.ok && attempt < MAX_RETRIES) {
+      console.log(`🔄 RETRY: Attempt ${attempt + 1}/${MAX_RETRIES} failed, retrying in ${RETRY_DELAYS[attempt]}ms`);
+      await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
+      return callEdgeFunctionWithRetry(url, options, attempt + 1);
+    }
+    return response;
+  } catch (error) {
+    if (attempt < MAX_RETRIES) {
+      console.log(`🔄 RETRY: Network error on attempt ${attempt + 1}/${MAX_RETRIES}, retrying in ${RETRY_DELAYS[attempt]}ms`);
+      await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
+      return callEdgeFunctionWithRetry(url, options, attempt + 1);
+    }
+    throw error;
+  }
+};
 
 export const UnifiedSpotifyCallback: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { loading: authLoading, isAuthenticated, session } = useAuth();
   const [isProcessing, setIsProcessing] = useState(true);
+  const [callbackFailed, setCallbackFailed] = useState(false);
+  const [failureReason, setFailureReason] = useState<string>('');
+  const [retryData, setRetryData] = useState<{code: string; state: string} | null>(null);
+  const [currentStep, setCurrentStep] = useState(0);
 
   // Create refs to track current state values and avoid stale closures
   const authLoadingRef = useRef(authLoading);
@@ -24,6 +67,27 @@ export const UnifiedSpotifyCallback: React.FC = () => {
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  // Retry callback function
+  const retryCallback = async (data: {code: string; state: string} | null) => {
+    if (!data) return;
+    
+    setCallbackFailed(false);
+    setFailureReason('');
+    setIsProcessing(true);
+    setCurrentStep(0);
+    
+    // Re-trigger the callback process with the stored data
+    const urlParams = new URLSearchParams();
+    urlParams.set('code', data.code);
+    urlParams.set('state', data.state);
+    
+    // Update the URL to trigger the useEffect again
+    window.history.replaceState({}, '', `${window.location.pathname}?${urlParams.toString()}`);
+    
+    // Clear the execution flag to allow re-processing
+    sessionStorage.removeItem('unified_spotify_callback_processing');
+  };
 
   useEffect(() => {
     // Prevent multiple executions
@@ -44,10 +108,11 @@ export const UnifiedSpotifyCallback: React.FC = () => {
         url: window.location.href
       });
       
-      // Show initial processing toast
+      // Show initial processing toast with step progress
+      setCurrentStep(1);
       toast({
-        title: "Connecting to Spotify",
-        description: "Processing your Spotify authorization...",
+        title: `Step 1/5`,
+        description: CALLBACK_STEPS[0],
       });
       
       try {
@@ -195,28 +260,41 @@ export const UnifiedSpotifyCallback: React.FC = () => {
             maxWait: maxWaitTime
           });
           
-          // SESSION DEBUG: Log session state for auth timeout
-          console.log('🔍 SESSION DEBUG (Auth Timeout): Session state during auth context timeout', {
-            hasSession: !!sessionRef.current,
-            hasAccessToken: !!sessionRef.current?.access_token,
-            hasUser: !!sessionRef.current?.user,
-            userId: sessionRef.current?.user?.id,
-            isAuthenticated,
-            authLoadingRef: authLoadingRef.current,
-            timeoutElapsed: Date.now() - startWait,
-            maxWaitTime,
-            preservedSession: 'Session should be preserved - redirecting to /auth to maintain session',
-            timestamp: new Date().toISOString()
-          });
+          // SESSION RECOVERY: Try direct session fetch before giving up
+          console.log('⏳ Auth context timeout - attempting direct session fetch');
+          const { data: { session: directSession } } = await supabase.auth.getSession();
           
-          toast({
-            title: "Authentication Timeout",
-            description: "Authentication is taking too long. Please try again.",
-            variant: "destructive",
-          });
-          sessionStorage.removeItem(executionFlag);
-          setTimeout(() => navigate('/auth'), 2000);
-          return;
+          if (directSession?.access_token) {
+            // Use direct session instead
+            sessionRef.current = directSession;
+            console.log('✅ Recovered session via direct fetch');
+            
+            toast({
+              title: "Session Recovered",
+              description: "Continuing with Spotify connection...",
+            });
+          } else {
+            // SESSION DEBUG: Log session state for auth timeout
+            console.log('🔍 SESSION DEBUG (Auth Timeout): Session state during auth context timeout', {
+              hasSession: !!sessionRef.current,
+              hasAccessToken: !!sessionRef.current?.access_token,
+              hasUser: !!sessionRef.current?.user,
+              userId: sessionRef.current?.user?.id,
+              isAuthenticated,
+              authLoadingRef: authLoadingRef.current,
+              timeoutElapsed: Date.now() - startWait,
+              maxWaitTime,
+              directSessionRecovery: 'Failed to recover session via direct fetch',
+              timestamp: new Date().toISOString()
+            });
+            
+            // Show actionable error with retry button
+            setCallbackFailed(true);
+            setFailureReason("Session recovery failed. Please log in again and retry connecting Spotify.");
+            setRetryData({ code, state });
+            sessionStorage.removeItem(executionFlag);
+            return;
+          }
         }
 
         console.log('✅ UNIFIED CALLBACK: Auth context ready', {
@@ -226,10 +304,11 @@ export const UnifiedSpotifyCallback: React.FC = () => {
           hasSession: !!sessionRef.current
         });
 
-        // Show validation success
+        // Show validation success with step progress
+        setCurrentStep(3);
         toast({
-          title: "Authorization Validated",
-          description: "Exchanging tokens with Spotify...",
+          title: `Step 3/5`,
+          description: CALLBACK_STEPS[2],
         });
 
         // Step 4: Use session from auth context
@@ -326,11 +405,17 @@ export const UnifiedSpotifyCallback: React.FC = () => {
           });
         }
         
-        // Step 5b: Make the actual request with direct fetch
+        // Step 5b: Make the actual request with retry logic
+        setCurrentStep(4);
+        toast({
+          title: `Step 4/5`,
+          description: CALLBACK_STEPS[3],
+        });
+        
         const edgeFunctionPromise = (async () => {
           try {
-            console.log('📡 DIRECT FETCH: Starting POST request...');
-            const response = await fetch(edgeFunctionUrl, {
+            console.log('📡 DIRECT FETCH: Starting POST request with retry logic...');
+            const response = await callEdgeFunctionWithRetry(edgeFunctionUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -494,18 +579,11 @@ export const UnifiedSpotifyCallback: React.FC = () => {
           timestamp: new Date().toISOString()
         });
         
-        // DON'T trigger a session check that might fail
-        // Just navigate with existing session intact
+        // Show retry UI instead of auto-navigating
+        setCallbackFailed(true);
+        setFailureReason(`Failed to connect to Spotify: ${error.message}`);
+        setRetryData({ code, state });
         sessionStorage.removeItem(executionFlag);
-        
-        toast({
-          title: "Connection Failed",
-          description: `Failed to connect to Spotify: ${error.message}. Please try again.`,
-          variant: "destructive",
-        });
-        
-        // Use a longer delay to ensure toast is visible
-        setTimeout(() => navigate('/'), 3000);
       } finally {
         setIsProcessing(false);
       }
@@ -514,7 +592,29 @@ export const UnifiedSpotifyCallback: React.FC = () => {
     processCallback();
   }, [navigate, toast, authLoading, isAuthenticated]);
 
-  // Simple loading screen while processing
+  // Show retry UI when callback failed
+  if (callbackFailed) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4 p-6 bg-card rounded-lg shadow-lg max-w-md">
+          <AlertCircle className="w-12 h-12 text-destructive" />
+          <h2 className="text-xl font-semibold">Connection Failed</h2>
+          <p className="text-muted-foreground text-center">{failureReason}</p>
+          <div className="flex gap-2 w-full">
+            <Button onClick={() => retryCallback(retryData)} className="flex-1">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry Connection
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/')}>
+              Return to Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Enhanced loading screen with step progress
   if (isProcessing) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
@@ -526,6 +626,16 @@ export const UnifiedSpotifyCallback: React.FC = () => {
             <Loader2 className="h-5 w-5 animate-spin text-green-500" />
             <span className="text-lg font-medium">Connecting to Spotify...</span>
           </div>
+          {currentStep > 0 && (
+            <div className="text-center">
+              <p className="text-sm font-medium text-green-600">
+                Step {currentStep}/5
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {CALLBACK_STEPS[currentStep - 1]}
+              </p>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground text-center max-w-md">
             Please wait while we securely process your Spotify authorization.
             You'll be redirected automatically.

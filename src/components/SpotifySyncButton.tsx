@@ -1,33 +1,91 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Clock, RefreshCw, Play, RotateCcw, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Progress } from '@/components/ui/progress';
 import { toast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+
+interface SyncProgressData {
+  tracks_processed: number;
+  total_tracks: number | null;
+  is_full_sync: boolean;
+  new_tracks_added: number;
+  last_sync_completed_at: string | null;
+  status: 'in_progress' | 'completed' | 'failed';
+  started_at: string;
+  estimated_completion?: string;
+}
 
 const SpotifySyncButton = () => {
   const { isConnected, isLoading, isSyncing, connectSpotify, syncLikedSongs } = useUnifiedSpotifyAuth();
-  const [syncProgress, setSyncProgress] = useState<{
-    tracks_processed: number;
-    total_tracks: number | null;
+  const [syncProgress, setSyncProgress] = useState<SyncProgressData | null>(null);
+  const [lastSyncInfo, setLastSyncInfo] = useState<{
+    last_completed: string | null;
+    total_synced: number;
   } | null>(null);
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string | null>(null);
+
+  // Calculate estimated time remaining
+  const calculateEstimatedTime = (progress: SyncProgressData) => {
+    if (!progress.total_tracks || progress.tracks_processed === 0) return null;
+    
+    const startTime = new Date(progress.started_at).getTime();
+    const currentTime = Date.now();
+    const elapsedMs = currentTime - startTime;
+    const tracksPerMs = progress.tracks_processed / elapsedMs;
+    const remainingTracks = progress.total_tracks - progress.tracks_processed;
+    const estimatedRemainingMs = remainingTracks / tracksPerMs;
+    
+    const minutes = Math.ceil(estimatedRemainingMs / (1000 * 60));
+    if (minutes < 1) return "Less than 1 minute";
+    if (minutes === 1) return "About 1 minute";
+    return `About ${minutes} minutes`;
+  };
 
   useEffect(() => {
     if (!isConnected) return;
 
-    // Check for in-progress sync on mount
+    // Check for in-progress sync and last sync info on mount
     const checkProgress = async () => {
-      const { data } = await supabase
+      // Check for in-progress sync
+      const { data: progressData } = await supabase
         .from('sync_progress')
         .select('*')
         .eq('status', 'in_progress')
         .maybeSingle();
 
-      if (data) {
-        setSyncProgress({
-          tracks_processed: data.tracks_processed,
-          total_tracks: data.total_tracks
+      if (progressData) {
+        const progress: SyncProgressData = {
+          tracks_processed: progressData.tracks_processed,
+          total_tracks: progressData.total_tracks,
+          is_full_sync: progressData.is_full_sync,
+          new_tracks_added: progressData.new_tracks_added,
+          last_sync_completed_at: progressData.last_sync_completed_at,
+          status: progressData.status,
+          started_at: progressData.started_at
+        };
+        setSyncProgress(progress);
+        
+        const estimatedTime = calculateEstimatedTime(progress);
+        setEstimatedTimeRemaining(estimatedTime);
+      }
+
+      // Get last sync info
+      const { data: lastSync } = await supabase
+        .from('sync_progress')
+        .select('*')
+        .eq('status', 'completed')
+        .order('last_sync_completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastSync) {
+        setLastSyncInfo({
+          last_completed: lastSync.last_sync_completed_at,
+          total_synced: lastSync.tracks_processed
         });
       }
     };
@@ -46,31 +104,52 @@ const SpotifySyncButton = () => {
         },
         (payload: any) => {
           if (payload.new?.status === 'in_progress') {
-            const progress = {
+            const progress: SyncProgressData = {
               tracks_processed: payload.new.tracks_processed,
-              total_tracks: payload.new.total_tracks
+              total_tracks: payload.new.total_tracks,
+              is_full_sync: payload.new.is_full_sync,
+              new_tracks_added: payload.new.new_tracks_added,
+              last_sync_completed_at: payload.new.last_sync_completed_at,
+              status: payload.new.status,
+              started_at: payload.new.started_at
             };
             setSyncProgress(progress);
             
-            // Show toast with progress
+            // Calculate and update estimated time
+            const estimatedTime = calculateEstimatedTime(progress);
+            setEstimatedTimeRemaining(estimatedTime);
+            
+            // Show enhanced toast with progress and sync type
             if (progress.total_tracks) {
               const percentage = Math.round((progress.tracks_processed / progress.total_tracks) * 100);
+              const syncType = progress.is_full_sync ? "Full Sync" : "Incremental Sync";
               toast({
-                title: "Syncing in progress",
-                description: `${progress.tracks_processed} / ${progress.total_tracks} tracks (${percentage}%)`,
+                title: `${syncType} in progress`,
+                description: `${progress.tracks_processed} / ${progress.total_tracks} tracks (${percentage}%) • ${progress.new_tracks_added} new tracks`,
               });
             }
           } else if (payload.new?.status === 'completed') {
+            const completedSync = payload.new;
             setSyncProgress(null);
+            setEstimatedTimeRemaining(null);
+            
+            // Update last sync info
+            setLastSyncInfo({
+              last_completed: completedSync.last_sync_completed_at,
+              total_synced: completedSync.tracks_processed
+            });
+            
+            const syncType = completedSync.is_full_sync ? "Full sync" : "Incremental sync";
             toast({
               title: "Sync completed",
-              description: "All tracks have been synced successfully",
+              description: `${syncType} finished • ${completedSync.new_tracks_added} new tracks added`,
             });
           } else if (payload.new?.status === 'failed') {
             setSyncProgress(null);
+            setEstimatedTimeRemaining(null);
             toast({
               title: "Sync failed",
-              description: "An error occurred during sync",
+              description: "An error occurred during sync. You can resume from where it left off.",
               variant: "destructive",
             });
           }
