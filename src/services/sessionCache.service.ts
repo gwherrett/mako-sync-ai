@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
+import { withTimeout } from '@/utils/promiseUtils';
 
 /**
  * Session Cache Service
@@ -140,10 +141,33 @@ class SessionCacheService {
       const validationStart = Date.now();
       
       try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        // Use withTimeout utility to prevent hanging validation
+        const { data: { user }, error: userError } = await withTimeout(
+          supabase.auth.getUser(),
+          10000,
+          'Session validation timeout'
+        );
+        
         const validationTime = Date.now() - validationStart;
         
         if (userError || !user) {
+          // Check if this is a network/timeout error vs actual auth error
+          const isNetworkError = userError?.message?.includes('timeout') ||
+                                userError?.message?.includes('network') ||
+                                userError?.message?.includes('fetch');
+          
+          if (isNetworkError) {
+            console.log(`⚠️ SESSION CACHE: Session validation failed due to network issue after ${validationTime}ms`, {
+              error: userError?.message,
+              networkIssue: true,
+              sessionPreserved: 'Session preserved due to network error'
+            });
+            
+            // For network errors, return the session without validation
+            // Better to have a potentially stale session than to sign out the user
+            return { session, error: null };
+          }
+          
           console.log(`❌ SESSION CACHE: Session validation failed after ${validationTime}ms`, {
             error: userError?.message,
             hasUser: !!user,
@@ -151,7 +175,7 @@ class SessionCacheService {
             staleTokenDetected: true
           });
           
-          // Session is stale - clear it and return null
+          // Only sign out for actual auth errors, not network issues
           await supabase.auth.signOut({ scope: 'local' });
           return { session: null, error: userError || new Error('Stale token detected') };
         }
@@ -163,9 +187,27 @@ class SessionCacheService {
         
         return { session, error: null };
       } catch (validationError: any) {
-        console.error('❌ SESSION CACHE: Session validation error:', validationError.message);
+        const validationTime = Date.now() - validationStart;
+        const isTimeoutError = validationError.message?.includes('timeout');
+        const isNetworkError = validationError.message?.includes('network') ||
+                              validationError.message?.includes('fetch') ||
+                              validationError.name === 'AbortError';
         
-        // If validation fails, treat as stale token
+        if (isTimeoutError || isNetworkError) {
+          console.log(`⚠️ SESSION CACHE: Session validation timeout/network error after ${validationTime}ms`, {
+            error: validationError.message,
+            timeoutError: isTimeoutError,
+            networkError: isNetworkError,
+            sessionPreserved: 'Session preserved due to validation timeout/network error'
+          });
+          
+          // For timeout/network errors, return the session without validation
+          return { session, error: null };
+        }
+        
+        console.error(`❌ SESSION CACHE: Session validation error after ${validationTime}ms:`, validationError.message);
+        
+        // Only sign out for actual auth errors, not network/timeout issues
         await supabase.auth.signOut({ scope: 'local' });
         return { session: null, error: validationError };
       }

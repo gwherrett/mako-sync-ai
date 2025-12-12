@@ -142,10 +142,31 @@ export class AuthService {
       const validationStart = Date.now();
       
       try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        // Use withTimeout to prevent hanging validation
+        const { data: { user }, error: userError } = await withTimeout(
+          supabase.auth.getUser(),
+          10000,
+          'Session validation timeout'
+        );
         const validationTime = Date.now() - validationStart;
         
         if (userError || !user) {
+          // Check if this is a network/timeout error vs actual auth error
+          const isNetworkError = userError?.message?.includes('timeout') ||
+                                userError?.message?.includes('network') ||
+                                userError?.message?.includes('fetch');
+          
+          if (isNetworkError) {
+            console.log(`⚠️ AUTH SERVICE: Session validation failed due to network issue after ${validationTime}ms`, {
+              error: userError?.message,
+              networkIssue: true,
+              sessionPreserved: 'Session preserved due to network error'
+            });
+            
+            // For network errors, return the session without validation
+            return { session: data.session, error: null };
+          }
+          
           console.log(`❌ AUTH SERVICE: Session validation failed after ${validationTime}ms`, {
             error: userError?.message,
             hasUser: !!user,
@@ -154,7 +175,7 @@ export class AuthService {
             browserReopen: 'Likely stale token from browser storage'
           });
           
-          // Clear stale session
+          // Only clear session for actual auth errors, not network issues
           await supabase.auth.signOut({ scope: 'local' });
           return { session: null, error: userError || new Error('Stale token detected') as AuthError };
         }
@@ -170,10 +191,28 @@ export class AuthService {
           session: data.session,
           error: null
         };
-      } catch (validationError) {
-        console.error('❌ AUTH SERVICE: Session validation error:', validationError);
+      } catch (validationError: any) {
+        const validationTime = Date.now() - validationStart;
+        const isTimeoutError = validationError.message?.includes('timeout');
+        const isNetworkError = validationError.message?.includes('network') ||
+                              validationError.message?.includes('fetch') ||
+                              validationError.name === 'AbortError';
         
-        // If validation fails, treat as stale token
+        if (isTimeoutError || isNetworkError) {
+          console.log(`⚠️ AUTH SERVICE: Session validation timeout/network error after ${validationTime}ms`, {
+            error: validationError.message,
+            timeoutError: isTimeoutError,
+            networkError: isNetworkError,
+            sessionPreserved: 'Session preserved due to validation timeout/network error'
+          });
+          
+          // For timeout/network errors, return the session without validation
+          return { session: data.session, error: null };
+        }
+        
+        console.error(`❌ AUTH SERVICE: Session validation error after ${validationTime}ms:`, validationError);
+        
+        // Only clear session for actual auth errors, not network/timeout issues
         await supabase.auth.signOut({ scope: 'local' });
         return {
           session: null,
