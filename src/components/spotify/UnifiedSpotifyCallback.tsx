@@ -99,6 +99,10 @@ export const UnifiedSpotifyCallback: React.FC = () => {
     
     sessionStorage.setItem(executionFlag, 'true');
     
+    // Declare code and state at the top level to avoid scope issues
+    let code: string | null = null;
+    let state: string | null = null;
+    
     const processCallback = async () => {
       const startTime = Date.now();
       console.log('🟡 UNIFIED CALLBACK: Starting callback processing', {
@@ -119,8 +123,8 @@ export const UnifiedSpotifyCallback: React.FC = () => {
         // Step 1: Parse URL parameters
         console.log('📋 UNIFIED CALLBACK: Step 1 - Parsing URL parameters');
         const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const state = urlParams.get('state');
+        code = urlParams.get('code');
+        state = urlParams.get('state');
         const error = urlParams.get('error');
 
         console.log('🟡 UNIFIED CALLBACK: URL parameters parsed:', {

@@ -15,7 +15,7 @@ interface SyncProgressData {
   new_tracks_added: number;
   last_sync_completed_at: string | null;
   status: 'in_progress' | 'completed' | 'failed';
-  started_at: string;
+  created_at: string;
   estimated_completion?: string;
 }
 
@@ -32,7 +32,7 @@ const SpotifySyncButton = () => {
   const calculateEstimatedTime = (progress: SyncProgressData) => {
     if (!progress.total_tracks || progress.tracks_processed === 0) return null;
     
-    const startTime = new Date(progress.started_at).getTime();
+    const startTime = new Date(progress.created_at).getTime();
     const currentTime = Date.now();
     const elapsedMs = currentTime - startTime;
     const tracksPerMs = progress.tracks_processed / elapsedMs;
@@ -64,8 +64,8 @@ const SpotifySyncButton = () => {
           is_full_sync: progressData.is_full_sync,
           new_tracks_added: progressData.new_tracks_added,
           last_sync_completed_at: progressData.last_sync_completed_at,
-          status: progressData.status,
-          started_at: progressData.started_at
+          status: progressData.status as 'in_progress' | 'completed' | 'failed',
+          created_at: progressData.created_at
         };
         setSyncProgress(progress);
         
@@ -110,8 +110,8 @@ const SpotifySyncButton = () => {
               is_full_sync: payload.new.is_full_sync,
               new_tracks_added: payload.new.new_tracks_added,
               last_sync_completed_at: payload.new.last_sync_completed_at,
-              status: payload.new.status,
-              started_at: payload.new.started_at
+              status: payload.new.status as 'in_progress' | 'completed' | 'failed',
+              created_at: payload.new.created_at
             };
             setSyncProgress(progress);
             

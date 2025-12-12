@@ -122,6 +122,9 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="spotify" className="space-y-8">
+            <div className="flex justify-center mb-6">
+              <SpotifySyncButton />
+            </div>
             <TracksTable onTrackSelect={setSelectedTrack} selectedTrack={selectedTrack} />
             {selectedTrack && (
               <div className="bg-expos-dark-elevated/30 rounded-lg border border-expos-blue/20 p-6">
