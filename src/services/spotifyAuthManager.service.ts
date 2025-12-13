@@ -51,6 +51,10 @@ export class SpotifyAuthManager {
   private healthMonitor: any = null;
   private checkPromise: Promise<SpotifyOperationResult> | null = null;
   
+  // Sync deduplication properties
+  private syncInProgress: boolean = false;
+  private syncPromise: Promise<SpotifyOperationResult> | null = null;
+  
   // Connection check cooldown to prevent excessive API calls
   private static readonly CONNECTION_CHECK_COOLDOWN = 5000; // 5 seconds
   
@@ -219,11 +223,12 @@ export class SpotifyAuthManager {
             throw error;
           }
         })(),
-        new Promise<any>((_, reject) =>
+        new Promise<any>((resolve) =>
           setTimeout(() => {
             const elapsed = Date.now() - connectionStartTime;
-            console.error(`❌ SPOTIFY AUTH MANAGER: Connection query timeout after ${elapsed}ms (limit: 5000ms)`);
-            reject(new Error('Connection query timeout - SpotifyAuthManager'));
+            console.warn(`⚠️ SPOTIFY AUTH MANAGER: Connection query timeout after ${elapsed}ms - using last known state`);
+            // Return null data instead of throwing, which will be handled gracefully
+            resolve({ data: null, error: { message: 'Connection query timeout' } });
           }, 5000)
         )
       ]);
@@ -555,8 +560,27 @@ export class SpotifyAuthManager {
    * Sync liked songs from Spotify
    */
   async syncLikedSongs(forceFullSync: boolean = false): Promise<SpotifyOperationResult> {
-    console.log('🎵 SPOTIFY AUTH MANAGER: Starting liked songs sync...');
+    // Prevent multiple simultaneous syncs
+    if (this.syncInProgress) {
+      console.log('⏳ SPOTIFY AUTH MANAGER: Sync already in progress, returning existing promise');
+      return this.syncPromise || { success: false, error: 'Sync already in progress' };
+    }
     
+    console.log('🎵 SPOTIFY AUTH MANAGER: Starting liked songs sync...');
+    this.syncInProgress = true;
+    
+    this.syncPromise = this.performSync(forceFullSync);
+    
+    try {
+      const result = await this.syncPromise;
+      return result;
+    } finally {
+      this.syncInProgress = false;
+      this.syncPromise = null;
+    }
+  }
+
+  private async performSync(forceFullSync: boolean): Promise<SpotifyOperationResult> {
     try {
       const { session } = await sessionCache.getSession(false, 'spotify-sync');
       
@@ -578,8 +602,8 @@ export class SpotifyAuthManager {
       }
 
       console.log('✅ SPOTIFY AUTH MANAGER: Sync completed successfully');
-      return { 
-        success: true, 
+      return {
+        success: true,
         data: response.data,
         metadata: {
           duration: Date.now() - Date.now() // Will be calculated properly in real implementation

@@ -66,6 +66,9 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
 
   // Local state
   const [authState, setAuthState] = useState<SpotifyAuthState>(() => authManager.current.getState());
+  
+  // Track if initial check has been done to prevent multiple checks
+  const initialCheckDone = useRef(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -88,7 +91,19 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
         timestamp: new Date().toISOString()
       });
       
-      setAuthState(newState);
+      // Only update if state has actually changed (shallow comparison)
+      setAuthState((prevState) => {
+        if (
+          prevState.isConnected === newState.isConnected &&
+          prevState.isLoading === newState.isLoading &&
+          prevState.error === newState.error &&
+          prevState.healthStatus === newState.healthStatus &&
+          prevState.connection?.id === newState.connection?.id
+        ) {
+          return prevState; // No change, prevent re-render
+        }
+        return newState;
+      });
       
       // Notify connection change callback
       if (onConnectionChange) {
@@ -106,7 +121,8 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
     const timeSinceLastCheck = Date.now() - currentState.lastCheck;
     const shouldCheck = timeSinceLastCheck > 30000; // 30 seconds
     
-    if (shouldCheck) {
+    if (shouldCheck && !initialCheckDone.current) {
+      initialCheckDone.current = true;
       console.log('🔍 UNIFIED SPOTIFY AUTH: Performing initial connection check');
       console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Initial Check): Session preservation during initial Spotify connection check', {
         checkReason: 'Initial connection check due to stale data',

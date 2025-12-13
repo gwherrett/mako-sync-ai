@@ -4,6 +4,14 @@ import { Music, Database, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 
+// Add debounce helper
+let fetchDebounceTimer: NodeJS.Timeout | null = null;
+
+const debouncedFetch = (fn: () => void, delay: number = 1000) => {
+  if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
+  fetchDebounceTimer = setTimeout(fn, delay);
+};
+
 export const StatsOverview = () => {
   const [likedSongsCount, setLikedSongsCount] = useState<number>(0);
   const [localFilesCount, setLocalFilesCount] = useState<number>(0);
@@ -40,8 +48,10 @@ export const StatsOverview = () => {
           table: 'spotify_liked'
         },
         () => {
-          fetchLikedSongsCount();
-          fetchLastSpotifySync();
+          debouncedFetch(() => {
+            fetchLikedSongsCount();
+            fetchLastSpotifySync();
+          });
         }
       )
       .on(
@@ -52,8 +62,10 @@ export const StatsOverview = () => {
           table: 'local_mp3s'
         },
         () => {
-          fetchLocalFilesCount();
-          fetchLastLocalSync();
+          debouncedFetch(() => {
+            fetchLocalFilesCount();
+            fetchLastLocalSync();
+          });
         }
       )
       .subscribe();

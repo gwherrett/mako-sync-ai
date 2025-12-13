@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Loader2, Clock, RefreshCw, Play, RotateCcw, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
@@ -27,6 +27,10 @@ const SpotifySyncButton = () => {
     total_synced: number;
   } | null>(null);
   const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string | null>(null);
+  
+  // Add toast debouncing refs
+  const lastToastRef = useRef<string | null>(null);
+  const toastDebounce = useRef<NodeJS.Timeout | null>(null);
 
   // Calculate estimated time remaining
   const calculateEstimatedTime = (progress: SyncProgressData) => {
@@ -123,10 +127,19 @@ const SpotifySyncButton = () => {
             if (progress.total_tracks) {
               const percentage = Math.round((progress.tracks_processed / progress.total_tracks) * 100);
               const syncType = progress.is_full_sync ? "Full Sync" : "Incremental Sync";
-              toast({
-                title: `${syncType} in progress`,
-                description: `${progress.tracks_processed} / ${progress.total_tracks} tracks (${percentage}%) • ${progress.new_tracks_added} new tracks`,
-              });
+              const toastKey = `${progress.tracks_processed}-${progress.total_tracks}`;
+              
+              // Only show toast if it's different from last one
+              if (lastToastRef.current !== toastKey) {
+                if (toastDebounce.current) clearTimeout(toastDebounce.current);
+                toastDebounce.current = setTimeout(() => {
+                  lastToastRef.current = toastKey;
+                  toast({
+                    title: `${syncType} in progress`,
+                    description: `${progress.tracks_processed} / ${progress.total_tracks} tracks (${percentage}%) • ${progress.new_tracks_added} new tracks`,
+                  });
+                }, 500); // Debounce toasts by 500ms
+              }
             }
           } else if (payload.new?.status === 'completed') {
             const completedSync = payload.new;
