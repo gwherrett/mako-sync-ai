@@ -32,6 +32,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/NewAuthContext';
 
 interface LocalTrack {
   id: string;
@@ -89,24 +90,32 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
   
   const tracksPerPage = 100;
   const { toast } = useToast();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    fetchTracks();
-  }, [currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger]);
+    if (authLoading) return;
+    if (!isAuthenticated || !user) {
+      setTracks([]);
+      setTotalTracks(0);
+      setLoading(false);
+      return;
+    }
+    fetchTracks(user.id);
+  }, [authLoading, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger]);
 
   useEffect(() => {
-    fetchFilterOptions();
-  }, [refreshTrigger]); // Only re-fetch filter options when refreshTrigger changes
+    if (authLoading || !isAuthenticated || !user) return;
+    fetchFilterOptions(user.id);
+  }, [authLoading, isAuthenticated, user?.id, refreshTrigger]); // Only re-fetch filter options when refreshTrigger changes
 
   // Filter artists based on selected genre
   useEffect(() => {
+    if (!user || !isAuthenticated) return;
+
     if (selectedGenre && allArtists.length > 0) {
       // Fetch artists for the selected genre
       const fetchGenreArtists = async () => {
         try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
-
           const { data } = await supabase
             .from('local_mp3s')
             .select('artist')
@@ -126,25 +135,27 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
       // Show all artists when no genre is selected
       setArtists(allArtists);
     }
-  }, [selectedGenre, allArtists]);
+  }, [selectedGenre, allArtists, user?.id, isAuthenticated]);
 
   // Debounced search
   useEffect(() => {
+    if (authLoading || !isAuthenticated || !user) return;
     const timeoutId = setTimeout(() => {
-      fetchTracks();
+      fetchTracks(user.id);
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [authLoading, isAuthenticated, user?.id, searchQuery]);
 
   // Debounced year filters
   useEffect(() => {
+    if (authLoading || !isAuthenticated || !user) return;
     const timeoutId = setTimeout(() => {
-      fetchTracks();
+      fetchTracks(user.id);
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [yearFrom, yearTo]);
+  }, [authLoading, isAuthenticated, user?.id, yearFrom, yearTo]);
 
-  const fetchTracks = async () => {
+  const fetchTracks = async (userId: string) => {
     try {
       setLoading(true);
       
@@ -160,24 +171,16 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
         missingMetadata
       });
       
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      console.log('🎵 LocalTracksTable: Current user:', {
-        hasUser: !!user,
-        userId: user?.id,
-        userError: userError?.message
-      });
-      
-      if (!user) {
+      if (!userId) {
         console.log('❌ LocalTracksTable: No authenticated user, cannot fetch tracks');
         setTracks([]);
         setTotalTracks(0);
         return;
       }
       
-      let query = supabase.from('local_mp3s').select('*', { count: 'exact' }).eq('user_id', user.id);
+      let query = supabase.from('local_mp3s').select('*', { count: 'exact' }).eq('user_id', userId);
       console.log('🎵 LocalTracksTable: Base query created with user_id filter');
-      
+
       // Apply search filter
       if (searchQuery.trim()) {
         query = query.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%,album.ilike.%${searchQuery}%,file_path.ilike.%${searchQuery}%`);
@@ -279,21 +282,19 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
     }
   };
 
-  const fetchFilterOptions = async () => {
+  const fetchFilterOptions = async (userId: string) => {
     try {
       console.log('🔄 Fetching filter options...');
       
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
       
       // Use database functions to efficiently get distinct values
       const [genresResult, artistsResult, albumsResult] = await Promise.all([
-        supabase.rpc('get_distinct_local_genres', { user_uuid: user.id }),
-        supabase.rpc('get_distinct_local_artists', { user_uuid: user.id }),
-        supabase.rpc('get_distinct_local_albums', { user_uuid: user.id })
+        supabase.rpc('get_distinct_local_genres', { user_uuid: userId }),
+        supabase.rpc('get_distinct_local_artists', { user_uuid: userId }),
+        supabase.rpc('get_distinct_local_albums', { user_uuid: userId })
       ]);
-      
+
       console.log('📊 RPC results:', {
         genres: genresResult,
         artists: artistsResult,
@@ -409,7 +410,9 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
       });
       
       setSelectedTracks(new Set());
-      fetchTracks();
+      if (user) {
+        fetchTracks(user.id);
+      }
     } catch (error) {
       console.error('Error deleting tracks:', error);
       toast({
