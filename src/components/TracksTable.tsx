@@ -77,40 +77,40 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { hasOverride } = useGenreMappingOverrides();
 
+  // Only fetch when auth is ready and user is authenticated
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated || !user) {
+      setTracks([]);
+      setTotalTracks(0);
+      setLoading(false);
+      return;
+    }
     fetchTracks();
-  }, [currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter, noSuperGenre, noGenre]);
+  }, [authLoading, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter, noSuperGenre, noGenre]);
 
   // Separate useEffect for filter options that updates when genre changes
   useEffect(() => {
+    if (authLoading || !isAuthenticated || !user) return;
     fetchFilterOptions();
-  }, [selectedGenre, selectedSuperGenre]);
+  }, [authLoading, isAuthenticated, user?.id, selectedGenre, selectedSuperGenre]);
 
   // Separate useEffect for search with debouncing
   useEffect(() => {
+    if (authLoading || !isAuthenticated || !user) return;
     const timeoutId = setTimeout(() => {
       fetchTracks();
     }, 300); // 300ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [authLoading, isAuthenticated, user?.id, searchQuery]);
 
 
   const fetchTracks = async () => {
+    if (!user) return;
+    
     try {
       setLoading(true);
-      
-      if (authLoading) {
-        console.log('🎵 TracksTable: Auth still loading, skipping fetch');
-        return;
-      }
-
-      if (!isAuthenticated || !user) {
-        console.log('❌ TracksTable: No authenticated user, cannot fetch tracks');
-        setTracks([]);
-        setTotalTracks(0);
-        return;
-      }
       
       console.log('🎵 TracksTable: Starting fetchTracks for user:', { userId: user.id });
       
@@ -220,18 +220,10 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   };
 
   const fetchFilterOptions = async () => {
+    if (!user) return;
+
     try {
       console.log('🎵 TracksTable: Fetching filter options...');
-      
-      if (authLoading) {
-        console.log('🎵 TracksTable: Auth still loading, skipping filter options fetch');
-        return;
-      }
-
-      if (!isAuthenticated || !user) {
-        console.log('❌ TracksTable: No authenticated user for filter options');
-        return;
-      }
       
       const userId = user.id;
       
