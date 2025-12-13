@@ -4,6 +4,7 @@ import { Music, Database, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/NewAuthContext';
+import { withQueryTimeout } from '@/utils/supabaseQuery';
 
 // Add debounce helper
 let fetchDebounceTimer: NodeJS.Timeout | null = null;
@@ -90,144 +91,119 @@ export const StatsOverview = () => {
 
   const fetchLikedSongsCount = async (userId?: string) => {
     const effectiveUserId = userId ?? user?.id;
-
     if (!effectiveUserId) {
-      console.log('❌ StatsOverview: No user for liked songs count');
       setLikedSongsCount(0);
       setLoading(false);
       return;
     }
 
-    try {
-      console.log('📊 StatsOverview: Fetching liked songs count...', { userId: effectiveUserId });
+    const result = await withQueryTimeout(
+      async (signal) => {
+        return supabase
+          .from('spotify_liked')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', effectiveUserId)
+          .abortSignal(signal);
+      },
+      10000,
+      'StatsOverview:likedSongsCount'
+    );
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-      const { count, error } = await supabase
-        .from('spotify_liked')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', effectiveUserId)
-        .abortSignal(controller.signal);
-
-      clearTimeout(timeoutId);
-
-      console.log('📊 StatsOverview: Liked songs count result:', { count, error: error?.message });
-
-      if (error) {
-        console.error('❌ StatsOverview: Error fetching liked songs count:', error);
-        setLoading(false);
-        return;
-      }
-
-      setLikedSongsCount(count || 0);
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.error('⏱️ StatsOverview: Query timed out after 10s');
-      } else {
-        console.error('💥 StatsOverview: Error:', error);
-      }
-    } finally {
-      setLoading(false);
+    if (result.error) {
+      console.error('❌ StatsOverview: Error fetching liked songs count:', result.error);
+    } else if (result.data) {
+      setLikedSongsCount(result.data.count || 0);
     }
+    setLoading(false);
   };
 
   const fetchLocalFilesCount = async (userId?: string) => {
     const effectiveUserId = userId ?? user?.id;
-
     if (!effectiveUserId) {
-      console.log('❌ StatsOverview: No user for local files count');
       setLocalFilesCount(0);
       return;
     }
 
-    try {
-      console.log('📊 StatsOverview: Fetching local files count...', { userId: effectiveUserId });
+    const result = await withQueryTimeout(
+      async (signal) => {
+        return supabase
+          .from('local_mp3s')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', effectiveUserId)
+          .abortSignal(signal);
+      },
+      10000,
+      'StatsOverview:localFilesCount'
+    );
 
-      const { count, error } = await supabase
-        .from('local_mp3s')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', effectiveUserId);
-
-      console.log('📊 StatsOverview: Local files count result:', { count, error: error?.message });
-
-      if (error) {
-        console.error('❌ StatsOverview: Error fetching local files count:', error);
-        return;
-      }
-
-      setLocalFilesCount(count || 0);
-    } catch (error) {
-      console.error('💥 StatsOverview: Error:', error);
-    } finally {
-      setLoading(false);
+    if (result.error) {
+      console.error('❌ StatsOverview: Error fetching local files count:', result.error);
+    } else if (result.data) {
+      setLocalFilesCount(result.data.count || 0);
     }
+    setLoading(false);
   };
 
   const fetchLastSpotifySync = async (userId?: string) => {
     const effectiveUserId = userId ?? user?.id;
-
     if (!effectiveUserId) {
       setLastSpotifySync(null);
       return;
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('spotify_liked')
-        .select('created_at')
-        .eq('user_id', effectiveUserId)
-        .order('created_at', { ascending: false })
-        .limit(1);
+    const result = await withQueryTimeout(
+      async (signal) => {
+        return supabase
+          .from('spotify_liked')
+          .select('created_at')
+          .eq('user_id', effectiveUserId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .abortSignal(signal);
+      },
+      10000,
+      'StatsOverview:lastSpotifySync'
+    );
 
-      if (error) {
-        console.error('❌ StatsOverview: Error fetching last Spotify sync:', error);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        setLastSpotifySync(data[0].created_at);
-      } else {
-        setLastSpotifySync(null);
-      }
-    } catch (error) {
-      console.error('💥 StatsOverview: Error:', error);
-    } finally {
-      setLoading(false);
+    if (result.error) {
+      console.error('❌ StatsOverview: Error fetching last Spotify sync:', result.error);
+    } else if (result.data?.data && result.data.data.length > 0) {
+      setLastSpotifySync(result.data.data[0].created_at);
+    } else {
+      setLastSpotifySync(null);
     }
+    setLoading(false);
   };
 
   const fetchLastLocalSync = async (userId?: string) => {
     const effectiveUserId = userId ?? user?.id;
-
     if (!effectiveUserId) {
       setLastLocalSync(null);
       return;
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('local_mp3s')
-        .select('created_at')
-        .eq('user_id', effectiveUserId)
-        .order('created_at', { ascending: false })
-        .limit(1);
+    const result = await withQueryTimeout(
+      async (signal) => {
+        return supabase
+          .from('local_mp3s')
+          .select('created_at')
+          .eq('user_id', effectiveUserId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .abortSignal(signal);
+      },
+      10000,
+      'StatsOverview:lastLocalSync'
+    );
 
-      if (error) {
-        console.error('❌ StatsOverview: Error fetching last local sync:', error);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        setLastLocalSync(data[0].created_at);
-      } else {
-        setLastLocalSync(null);
-      }
-    } catch (error) {
-      console.error('💥 StatsOverview: Error:', error);
-    } finally {
-      setLoading(false);
+    if (result.error) {
+      console.error('❌ StatsOverview: Error fetching last local sync:', result.error);
+    } else if (result.data?.data && result.data.data.length > 0) {
+      setLastLocalSync(result.data.data[0].created_at);
+    } else {
+      setLastLocalSync(null);
     }
+    setLoading(false);
   };
 
   const collections = [
