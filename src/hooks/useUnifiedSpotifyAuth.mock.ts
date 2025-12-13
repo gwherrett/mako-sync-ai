@@ -107,7 +107,7 @@ export const useUnifiedSpotifyAuthMock = (config: UseUnifiedSpotifyAuthConfig = 
     if (isConnecting) return false;
     
     setIsConnecting(true);
-    setLastOperation(() => connectSpotify);
+    setLastOperation(() => () => connectSpotify());
     
     try {
       const result = await authManager.current.connectSpotify();
@@ -143,7 +143,7 @@ export const useUnifiedSpotifyAuthMock = (config: UseUnifiedSpotifyAuthConfig = 
     if (isDisconnecting) return false;
     
     setIsDisconnecting(true);
-    setLastOperation(() => disconnectSpotify);
+    setLastOperation(() => () => disconnectSpotify());
     
     try {
       const result = await authManager.current.disconnectSpotify();
@@ -179,7 +179,7 @@ export const useUnifiedSpotifyAuthMock = (config: UseUnifiedSpotifyAuthConfig = 
     if (isRefreshing) return false;
     
     setIsRefreshing(true);
-    setLastOperation(() => refreshTokens);
+    setLastOperation(() => () => refreshTokens());
     
     try {
       const result = await authManager.current.refreshTokens();
@@ -215,7 +215,7 @@ export const useUnifiedSpotifyAuthMock = (config: UseUnifiedSpotifyAuthConfig = 
     if (isSyncing) return false;
     
     setIsSyncing(true);
-    setLastOperation(() => syncLikedSongs(forceFullSync));
+    setLastOperation(() => () => syncLikedSongs(forceFullSync));
     
     try {
       const result = await authManager.current.syncLikedSongs(forceFullSync);
