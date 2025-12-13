@@ -94,27 +94,39 @@ export const StatsOverview = () => {
     if (!effectiveUserId) {
       console.log('❌ StatsOverview: No user for liked songs count');
       setLikedSongsCount(0);
+      setLoading(false);
       return;
     }
 
     try {
       console.log('📊 StatsOverview: Fetching liked songs count...', { userId: effectiveUserId });
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const { count, error } = await supabase
         .from('spotify_liked')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', effectiveUserId);
+        .eq('user_id', effectiveUserId)
+        .abortSignal(controller.signal);
+
+      clearTimeout(timeoutId);
 
       console.log('📊 StatsOverview: Liked songs count result:', { count, error: error?.message });
 
       if (error) {
         console.error('❌ StatsOverview: Error fetching liked songs count:', error);
+        setLoading(false);
         return;
       }
 
       setLikedSongsCount(count || 0);
-    } catch (error) {
-      console.error('💥 StatsOverview: Error:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error('⏱️ StatsOverview: Query timed out after 10s');
+      } else {
+        console.error('💥 StatsOverview: Error:', error);
+      }
     } finally {
       setLoading(false);
     }
