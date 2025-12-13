@@ -109,78 +109,34 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const fetchTracks = async () => {
     if (!user) return;
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.warn('⏱️ TracksTable: Query timeout, aborting...');
+      controller.abort();
+    }, 15000);
+    
     try {
       setLoading(true);
       
       console.log('🎵 TracksTable: Starting fetchTracks for user:', { userId: user.id });
+      const startTime = Date.now();
       
-      // Build query with filters - MUST include user_id filter for RLS
-      let query = supabase.from('spotify_liked').select('*', { count: 'exact' }).eq('user_id', user.id);
-      console.log('🎵 TracksTable: Base query created with user_id filter');
+      // Count query with timeout
+      let countQuery = supabase
+        .from('spotify_liked')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .abortSignal(controller.signal);
       
-      // Apply search filter
-      if (searchQuery.trim()) {
-        query = query.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`);
-      }
-
-      // Apply genre filter
-      if (selectedGenre) {
-        query = query.eq('genre', selectedGenre);
-      }
-      
-      // Apply "No Genre" filter
-      if (noGenre) {
-        query = query.is('genre', null);
-      }
-      
-      // Apply "No Super Genre" filter
-      if (noSuperGenre) {
-        query = query.is('super_genre', null);
-      }
-      
-      // Apply super genre filter
-      if (selectedSuperGenre) {
-        query = query.eq('super_genre', selectedSuperGenre as any);
-      }
-      
-      // Apply artist filter
-      if (selectedArtist) {
-        query = query.eq('artist', selectedArtist);
-      }
-      
-      // Apply date filters
-      if (dateFilter === 'week') {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        query = query.gte('added_at', weekAgo.toISOString());
-      } else if (dateFilter === 'month') {
-        const monthAgo = new Date();
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
-        query = query.gte('added_at', monthAgo.toISOString());
-      }
-
-      // Get total count with filters (clone query to avoid mutation issues)
-      let countQuery = supabase.from('spotify_liked').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
-      
-      // Apply the same filters for count query
+      // Apply filters to count query
       if (searchQuery.trim()) {
         countQuery = countQuery.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`);
       }
-      if (selectedGenre) {
-        countQuery = countQuery.eq('genre', selectedGenre);
-      }
-      if (noGenre) {
-        countQuery = countQuery.is('genre', null);
-      }
-      if (noSuperGenre) {
-        countQuery = countQuery.is('super_genre', null);
-      }
-      if (selectedSuperGenre) {
-        countQuery = countQuery.eq('super_genre', selectedSuperGenre as any);
-      }
-      if (selectedArtist) {
-        countQuery = countQuery.eq('artist', selectedArtist);
-      }
+      if (selectedGenre) countQuery = countQuery.eq('genre', selectedGenre);
+      if (noGenre) countQuery = countQuery.is('genre', null);
+      if (noSuperGenre) countQuery = countQuery.is('super_genre', null);
+      if (selectedSuperGenre) countQuery = countQuery.eq('super_genre', selectedSuperGenre as any);
+      if (selectedArtist) countQuery = countQuery.eq('artist', selectedArtist);
       if (dateFilter === 'week') {
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
@@ -191,30 +147,73 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         countQuery = countQuery.gte('added_at', monthAgo.toISOString());
       }
       
+      console.log('🎵 TracksTable: Executing count query...');
       const { count, error: countError } = await countQuery;
-      console.log('🎵 TracksTable: Count query result:', { count, countError: countError?.message });
+      console.log('🎵 TracksTable: Count result:', { count, error: countError?.message, duration: Date.now() - startTime });
+      
+      if (countError) {
+        console.error('❌ TracksTable: Count query error:', countError);
+        return;
+      }
+      
       setTotalTracks(count || 0);
 
-      // Get paginated tracks with filters
-      const { data, error } = await query
+      // Data query with timeout
+      let dataQuery = supabase
+        .from('spotify_liked')
+        .select('*')
+        .eq('user_id', user.id)
+        .abortSignal(controller.signal);
+      
+      // Apply same filters to data query
+      if (searchQuery.trim()) {
+        dataQuery = dataQuery.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`);
+      }
+      if (selectedGenre) dataQuery = dataQuery.eq('genre', selectedGenre);
+      if (noGenre) dataQuery = dataQuery.is('genre', null);
+      if (noSuperGenre) dataQuery = dataQuery.is('super_genre', null);
+      if (selectedSuperGenre) dataQuery = dataQuery.eq('super_genre', selectedSuperGenre as any);
+      if (selectedArtist) dataQuery = dataQuery.eq('artist', selectedArtist);
+      if (dateFilter === 'week') {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        dataQuery = dataQuery.gte('added_at', weekAgo.toISOString());
+      } else if (dateFilter === 'month') {
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        dataQuery = dataQuery.gte('added_at', monthAgo.toISOString());
+      }
+      
+      console.log('🎵 TracksTable: Executing data query...');
+      const { data, error } = await dataQuery
         .order(sortField, { ascending: sortDirection === 'asc' })
         .range((currentPage - 1) * tracksPerPage, currentPage * tracksPerPage - 1);
 
-      console.log('🎵 TracksTable: Data query result:', {
+      console.log('🎵 TracksTable: Data result:', {
         dataCount: data?.length || 0,
         error: error?.message,
-        totalCount: count
+        totalDuration: Date.now() - startTime
       });
 
       if (error) {
-        console.error('❌ TracksTable: Error fetching tracks:', error);
+        console.error('❌ TracksTable: Data query error:', error);
         return;
       }
 
       setTracks(data || []);
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error('⏱️ TracksTable: Query timed out after 15s');
+        toast({
+          title: "Query Timeout",
+          description: "The request took too long. Please try again.",
+          variant: "destructive",
+        });
+      } else {
+        console.error('💥 TracksTable: Error:', error);
+      }
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
