@@ -156,7 +156,7 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
     if (isConnecting) return false;
     
     setIsConnecting(true);
-    setLastOperation(() => connectSpotify);
+    setLastOperation(() => () => connectSpotify());
     
     try {
       // SESSION DEBUG: Log session state before Spotify connect
@@ -224,7 +224,7 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
     if (isDisconnecting) return false;
     
     setIsDisconnecting(true);
-    setLastOperation(() => disconnectSpotify);
+    setLastOperation(() => () => disconnectSpotify());
     
     try {
       // SESSION DEBUG: Log session state before Spotify disconnect
@@ -292,7 +292,7 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
     if (isRefreshing) return false;
     
     setIsRefreshing(true);
-    setLastOperation(() => refreshTokens);
+    setLastOperation(() => () => refreshTokens());
     
     try {
       const result = await authManager.current.refreshTokens();
@@ -328,7 +328,7 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
     if (isSyncing) return false;
     
     setIsSyncing(true);
-    setLastOperation(() => syncLikedSongs(forceFullSync));
+    setLastOperation(() => () => syncLikedSongs(forceFullSync));
     
     try {
       const result = await authManager.current.syncLikedSongs(forceFullSync);

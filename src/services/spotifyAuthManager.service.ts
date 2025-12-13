@@ -201,9 +201,11 @@ export class SpotifyAuthManager {
 
       const user = session.user;
 
-      // Get Spotify connection
+      // Get Spotify connection with timeout cancellation
       console.log('🔍 SPOTIFY AUTH MANAGER: Starting connection query...');
       const connectionStartTime = Date.now();
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      let queryCompleted = false;
       
       const { data: connection, error: connectionError } = await Promise.race([
         (async () => {
@@ -214,23 +216,39 @@ export class SpotifyAuthManager {
               .eq('user_id', user.id)
               .maybeSingle();
             
+            // Mark query as completed and cancel timeout
+            queryCompleted = true;
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+              timeoutId = null;
+            }
+            
             const elapsed = Date.now() - connectionStartTime;
             console.log(`✅ SPOTIFY AUTH MANAGER: Connection query completed in ${elapsed}ms`);
             return result;
           } catch (error) {
+            // Mark query as completed even on error
+            queryCompleted = true;
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+              timeoutId = null;
+            }
+            
             const elapsed = Date.now() - connectionStartTime;
             console.error(`❌ SPOTIFY AUTH MANAGER: Connection query failed after ${elapsed}ms:`, error);
             throw error;
           }
         })(),
-        new Promise<any>((resolve) =>
-          setTimeout(() => {
-            const elapsed = Date.now() - connectionStartTime;
-            console.warn(`⚠️ SPOTIFY AUTH MANAGER: Connection query timeout after ${elapsed}ms - using last known state`);
-            // Return null data instead of throwing, which will be handled gracefully
-            resolve({ data: null, error: { message: 'Connection query timeout' } });
-          }, 5000)
-        )
+        new Promise<any>((resolve) => {
+          timeoutId = setTimeout(() => {
+            // Only resolve timeout if query hasn't completed
+            if (!queryCompleted) {
+              const elapsed = Date.now() - connectionStartTime;
+              console.warn(`⚠️ SPOTIFY AUTH MANAGER: Connection query timeout after ${elapsed}ms - using last known state`);
+              resolve({ data: null, error: { message: 'Connection query timeout' } });
+            }
+          }, 5000);
+        })
       ]);
 
       if (connectionError) {
