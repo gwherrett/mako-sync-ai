@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/pagination';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/NewAuthContext';
 import { IframeBanner } from '@/components/common/IframeBanner';
 import { openInNewTab, copyToClipboard } from '@/utils/linkUtils';
 import { useGenreMappingOverrides } from '@/hooks/useGenreMappingOverrides';
@@ -73,6 +74,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
   const tracksPerPage = 50;
   const { toast } = useToast();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { hasOverride } = useGenreMappingOverrides();
 
   useEffect(() => {
@@ -98,25 +100,19 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     try {
       setLoading(true);
       
-      console.log('🎵 TracksTable: Starting fetchTracks...');
-      
-      // Get current session instead of just user to ensure proper auth context
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      console.log('🎵 TracksTable: Current session:', {
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        userId: session?.user?.id,
-        sessionError: sessionError?.message
-      });
-      
-      if (!session?.user) {
-        console.log('❌ TracksTable: No authenticated session, cannot fetch tracks');
+      if (authLoading) {
+        console.log('🎵 TracksTable: Auth still loading, skipping fetch');
+        return;
+      }
+
+      if (!isAuthenticated || !user) {
+        console.log('❌ TracksTable: No authenticated user, cannot fetch tracks');
         setTracks([]);
         setTotalTracks(0);
         return;
       }
       
-      const user = session.user;
+      console.log('🎵 TracksTable: Starting fetchTracks for user:', { userId: user.id });
       
       // Build query with filters - MUST include user_id filter for RLS
       let query = supabase.from('spotify_liked').select('*', { count: 'exact' }).eq('user_id', user.id);
@@ -227,20 +223,23 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     try {
       console.log('🎵 TracksTable: Fetching filter options...');
       
-      // Get current session to ensure proper auth context
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        console.log('❌ TracksTable: No session for filter options');
+      if (authLoading) {
+        console.log('🎵 TracksTable: Auth still loading, skipping filter options fetch');
+        return;
+      }
+
+      if (!isAuthenticated || !user) {
+        console.log('❌ TracksTable: No authenticated user for filter options');
         return;
       }
       
-      const user = session.user;
+      const userId = user.id;
       
       // Get unique artists filtered by genre and super genre if selected
       let artistQuery = supabase
         .from('spotify_liked')
         .select('artist')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .not('artist', 'is', null);
       
       if (selectedGenre) {
