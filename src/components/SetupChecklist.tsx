@@ -4,7 +4,7 @@ import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, Circle, Play, Upload, Settings, ArrowRight } from 'lucide-react';
+import { CheckCircle, Circle, Play, Upload, Settings, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ChecklistItem {
@@ -20,7 +20,7 @@ interface ChecklistItem {
 
 const SetupChecklist: React.FC = () => {
   const { user, isEmailVerified, profile } = useAuth();
-  const { isConnected, connectSpotify } = useUnifiedSpotifyAuth();
+  const { isConnected, isSyncing, connectSpotify, syncLikedSongs } = useUnifiedSpotifyAuth();
 
   const checklist: ChecklistItem[] = [
     {
@@ -156,6 +156,41 @@ const SetupChecklist: React.FC = () => {
             <p className="text-sm text-muted-foreground mt-1">
               You're all set to start syncing and organizing your music library.
             </p>
+          </div>
+        )}
+
+        {isConnected && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-foreground">Sync Controls</span>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => syncLikedSongs(false)}
+                disabled={isSyncing}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium"
+              >
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Sync Liked Songs
+                  </>
+                )}
+              </Button>
+              <Button 
+                onClick={() => syncLikedSongs(true)}
+                disabled={isSyncing}
+                variant="outline"
+                title="Clear all songs and re-sync from scratch"
+              >
+                Force Full Sync
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>
