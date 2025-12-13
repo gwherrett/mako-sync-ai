@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/NewAuthContext';
 import { IframeBanner } from '@/components/common/IframeBanner';
 import { openInNewTab, copyToClipboard } from '@/utils/linkUtils';
 import { useGenreMappingOverrides } from '@/hooks/useGenreMappingOverrides';
+import { withQueryTimeout } from '@/utils/supabaseQuery';
 
 interface SpotifyTrack {
   id: string;
@@ -109,113 +110,89 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const fetchTracks = async () => {
     if (!user) return;
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      console.warn('⏱️ TracksTable: Query timeout, aborting...');
-      controller.abort();
-    }, 15000);
+    setLoading(true);
     
-    try {
-      setLoading(true);
-      
-      console.log('🎵 TracksTable: Starting fetchTracks for user:', { userId: user.id });
-      const startTime = Date.now();
-      
-      // Count query with timeout
-      let countQuery = supabase
-        .from('spotify_liked')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .abortSignal(controller.signal);
-      
-      // Apply filters to count query
+    // Build filter function for reuse
+    const applyFilters = (query: any) => {
       if (searchQuery.trim()) {
-        countQuery = countQuery.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`);
+        query = query.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`);
       }
-      if (selectedGenre) countQuery = countQuery.eq('genre', selectedGenre);
-      if (noGenre) countQuery = countQuery.is('genre', null);
-      if (noSuperGenre) countQuery = countQuery.is('super_genre', null);
-      if (selectedSuperGenre) countQuery = countQuery.eq('super_genre', selectedSuperGenre as any);
-      if (selectedArtist) countQuery = countQuery.eq('artist', selectedArtist);
+      if (selectedGenre) query = query.eq('genre', selectedGenre);
+      if (noGenre) query = query.is('genre', null);
+      if (noSuperGenre) query = query.is('super_genre', null);
+      if (selectedSuperGenre) query = query.eq('super_genre', selectedSuperGenre as any);
+      if (selectedArtist) query = query.eq('artist', selectedArtist);
       if (dateFilter === 'week') {
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
-        countQuery = countQuery.gte('added_at', weekAgo.toISOString());
+        query = query.gte('added_at', weekAgo.toISOString());
       } else if (dateFilter === 'month') {
         const monthAgo = new Date();
         monthAgo.setMonth(monthAgo.getMonth() - 1);
-        countQuery = countQuery.gte('added_at', monthAgo.toISOString());
+        query = query.gte('added_at', monthAgo.toISOString());
       }
-      
-      console.log('🎵 TracksTable: Executing count query...');
-      const { count, error: countError } = await countQuery;
-      console.log('🎵 TracksTable: Count result:', { count, error: countError?.message, duration: Date.now() - startTime });
-      
-      if (countError) {
-        console.error('❌ TracksTable: Count query error:', countError);
-        return;
-      }
-      
-      setTotalTracks(count || 0);
+      return query;
+    };
 
-      // Data query with timeout
-      let dataQuery = supabase
-        .from('spotify_liked')
-        .select('*')
-        .eq('user_id', user.id)
-        .abortSignal(controller.signal);
-      
-      // Apply same filters to data query
-      if (searchQuery.trim()) {
-        dataQuery = dataQuery.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`);
-      }
-      if (selectedGenre) dataQuery = dataQuery.eq('genre', selectedGenre);
-      if (noGenre) dataQuery = dataQuery.is('genre', null);
-      if (noSuperGenre) dataQuery = dataQuery.is('super_genre', null);
-      if (selectedSuperGenre) dataQuery = dataQuery.eq('super_genre', selectedSuperGenre as any);
-      if (selectedArtist) dataQuery = dataQuery.eq('artist', selectedArtist);
-      if (dateFilter === 'week') {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        dataQuery = dataQuery.gte('added_at', weekAgo.toISOString());
-      } else if (dateFilter === 'month') {
-        const monthAgo = new Date();
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
-        dataQuery = dataQuery.gte('added_at', monthAgo.toISOString());
-      }
-      
-      console.log('🎵 TracksTable: Executing data query...');
-      const { data, error } = await dataQuery
-        .order(sortField, { ascending: sortDirection === 'asc' })
-        .range((currentPage - 1) * tracksPerPage, currentPage * tracksPerPage - 1);
+    // Count query with timeout
+    const countResult = await withQueryTimeout(
+      async (signal) => {
+        let query = supabase
+          .from('spotify_liked')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        query = applyFilters(query);
+        return query.abortSignal(signal);
+      },
+      15000,
+      'TracksTable:count'
+    );
 
-      console.log('🎵 TracksTable: Data result:', {
-        dataCount: data?.length || 0,
-        error: error?.message,
-        totalDuration: Date.now() - startTime
-      });
-
-      if (error) {
-        console.error('❌ TracksTable: Data query error:', error);
-        return;
-      }
-
-      setTracks(data || []);
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.error('⏱️ TracksTable: Query timed out after 15s');
+    if (countResult.error) {
+      if (countResult.timedOut) {
         toast({
           title: "Query Timeout",
           description: "The request took too long. Please try again.",
           variant: "destructive",
         });
-      } else {
-        console.error('💥 TracksTable: Error:', error);
       }
-    } finally {
-      clearTimeout(timeoutId);
       setLoading(false);
+      return;
     }
+
+    setTotalTracks(countResult.data?.count || 0);
+
+    // Data query with timeout
+    const dataResult = await withQueryTimeout(
+      async (signal) => {
+        let query = supabase
+          .from('spotify_liked')
+          .select('*')
+          .eq('user_id', user.id);
+        query = applyFilters(query);
+        return query
+          .order(sortField, { ascending: sortDirection === 'asc' })
+          .range((currentPage - 1) * tracksPerPage, currentPage * tracksPerPage - 1)
+          .abortSignal(signal);
+      },
+      15000,
+      'TracksTable:data'
+    );
+
+    if (dataResult.error) {
+      if (dataResult.timedOut) {
+        toast({
+          title: "Query Timeout",
+          description: "The request took too long. Please try again.",
+          variant: "destructive",
+        });
+      }
+      setLoading(false);
+      return;
+    }
+
+    setTracks(dataResult.data?.data || []);
+    setLoading(false);
   };
 
   const fetchFilterOptions = async () => {

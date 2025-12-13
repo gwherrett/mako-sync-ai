@@ -33,6 +33,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/NewAuthContext';
+import { withQueryTimeout } from '@/utils/supabaseQuery';
 
 interface LocalTrack {
   id: string;
@@ -156,138 +157,97 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
   }, [authLoading, isAuthenticated, user?.id, yearFrom, yearTo]);
 
   const fetchTracks = async (userId: string) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      console.warn('⏱️ LocalTracksTable: Query timeout, aborting...');
-      controller.abort();
-    }, 15000);
-    
-    try {
-      setLoading(true);
-      const startTime = Date.now();
-      
-      console.log('🎵 LocalTracksTable: Fetching tracks with filters:', {
-        search: searchQuery,
-        yearFrom,
-        yearTo,
-        artist: selectedArtist,
-        album: selectedAlbum,
-        genre: selectedGenre,
-        fileFormat,
-        fileSizeFilter,
-        missingMetadata
-      });
-      
-      if (!userId) {
-        console.log('❌ LocalTracksTable: No authenticated user, cannot fetch tracks');
-        setTracks([]);
-        setTotalTracks(0);
-        return;
-      }
-      
-      // Count query with timeout
-      let countQuery = supabase
-        .from('local_mp3s')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .abortSignal(controller.signal);
+    if (!userId) {
+      setTracks([]);
+      setTotalTracks(0);
+      setLoading(false);
+      return;
+    }
 
-      // Apply filters to count query
+    setLoading(true);
+
+    // Build filter function for reuse
+    const applyFilters = (query: any) => {
       if (searchQuery.trim()) {
-        countQuery = countQuery.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%,album.ilike.%${searchQuery}%,file_path.ilike.%${searchQuery}%`);
+        query = query.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%,album.ilike.%${searchQuery}%,file_path.ilike.%${searchQuery}%`);
       }
-      if (yearFrom) countQuery = countQuery.gte('year', parseInt(yearFrom));
-      if (yearTo) countQuery = countQuery.lte('year', parseInt(yearTo));
-      if (selectedArtist) countQuery = countQuery.eq('artist', selectedArtist);
-      if (selectedAlbum) countQuery = countQuery.eq('album', selectedAlbum);
-      if (selectedGenre) countQuery = countQuery.eq('genre', selectedGenre);
-      if (fileFormat) countQuery = countQuery.like('file_path', `%.${fileFormat}`);
-      if (fileSizeFilter === 'small') countQuery = countQuery.lt('file_size', 5 * 1024 * 1024);
-      else if (fileSizeFilter === 'medium') countQuery = countQuery.gte('file_size', 5 * 1024 * 1024).lt('file_size', 20 * 1024 * 1024);
-      else if (fileSizeFilter === 'large') countQuery = countQuery.gte('file_size', 20 * 1024 * 1024);
-      if (missingMetadata === 'title') countQuery = countQuery.is('title', null);
-      else if (missingMetadata === 'artist') countQuery = countQuery.is('artist', null);
-      else if (missingMetadata === 'album') countQuery = countQuery.is('album', null);
-      else if (missingMetadata === 'year') countQuery = countQuery.is('year', null);
-      else if (missingMetadata === 'genre') countQuery = countQuery.is('genre', null);
-      else if (missingMetadata === 'any') countQuery = countQuery.or('title.is.null,artist.is.null,album.is.null,year.is.null,genre.is.null');
-      
-      console.log('🎵 LocalTracksTable: Executing count query...');
-      const { count, error: countError } = await countQuery;
-      console.log('🎵 LocalTracksTable: Count result:', { count, error: countError?.message, duration: Date.now() - startTime });
-      
-      if (countError) {
-        console.error('❌ LocalTracksTable: Count query error:', countError);
-        return;
-      }
-      
-      setTotalTracks(count || 0);
+      if (yearFrom) query = query.gte('year', parseInt(yearFrom));
+      if (yearTo) query = query.lte('year', parseInt(yearTo));
+      if (selectedArtist) query = query.eq('artist', selectedArtist);
+      if (selectedAlbum) query = query.eq('album', selectedAlbum);
+      if (selectedGenre) query = query.eq('genre', selectedGenre);
+      if (fileFormat) query = query.like('file_path', `%.${fileFormat}`);
+      if (fileSizeFilter === 'small') query = query.lt('file_size', 5 * 1024 * 1024);
+      else if (fileSizeFilter === 'medium') query = query.gte('file_size', 5 * 1024 * 1024).lt('file_size', 20 * 1024 * 1024);
+      else if (fileSizeFilter === 'large') query = query.gte('file_size', 20 * 1024 * 1024);
+      if (missingMetadata === 'title') query = query.is('title', null);
+      else if (missingMetadata === 'artist') query = query.is('artist', null);
+      else if (missingMetadata === 'album') query = query.is('album', null);
+      else if (missingMetadata === 'year') query = query.is('year', null);
+      else if (missingMetadata === 'genre') query = query.is('genre', null);
+      else if (missingMetadata === 'any') query = query.or('title.is.null,artist.is.null,album.is.null,year.is.null,genre.is.null');
+      return query;
+    };
 
-      // Data query with timeout
-      let dataQuery = supabase
-        .from('local_mp3s')
-        .select('*')
-        .eq('user_id', userId)
-        .abortSignal(controller.signal);
-      
-      // Apply same filters to data query
-      if (searchQuery.trim()) {
-        dataQuery = dataQuery.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%,album.ilike.%${searchQuery}%,file_path.ilike.%${searchQuery}%`);
-      }
-      if (yearFrom) dataQuery = dataQuery.gte('year', parseInt(yearFrom));
-      if (yearTo) dataQuery = dataQuery.lte('year', parseInt(yearTo));
-      if (selectedArtist) dataQuery = dataQuery.eq('artist', selectedArtist);
-      if (selectedAlbum) dataQuery = dataQuery.eq('album', selectedAlbum);
-      if (selectedGenre) dataQuery = dataQuery.eq('genre', selectedGenre);
-      if (fileFormat) dataQuery = dataQuery.like('file_path', `%.${fileFormat}`);
-      if (fileSizeFilter === 'small') dataQuery = dataQuery.lt('file_size', 5 * 1024 * 1024);
-      else if (fileSizeFilter === 'medium') dataQuery = dataQuery.gte('file_size', 5 * 1024 * 1024).lt('file_size', 20 * 1024 * 1024);
-      else if (fileSizeFilter === 'large') dataQuery = dataQuery.gte('file_size', 20 * 1024 * 1024);
-      if (missingMetadata === 'title') dataQuery = dataQuery.is('title', null);
-      else if (missingMetadata === 'artist') dataQuery = dataQuery.is('artist', null);
-      else if (missingMetadata === 'album') dataQuery = dataQuery.is('album', null);
-      else if (missingMetadata === 'year') dataQuery = dataQuery.is('year', null);
-      else if (missingMetadata === 'genre') dataQuery = dataQuery.is('genre', null);
-      else if (missingMetadata === 'any') dataQuery = dataQuery.or('title.is.null,artist.is.null,album.is.null,year.is.null,genre.is.null');
+    // Count query with timeout
+    const countResult = await withQueryTimeout(
+      async (signal) => {
+        let query = supabase
+          .from('local_mp3s')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId);
+        query = applyFilters(query);
+        return query.abortSignal(signal);
+      },
+      15000,
+      'LocalTracksTable:count'
+    );
 
-      console.log('🎵 LocalTracksTable: Executing data query...');
-      const { data, error } = await dataQuery
-        .order(sortField, { ascending: sortDirection === 'asc' })
-        .range((currentPage - 1) * tracksPerPage, currentPage * tracksPerPage - 1);
-
-      console.log('🎵 LocalTracksTable: Data result:', {
-        dataCount: data?.length || 0,
-        error: error?.message,
-        totalDuration: Date.now() - startTime
-      });
-
-      if (error) {
-        console.error('❌ LocalTracksTable: Data query error:', error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch local tracks",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log('✅ LocalTracksTable: Fetched tracks:', data?.length || 0);
-      setTracks(data || []);
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.error('⏱️ LocalTracksTable: Query timed out after 15s');
+    if (countResult.error) {
+      if (countResult.timedOut) {
         toast({
           title: "Query Timeout",
           description: "The request took too long. Please try again.",
           variant: "destructive",
         });
-      } else {
-        console.error('💥 LocalTracksTable fetch error:', error);
       }
-    } finally {
-      clearTimeout(timeoutId);
       setLoading(false);
+      return;
     }
+
+    setTotalTracks(countResult.data?.count || 0);
+
+    // Data query with timeout
+    const dataResult = await withQueryTimeout(
+      async (signal) => {
+        let query = supabase
+          .from('local_mp3s')
+          .select('*')
+          .eq('user_id', userId);
+        query = applyFilters(query);
+        return query
+          .order(sortField, { ascending: sortDirection === 'asc' })
+          .range((currentPage - 1) * tracksPerPage, currentPage * tracksPerPage - 1)
+          .abortSignal(signal);
+      },
+      15000,
+      'LocalTracksTable:data'
+    );
+
+    if (dataResult.error) {
+      if (dataResult.timedOut) {
+        toast({
+          title: "Query Timeout",
+          description: "The request took too long. Please try again.",
+          variant: "destructive",
+        });
+      }
+      setLoading(false);
+      return;
+    }
+
+    setTracks(dataResult.data?.data || []);
+    setLoading(false);
   };
 
   const fetchFilterOptions = async (userId: string) => {
