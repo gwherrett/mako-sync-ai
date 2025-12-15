@@ -7,6 +7,7 @@ import SetupChecklist from '@/components/SetupChecklist';
 import TracksTable from '@/components/TracksTable';
 import LocalTracksTable from '@/components/LocalTracksTable';
 import FileUploadScanner from '@/components/FileUploadScanner';
+import SpotifySyncButton from '@/components/SpotifySyncButton';
 import SyncAnalysis from '@/components/SyncAnalysis';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -121,6 +122,7 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="spotify" className="space-y-8">
+            <SpotifySyncButton />
             <TracksTable onTrackSelect={setSelectedTrack} selectedTrack={selectedTrack} />
             {selectedTrack && (
               <div className="bg-expos-dark-elevated/30 rounded-lg border border-expos-blue/20 p-6">
