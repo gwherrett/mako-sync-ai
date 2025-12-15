@@ -90,8 +90,28 @@ export const performFullCleanup = async (): Promise<void> => {
   console.log('Service worker and cache cleanup completed');
 };
 
-// Auto-cleanup on page load in development
+// Auto-cleanup on page load
 if (import.meta.env.DEV) {
-  // Only run cleanup in development to avoid affecting production users
+  // In development, always perform full cleanup to avoid caching issues during rapid iterations
   performFullCleanup().catch(console.warn);
+} else {
+  // In production, run a one-time cleanup per browser profile to clear any legacy service workers
+  // that might interfere with Supabase/network requests. This helps fix issues where regular
+  // tabs hang while incognito works correctly due to stale service workers or caches.
+  try {
+    const cleanupKey = 'mako-sync-service-worker-cleanup-v1';
+    const hasRunCleanup = localStorage.getItem(cleanupKey) === 'true';
+
+    if (!hasRunCleanup) {
+      performFullCleanup()
+        .then(() => {
+          localStorage.setItem(cleanupKey, 'true');
+        })
+        .catch((error) => {
+          console.warn('Service worker cleanup failed in production:', error);
+        });
+    }
+  } catch (error) {
+    console.warn('Unable to access localStorage for cleanup flag:', error);
+  }
 }
