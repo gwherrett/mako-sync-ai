@@ -119,9 +119,10 @@ export class GenreMappingService {
   static async getNoGenreCount(): Promise<number> {
     const { count, error } = await supabase
       .from('spotify_liked')
-      .select('*', { count: 'exact', head: true })
+      .select('*', { count: 'exact' })
       .is('genre', null)
-      .is('super_genre', null);
+      .is('super_genre', null)
+      .range(0, 0);
 
     if (error) {
       console.error('Error fetching no-genre count:', error);

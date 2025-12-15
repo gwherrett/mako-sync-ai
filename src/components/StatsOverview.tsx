@@ -101,8 +101,9 @@ export const StatsOverview = () => {
       async (signal) => {
         return supabase
           .from('spotify_liked')
-          .select('*', { count: 'exact', head: true })
+          .select('*', { count: 'exact' })
           .eq('user_id', effectiveUserId)
+          .range(0, 0)
           .abortSignal(signal);
       },
       10000,
@@ -128,8 +129,9 @@ export const StatsOverview = () => {
       async (signal) => {
         return supabase
           .from('local_mp3s')
-          .select('*', { count: 'exact', head: true })
+          .select('*', { count: 'exact' })
           .eq('user_id', effectiveUserId)
+          .range(0, 0)
           .abortSignal(signal);
       },
       10000,

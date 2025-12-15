@@ -9,6 +9,7 @@ import { AuthStateRecoveryService } from '@/services/authStateRecovery.service';
 import { ErrorHandlingService } from '@/services/errorHandling.service';
 import { ErrorLoggingService } from '@/services/errorLogging.service';
 import { sessionCache } from '@/services/sessionCache.service';
+import { startupSessionValidator } from '@/services/startupSessionValidator.service';
 import { useAuthErrors } from '@/hooks/useAuthErrors';
 import { useToast } from '@/hooks/use-toast';
 
@@ -167,7 +168,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log('🔴 DEBUG: clearUserData completed - all state cleared');
   }, []); // Empty dependency array - no state dependencies
 
-  // Initialize auth state
+  // Initialize auth state with aggressive startup validation
   const initializeAuth = useCallback(async () => {
     console.log('🚀 INIT DEBUG: initializeAuth called', {
       alreadyInitialized: initializationRef.current,
@@ -183,6 +184,33 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log('🔄 INIT DEBUG: Starting auth initialization');
 
     try {
+      // AGGRESSIVE VALIDATION: Validate cached tokens BEFORE processing any auth state
+      // This prevents stale localStorage tokens from causing authenticated UI with invalid sessions
+      console.log('🔐 INIT DEBUG: Running aggressive startup validation...');
+      const validationResult = await startupSessionValidator.validateOnStartup();
+      
+      console.log('🔐 INIT DEBUG: Startup validation complete', {
+        isValid: validationResult.isValid,
+        wasCleared: validationResult.wasCleared,
+        reason: validationResult.reason
+      });
+
+      // If tokens were cleared due to staleness, show notification and exit early
+      if (validationResult.wasCleared) {
+        console.log('🔐 INIT DEBUG: Stale tokens were cleared, user needs to re-authenticate');
+        
+        toast({
+          title: 'Session Expired',
+          description: 'Your previous session has expired. Please sign in again.',
+          variant: 'destructive'
+        });
+        
+        clearUserData();
+        sessionValidatedRef.current = true; // Mark as validated (no valid session)
+        return;
+      }
+
+      // Now proceed with normal session check (tokens are validated)
       const { session, error } = await AuthService.getCurrentSession();
       
       console.log('📡 INIT DEBUG: Got session from AuthService', {
@@ -281,7 +309,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('🏁 INIT DEBUG: Setting loading to false');
       setLoading(false);
     }
-  }, [loadUserData]);
+  }, [loadUserData, toast, clearUserData]);
 
   // Auth state change handler
   useEffect(() => {
