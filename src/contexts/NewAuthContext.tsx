@@ -289,6 +289,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("[AUTH EVENT]", event, session?.user?.id);
         console.log('🔴 AUTH STATE CHANGE:', {
           event,
           userId: session?.user?.id,
