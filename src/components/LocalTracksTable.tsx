@@ -194,9 +194,10 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
       async (signal) => {
         let query = supabase
           .from('local_mp3s')
-          .select('*', { count: 'exact', head: true })
+          .select('*', { count: 'exact' })
           .eq('user_id', userId);
         query = applyFilters(query);
+        query = query.range(0, 0);
         return query.abortSignal(signal);
       },
       15000,
