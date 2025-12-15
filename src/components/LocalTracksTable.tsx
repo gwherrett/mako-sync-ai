@@ -32,6 +32,8 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/NewAuthContext';
+import { withQueryTimeout } from '@/utils/supabaseQuery';
 
 interface LocalTrack {
   id: string;
@@ -89,24 +91,32 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
   
   const tracksPerPage = 100;
   const { toast } = useToast();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    fetchTracks();
-  }, [currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger]);
+    if (authLoading) return;
+    if (!isAuthenticated || !user) {
+      setTracks([]);
+      setTotalTracks(0);
+      setLoading(false);
+      return;
+    }
+    fetchTracks(user.id);
+  }, [authLoading, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger]);
 
   useEffect(() => {
-    fetchFilterOptions();
-  }, [refreshTrigger]); // Only re-fetch filter options when refreshTrigger changes
+    if (authLoading || !isAuthenticated || !user) return;
+    fetchFilterOptions(user.id);
+  }, [authLoading, isAuthenticated, user?.id, refreshTrigger]); // Only re-fetch filter options when refreshTrigger changes
 
   // Filter artists based on selected genre
   useEffect(() => {
+    if (!user || !isAuthenticated) return;
+
     if (selectedGenre && allArtists.length > 0) {
       // Fetch artists for the selected genre
       const fetchGenreArtists = async () => {
         try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
-
           const { data } = await supabase
             .from('local_mp3s')
             .select('artist')
@@ -126,174 +136,133 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
       // Show all artists when no genre is selected
       setArtists(allArtists);
     }
-  }, [selectedGenre, allArtists]);
+  }, [selectedGenre, allArtists, user?.id, isAuthenticated]);
 
   // Debounced search
   useEffect(() => {
+    if (authLoading || !isAuthenticated || !user) return;
     const timeoutId = setTimeout(() => {
-      fetchTracks();
+      fetchTracks(user.id);
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [authLoading, isAuthenticated, user?.id, searchQuery]);
 
   // Debounced year filters
   useEffect(() => {
+    if (authLoading || !isAuthenticated || !user) return;
     const timeoutId = setTimeout(() => {
-      fetchTracks();
+      fetchTracks(user.id);
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [yearFrom, yearTo]);
+  }, [authLoading, isAuthenticated, user?.id, yearFrom, yearTo]);
 
-  const fetchTracks = async () => {
-    try {
-      setLoading(true);
-      
-      console.log('🎵 LocalTracksTable: Fetching tracks with filters:', {
-        search: searchQuery,
-        yearFrom,
-        yearTo,
-        artist: selectedArtist,
-        album: selectedAlbum,
-        genre: selectedGenre,
-        fileFormat,
-        fileSizeFilter,
-        missingMetadata
-      });
-      
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      console.log('🎵 LocalTracksTable: Current user:', {
-        hasUser: !!user,
-        userId: user?.id,
-        userError: userError?.message
-      });
-      
-      if (!user) {
-        console.log('❌ LocalTracksTable: No authenticated user, cannot fetch tracks');
-        setTracks([]);
-        setTotalTracks(0);
-        return;
-      }
-      
-      let query = supabase.from('local_mp3s').select('*', { count: 'exact' }).eq('user_id', user.id);
-      console.log('🎵 LocalTracksTable: Base query created with user_id filter');
-      
-      // Apply search filter
+  const fetchTracks = async (userId: string) => {
+    if (!userId) {
+      setTracks([]);
+      setTotalTracks(0);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    // Build filter function for reuse
+    const applyFilters = (query: any) => {
       if (searchQuery.trim()) {
         query = query.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%,album.ilike.%${searchQuery}%,file_path.ilike.%${searchQuery}%`);
       }
-      
-      // Apply year range filter
-      if (yearFrom) {
-        query = query.gte('year', parseInt(yearFrom));
-      }
-      if (yearTo) {
-        query = query.lte('year', parseInt(yearTo));
-      }
-      
-      // Apply metadata filters
-      if (selectedArtist) {
-        query = query.eq('artist', selectedArtist);
-      }
-      if (selectedAlbum) {
-        query = query.eq('album', selectedAlbum);
-      }
-      if (selectedGenre) {
-        query = query.eq('genre', selectedGenre);
-      }
-      
-      // Apply file format filter
-      if (fileFormat) {
-        query = query.like('file_path', `%.${fileFormat}`);
-      }
-      
-      // Apply file size filter
-      if (fileSizeFilter === 'small') {
-        query = query.lt('file_size', 5 * 1024 * 1024); // < 5MB
-      } else if (fileSizeFilter === 'medium') {
-        query = query.gte('file_size', 5 * 1024 * 1024).lt('file_size', 20 * 1024 * 1024); // 5-20MB
-      } else if (fileSizeFilter === 'large') {
-        query = query.gte('file_size', 20 * 1024 * 1024); // > 20MB
-      }
-      
-      // Apply missing metadata filter
-      if (missingMetadata === 'title') {
-        query = query.is('title', null);
-      } else if (missingMetadata === 'artist') {
-        query = query.is('artist', null);
-      } else if (missingMetadata === 'album') {
-        query = query.is('album', null);
-      } else if (missingMetadata === 'year') {
-        query = query.is('year', null);
-      } else if (missingMetadata === 'genre') {
-        query = query.is('genre', null);
-      } else if (missingMetadata === 'any') {
-        query = query.or('title.is.null,artist.is.null,album.is.null,year.is.null,genre.is.null');
-      }
+      if (yearFrom) query = query.gte('year', parseInt(yearFrom));
+      if (yearTo) query = query.lte('year', parseInt(yearTo));
+      if (selectedArtist) query = query.eq('artist', selectedArtist);
+      if (selectedAlbum) query = query.eq('album', selectedAlbum);
+      if (selectedGenre) query = query.eq('genre', selectedGenre);
+      if (fileFormat) query = query.like('file_path', `%.${fileFormat}`);
+      if (fileSizeFilter === 'small') query = query.lt('file_size', 5 * 1024 * 1024);
+      else if (fileSizeFilter === 'medium') query = query.gte('file_size', 5 * 1024 * 1024).lt('file_size', 20 * 1024 * 1024);
+      else if (fileSizeFilter === 'large') query = query.gte('file_size', 20 * 1024 * 1024);
+      if (missingMetadata === 'title') query = query.is('title', null);
+      else if (missingMetadata === 'artist') query = query.is('artist', null);
+      else if (missingMetadata === 'album') query = query.is('album', null);
+      else if (missingMetadata === 'year') query = query.is('year', null);
+      else if (missingMetadata === 'genre') query = query.is('genre', null);
+      else if (missingMetadata === 'any') query = query.or('title.is.null,artist.is.null,album.is.null,year.is.null,genre.is.null');
+      return query;
+    };
 
-      // Get total count
-      const { count, error: countError } = await query;
-      console.log('🎵 LocalTracksTable: Count query result:', { count, countError: countError?.message });
-      setTotalTracks(count || 0);
+    // Count query with timeout
+    const countResult = await withQueryTimeout(
+      async (signal) => {
+        let query = supabase
+          .from('local_mp3s')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId);
+        query = applyFilters(query);
+        return query.abortSignal(signal);
+      },
+      15000,
+      'LocalTracksTable:count'
+    );
 
-      // Get paginated tracks
-      const { data, error } = await query
-        .order(sortField, { ascending: sortDirection === 'asc' })
-        .range((currentPage - 1) * tracksPerPage, currentPage * tracksPerPage - 1);
-
-      console.log('🎵 LocalTracksTable: Data query result:', {
-        dataCount: data?.length || 0,
-        error: error?.message,
-        totalCount: count
-      });
-
-      if (error) {
-        console.error('❌ LocalTracksTable: Error fetching local tracks:', error);
+    if (countResult.error) {
+      if (countResult.timedOut) {
         toast({
-          title: "Error",
-          description: "Failed to fetch local tracks",
+          title: "Query Timeout",
+          description: "The request took too long. Please try again.",
           variant: "destructive",
         });
-        return;
       }
-
-      console.log('✅ LocalTracksTable: Fetched tracks:', data?.length || 0);
-      
-      // Log metadata extraction status
-      if (data) {
-        const metadataStats = {
-          total: data.length,
-          withArtist: data.filter(t => t.artist).length,
-          withAlbum: data.filter(t => t.album).length,
-          withGenre: data.filter(t => t.genre).length,
-          withYear: data.filter(t => t.year).length,
-        };
-        console.log('📊 Metadata extraction stats:', metadataStats);
-      }
-
-      setTracks(data || []);
-    } catch (error) {
-      console.error('💥 LocalTracksTable fetch error:', error);
-    } finally {
       setLoading(false);
+      return;
     }
+
+    setTotalTracks(countResult.data?.count || 0);
+
+    // Data query with timeout
+    const dataResult = await withQueryTimeout(
+      async (signal) => {
+        let query = supabase
+          .from('local_mp3s')
+          .select('*')
+          .eq('user_id', userId);
+        query = applyFilters(query);
+        return query
+          .order(sortField, { ascending: sortDirection === 'asc' })
+          .range((currentPage - 1) * tracksPerPage, currentPage * tracksPerPage - 1)
+          .abortSignal(signal);
+      },
+      15000,
+      'LocalTracksTable:data'
+    );
+
+    if (dataResult.error) {
+      if (dataResult.timedOut) {
+        toast({
+          title: "Query Timeout",
+          description: "The request took too long. Please try again.",
+          variant: "destructive",
+        });
+      }
+      setLoading(false);
+      return;
+    }
+
+    setTracks(dataResult.data?.data || []);
+    setLoading(false);
   };
 
-  const fetchFilterOptions = async () => {
+  const fetchFilterOptions = async (userId: string) => {
     try {
       console.log('🔄 Fetching filter options...');
       
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
       
       // Use database functions to efficiently get distinct values
       const [genresResult, artistsResult, albumsResult] = await Promise.all([
-        supabase.rpc('get_distinct_local_genres', { user_uuid: user.id }),
-        supabase.rpc('get_distinct_local_artists', { user_uuid: user.id }),
-        supabase.rpc('get_distinct_local_albums', { user_uuid: user.id })
+        supabase.rpc('get_distinct_local_genres', { user_uuid: userId }),
+        supabase.rpc('get_distinct_local_artists', { user_uuid: userId }),
+        supabase.rpc('get_distinct_local_albums', { user_uuid: userId })
       ]);
-      
+
       console.log('📊 RPC results:', {
         genres: genresResult,
         artists: artistsResult,
@@ -409,7 +378,9 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
       });
       
       setSelectedTracks(new Set());
-      fetchTracks();
+      if (user) {
+        fetchTracks(user.id);
+      }
     } catch (error) {
       console.error('Error deleting tracks:', error);
       toast({

@@ -88,6 +88,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { error, setError, clearError, setLoading: setErrorLoading, handleError } = useAuthErrors();
   const { toast } = useToast();
   const initializationRef = useRef(false);
+  const sessionValidatedRef = useRef(false); // Track if session has been validated with server
   
   // Refs for logging without causing re-renders
   const userRef = useRef<User | null>(null);
@@ -243,6 +244,10 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
+      // Mark session as validated AFTER server-side check completes
+      sessionValidatedRef.current = true;
+      console.log('✅ INIT DEBUG: Session validated with server');
+      
       if (session?.user) {
         console.log('✅ INIT DEBUG: Valid session found, setting user state');
         setSession(session);
@@ -289,90 +294,75 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           userId: session?.user?.id,
           hasSession: !!session,
           timestamp: new Date().toISOString(),
-          currentLoading: loading,
+          sessionValidated: sessionValidatedRef.current,
           initializationComplete: initializationRef.current
         });
         
+        // CRITICAL FIX: Don't trust cached localStorage sessions until server validation completes
+        // This prevents the race condition where UI shows "logged in" with stale tokens
+        if (!sessionValidatedRef.current) {
+          // Only allow explicit auth events (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED) through
+          // These events come from actual auth operations, not cached localStorage
+          const isTrustedEvent = ['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(event);
+          
+          if (!isTrustedEvent) {
+            console.log('⏳ AUTH DEBUG: Ignoring auth state change - session not yet validated with server', {
+              event,
+              reason: 'Waiting for initializeAuth to complete server-side validation',
+              timestamp: new Date().toISOString()
+            });
+            return;
+          }
+          
+          // For trusted events during initialization, mark session as validated
+          console.log('✅ AUTH DEBUG: Trusted auth event received, marking session as validated', {
+            event,
+            timestamp: new Date().toISOString()
+          });
+          sessionValidatedRef.current = true;
+        }
+        
         // SESSION DEBUG: Log detailed session state during auth changes
-        console.log('🔍 SESSION DEBUG (Auth State Change): Detailed session analysis during auth state change', {
+        console.log('🔍 SESSION DEBUG (Auth State Change): Processing validated session change', {
           event,
-          previousSession: {
-            existed: !!user,
-            userId: user?.id,
-            email: user?.email,
-            emailVerified: user?.email_confirmed_at != null
-          },
-          newSession: session ? {
-            userId: session.user?.id,
-            email: session.user?.email,
-            emailVerified: session.user?.email_confirmed_at != null,
-            hasAccessToken: !!session.access_token,
-            hasRefreshToken: !!session.refresh_token,
-            expiresAt: session.expires_at,
-            tokenType: session.token_type
-          } : null,
-          sessionTransition: {
-            from: user ? 'authenticated' : 'unauthenticated',
-            to: session?.user ? 'authenticated' : 'unauthenticated',
-            sessionPreserved: event !== 'SIGNED_OUT',
-            potentialSessionLoss: !session && !!user
-          },
+          previousUser: user?.id,
+          newUser: session?.user?.id,
           timestamp: new Date().toISOString()
         });
         
         // Prevent race conditions during initialization
-        if (!initializationRef.current && event !== 'INITIAL_SESSION') {
+        if (!initializationRef.current && event !== 'INITIAL_SESSION' && !['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(event)) {
           console.log('⚠️ AUTH DEBUG: Ignoring auth change during initialization');
-          console.log('🔍 SESSION DEBUG (Initialization Skip): Session state preserved during initialization', {
-            currentUser: user?.id,
-            currentSession: !!session,
-            preservationReason: 'Race condition prevention during initialization',
-            timestamp: new Date().toISOString()
-          });
           return;
         }
         
-        // Update state synchronously
+        // Update state synchronously - now safe because session is validated
         setSession(session);
         setUser(session?.user ?? null);
         
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ AUTH DEBUG: SIGNED_IN event - loading user data');
-          console.log('🔍 SESSION DEBUG (Sign In): Session established during sign in', {
-            userId: session.user.id,
-            sessionId: session.access_token?.substring(0, 10) + '...',
-            sessionExpiry: session.expires_at,
-            userDataLoading: 'Deferred to prevent deadlocks',
-            timestamp: new Date().toISOString()
-          });
           // Defer data loading to prevent deadlocks
           setTimeout(() => {
             loadUserData(session.user.id);
           }, 0);
         } else if (event === 'SIGNED_OUT') {
           console.log('🚪 AUTH DEBUG: SIGNED_OUT event - clearing user data');
-          console.log('🔍 SESSION DEBUG (Sign Out): Session cleared during sign out', {
-            previousUserId: user?.id,
-            sessionCleared: true,
-            userDataCleared: 'Will be cleared by clearUserData()',
-            timestamp: new Date().toISOString()
-          });
           clearUserData();
         } else if (event === 'TOKEN_REFRESHED' && session) {
           console.log('🔍 SESSION DEBUG (Token Refresh): Session refreshed', {
             userId: session.user?.id,
             newTokenExpiry: session.expires_at,
-            sessionMaintained: true,
             timestamp: new Date().toISOString()
           });
         }
         
-        console.log('🔄 AUTH DEBUG: Setting loading to false after auth change');
+        console.log('🔄 AUTH DEBUG: Setting loading to false after validated auth change');
         setLoading(false);
       }
     );
 
-    // Initialize auth state
+    // Initialize auth state - this performs server-side validation
     console.log('🚀 AUTH DEBUG: Calling initializeAuth');
     initializeAuth();
 
