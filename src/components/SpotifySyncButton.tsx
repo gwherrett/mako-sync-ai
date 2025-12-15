@@ -152,11 +152,18 @@ const SpotifySyncButton = () => {
               total_synced: completedSync.tracks_processed
             });
             
-            const syncType = completedSync.is_full_sync ? "Full sync" : "Incremental sync";
-            toast({
-              title: "Sync completed",
-              description: `${syncType} finished • ${completedSync.new_tracks_added} new tracks added`,
-            });
+            // Show user-friendly toast messages based on new tracks added
+            if (completedSync.new_tracks_added > 0) {
+              toast({
+                title: "🎵 New tracks synced!",
+                description: `${completedSync.new_tracks_added} new tracks added to your library`,
+              });
+            } else {
+              toast({
+                title: "Library up to date",
+                description: "No new tracks found during sync",
+              });
+            }
           } else if (payload.new?.status === 'failed') {
             setSyncProgress(null);
             setEstimatedTimeRemaining(null);

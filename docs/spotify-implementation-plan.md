@@ -16,7 +16,7 @@ Based on analysis of the PRD, architecture documentation, and current codebase, 
 |-----------|--------|------------|-----------------|
 | **Authentication & OAuth** | 🔧 **NEEDS TESTING** | 98% | **Production validation required** |
 | **Token Management (Vault)** | ✅ Complete | 100% | None |
-| **Sync Infrastructure** | ✅ Complete | 98% | **SpotifySyncButton now rendered** |
+| **Sync Infrastructure** | ✅ Complete | 100% | **Sync buttons moved to dashboard** |
 | **Genre Classification** | ✅ Complete | 90% | None |
 | **Missing Tracks Analysis** | ✅ Complete | 100% | None |
 | **AI Genre Suggestions** | ⚠️ Partial | 60% | Track-level interface needed |
@@ -112,7 +112,7 @@ Based on analysis of the PRD, architecture documentation, and current codebase, 
 
 4. **✅ Added Missing UI Component**
    - Rendered [`SpotifySyncButton`](src/components/SpotifySyncButton.tsx) in [`Index.tsx`](src/pages/Index.tsx) Spotify tab
-   - Positioned component prominently above tracks table
+   - Positioned component prominently in dashboard area above tracks table
    - Ensured proper integration with existing UI
 
 #### **Acceptance Criteria - COMPLETED**
@@ -122,21 +122,43 @@ Based on analysis of the PRD, architecture documentation, and current codebase, 
 - [x] SpotifySyncButton component visible in UI
 - [x] All build errors eliminated
 
-### **Phase 1B: IMMEDIATE - Production Testing Required (Priority: URGENT)**
+### **Phase 1B: COMPLETED - Dashboard Integration & Toast Updates (December 13, 2025)**
+**Status:** ✅ **COMPLETED**
+**Effort:** 2 story points
+**Timeline:** Completed same day
+
+#### **Completed Tasks**
+1. **✅ Sync Buttons Moved to Dashboard**
+   - SpotifySyncButton now positioned in dashboard area of Spotify tab
+   - Integrated with collapsible dashboard section
+   - Maintains prominent placement above tracks table
+
+2. **✅ Toast Message Updates**
+   - Updated completion toast to show "🎵 New tracks synced!" when new tracks are added
+   - Shows "Library up to date" when no new tracks found during sync
+   - Simplified user-facing messages for better UX
+
+#### **Acceptance Criteria - COMPLETED**
+- [x] Sync buttons positioned in dashboard area
+- [x] Toast shows "🎵 New tracks synced!" for new tracks
+- [x] Toast shows "Library up to date" for no new tracks
+- [x] Dashboard integration maintains functionality
+
+### **Phase 1C: IMMEDIATE - Production Testing Required (Priority: URGENT)**
 **Estimated Effort:** 2 story points
 **Timeline:** Immediate validation needed
 
 #### **Objectives**
 - Validate build error fixes work in production
 - Test complete OAuth callback flow
-- Confirm SpotifySyncButton functionality
-- Verify sync progress tracking
+- Confirm SpotifySyncButton functionality in dashboard
+- Verify updated toast messages display correctly
 
 #### **Key Tasks**
 1. **🔧 Production Validation Testing**
    - Deploy fixes to production environment
    - Test OAuth callback completion with real Spotify accounts
-   - Validate SpotifySyncButton renders and functions correctly
+   - Validate SpotifySyncButton renders and functions correctly in dashboard
    - Confirm sync progress tracking uses correct database fields
 
 2. **🔧 End-to-End OAuth Flow Testing**
@@ -146,14 +168,15 @@ Based on analysis of the PRD, architecture documentation, and current codebase, 
    - Test error handling and retry mechanisms
 
 3. **🔧 Sync Functionality Testing**
-   - Test sync button functionality
-   - Validate progress tracking displays correctly
+   - Test sync button functionality in dashboard position
+   - Validate updated toast messages display correctly
    - Confirm database operations work with fixed schema references
    - Test both incremental and full sync modes
 
 #### **Acceptance Criteria**
 - [ ] **REQUIRES USER TESTING**: OAuth flow completes successfully in production
-- [ ] **REQUIRES USER TESTING**: SpotifySyncButton renders and functions correctly
+- [ ] **REQUIRES USER TESTING**: SpotifySyncButton renders and functions correctly in dashboard
+- [ ] **REQUIRES USER TESTING**: Updated toast messages show correct text
 - [ ] **REQUIRES USER TESTING**: Sync progress tracking works with created_at field
 - [ ] **REQUIRES USER TESTING**: No runtime errors from fixed type casting
 - [ ] **REQUIRES USER TESTING**: Variable scope fixes prevent callback errors

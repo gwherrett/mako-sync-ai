@@ -1,0 +1,63 @@
+# Cache Control Headers for Authentication Security
+
+# Main HTML file - never cache to ensure fresh auth state
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+# API routes and auth callbacks - never cache
+/auth/*
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+/api/*
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+# Spotify callback and auth routes
+/spotify/*
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+# Static assets - cache with versioning
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Images and other static content
+*.png
+  Cache-Control: public, max-age=86400
+
+*.jpg
+  Cache-Control: public, max-age=86400
+
+*.svg
+  Cache-Control: public, max-age=86400
+
+*.ico
+  Cache-Control: public, max-age=86400
+
+# Prevent caching of service worker files (if any exist)
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+/service-worker.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+/workbox-*.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+# Manifest files
+/manifest.json
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0

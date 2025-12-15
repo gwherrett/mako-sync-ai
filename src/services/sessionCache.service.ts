@@ -225,6 +225,60 @@ class SessionCacheService {
     this.cache = null;
     this.pendingRequest = null;
     this.requestContexts.clear();
+    
+    // Also clear browser storage to prevent stale data
+    this.clearBrowserCache();
+  }
+
+  /**
+   * Clear browser cache and storage related to authentication
+   */
+  private clearBrowserCache(): void {
+    try {
+      // Clear auth-related localStorage items
+      const authKeys = Object.keys(localStorage).filter(key =>
+        key.includes('auth') ||
+        key.includes('token') ||
+        key.includes('session') ||
+        key.includes('supabase') ||
+        key.includes('sb-')
+      );
+      
+      authKeys.forEach(key => {
+        localStorage.removeItem(key);
+        console.log('🧹 SESSION CACHE: Cleared localStorage key:', key);
+      });
+      
+      // Clear sessionStorage
+      sessionStorage.clear();
+      
+      // Clear any auth-related caches
+      if ('caches' in window) {
+        caches.keys().then(cacheNames => {
+          cacheNames.forEach(cacheName => {
+            if (cacheName.includes('auth') || cacheName.includes('session')) {
+              caches.delete(cacheName);
+              console.log('🧹 SESSION CACHE: Cleared cache:', cacheName);
+            }
+          });
+        });
+      }
+    } catch (error) {
+      console.warn('⚠️ SESSION CACHE: Failed to clear browser cache:', error);
+    }
+  }
+
+  /**
+   * Force refresh session by clearing all caches and fetching fresh
+   */
+  async forceRefresh(): Promise<{ session: Session | null; error: any }> {
+    console.log('🔄 SESSION CACHE: Force refreshing session...');
+    
+    // Clear all caches first
+    this.clearCache();
+    
+    // Force a fresh fetch
+    return this.getSession(true, 'force-refresh');
   }
 
   /**

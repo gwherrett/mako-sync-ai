@@ -102,8 +102,7 @@ export class AuthService {
         }
         
         // Force clear all auth storage regardless
-        localStorage.removeItem('sb-bzzstdpfmyqttnzhgaoa-auth-token');
-        sessionStorage.clear();
+        this.clearAuthCache();
         
         return { error: null }; // Consider success if we cleared local state
       }
@@ -111,8 +110,7 @@ export class AuthService {
       console.error('🔴 DEBUG: AuthService.signOut error:', error);
       
       // Last resort: manually clear storage
-      localStorage.removeItem('sb-bzzstdpfmyqttnzhgaoa-auth-token');
-      sessionStorage.clear();
+      this.clearAuthCache();
       
       return { error: error as AuthError };
     }
@@ -291,6 +289,76 @@ export class AuthService {
     } catch (error) {
       console.error('AuthService.resendConfirmation error:', error);
       return { error: error as AuthError };
+    }
+  }
+
+  /**
+   * Clear all authentication-related cache and storage
+   */
+  static clearAuthCache(): void {
+    try {
+      // Clear Supabase auth token
+      localStorage.removeItem('sb-bzzstdpfmyqttnzhgaoa-auth-token');
+      
+      // Clear all auth-related localStorage items
+      const authKeys = Object.keys(localStorage).filter(key =>
+        key.includes('auth') ||
+        key.includes('token') ||
+        key.includes('session') ||
+        key.includes('supabase') ||
+        key.includes('sb-')
+      );
+      
+      authKeys.forEach(key => {
+        localStorage.removeItem(key);
+        console.log('🧹 Cleared localStorage key:', key);
+      });
+      
+      // Clear all sessionStorage
+      sessionStorage.clear();
+      
+      // Clear any cached session data
+      if ('caches' in window) {
+        caches.keys().then(cacheNames => {
+          cacheNames.forEach(cacheName => {
+            if (cacheName.includes('auth') || cacheName.includes('session')) {
+              caches.delete(cacheName);
+              console.log('🧹 Cleared cache:', cacheName);
+            }
+          });
+        });
+      }
+      
+      console.log('🧹 Auth cache cleared successfully');
+    } catch (error) {
+      console.warn('⚠️ Failed to clear auth cache:', error);
+    }
+  }
+
+  /**
+   * Force refresh session by clearing cache and fetching fresh
+   */
+  static async refreshSession(): Promise<{ session: Session | null; error: AuthError | null }> {
+    try {
+      console.log('🔄 Forcing session refresh...');
+      
+      // Clear any cached session data first
+      this.clearAuthCache();
+      
+      // Add cache-busting timestamp to force fresh request
+      const timestamp = Date.now();
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.log('❌ Session refresh error:', error.message);
+        return { session: null, error };
+      }
+      
+      console.log('✅ Session refreshed successfully at', new Date(timestamp).toISOString());
+      return { session: data.session, error: null };
+    } catch (error) {
+      console.error('❌ refreshSession error:', error);
+      return { session: null, error: error as AuthError };
     }
   }
 }
