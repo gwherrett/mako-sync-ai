@@ -139,9 +139,10 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       async (signal) => {
         let query = supabase
           .from('spotify_liked')
-          .select('*', { count: 'exact', head: true })
+          .select('*', { count: 'exact' })
           .eq('user_id', user.id);
         query = applyFilters(query);
+        query = query.range(0, 0);
         return query.abortSignal(signal);
       },
       15000,
