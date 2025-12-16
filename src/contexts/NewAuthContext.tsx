@@ -335,7 +335,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Block ALL auth state changes until initialization completes server validation
         if (!sessionValidatedRef.current) {
           // Only allow critical auth events that bypass initialization
-          const isCriticalEvent = ['SIGNED_OUT', 'USER_UPDATED', 'TOKEN_REFRESHED'].includes(event);
+          const isCriticalEvent = ['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'TOKEN_REFRESHED'].includes(event);
           
           if (!isCriticalEvent) {
             console.log('🛡️ AUTH DEBUG: Blocking auth state change - server validation incomplete', {

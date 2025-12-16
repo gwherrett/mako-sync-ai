@@ -157,10 +157,10 @@ export class StorageManagerService {
   static auditStorage(): StorageAuditResult {
     console.log('🔍 STORAGE AUDIT: Starting comprehensive storage analysis...');
     
-    const allKeys: StorageKey[] = [];
-    const keysByCategory: Record<string, StorageKey[]> = {};
-    const staleKeys: StorageKey[] = [];
-    const duplicateKeys: StorageKey[] = [];
+    const allKeys: ResolvedStorageKey[] = [];
+    const keysByCategory: Record<string, ResolvedStorageKey[]> = {};
+    const staleKeys: ResolvedStorageKey[] = [];
+    const duplicateKeys: ResolvedStorageKey[] = [];
     let totalSize = 0;
 
     // Audit localStorage
@@ -457,7 +457,13 @@ export class StorageManagerService {
           };
         }
       } else if (registryKey.key === key && registryKey.type === type) {
-        return registryKey;
+        return {
+          key,
+          type,
+          category: registryKey.category,
+          description: registryKey.description,
+          persistent: registryKey.persistent
+        };
       }
     }
     
