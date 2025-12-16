@@ -211,7 +211,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // Now proceed with normal session check (tokens are validated)
-      const { session, error } = await AuthService.getCurrentSession();
+      const { session, error } = await AuthService.getCurrentSession('initialization');
       
       console.log('📡 INIT DEBUG: Got session from AuthService', {
         hasSession: !!session,
@@ -219,6 +219,11 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: error?.message,
         userId: session?.user?.id
       });
+      
+      // CRITICAL FIX: Mark session as validated IMMEDIATELY after server check
+      // This prevents race conditions where UI updates before validation completes
+      sessionValidatedRef.current = true;
+      console.log('✅ INIT DEBUG: Session validation flag set - UI updates now safe');
       
       if (error) {
         const isTimeoutError = error.message?.includes('timeout');
@@ -271,13 +276,9 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         clearUserData();
         return;
       }
-
-      // Mark session as validated AFTER server-side check completes
-      sessionValidatedRef.current = true;
-      console.log('✅ INIT DEBUG: Session validated with server');
       
       if (session?.user) {
-        console.log('✅ INIT DEBUG: Valid session found, setting user state');
+        console.log('✅ INIT DEBUG: Valid session found, setting user state AFTER validation');
         setSession(session);
         setUser(session.user);
         
@@ -292,6 +293,9 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       console.error('💥 INIT DEBUG: Auth initialization error:', error);
+      
+      // Mark as validated even on error to prevent hanging UI
+      sessionValidatedRef.current = true;
       
       // Enhanced error handling for timeout scenarios
       const isTimeoutError = error instanceof Error && error.message?.includes('timeout');
@@ -311,7 +315,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [loadUserData, toast, clearUserData]);
 
-  // Auth state change handler
+  // Auth state change handler with enhanced race condition protection
   useEffect(() => {
     console.log('🔍 AUTH DEBUG: Setting up auth state change handler');
     
@@ -327,28 +331,33 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           initializationComplete: initializationRef.current
         });
         
-        // CRITICAL FIX: Don't trust cached localStorage sessions until server validation completes
-        // This prevents the race condition where UI shows "logged in" with stale tokens
+        // ENHANCED RACE CONDITION PROTECTION
+        // Block ALL auth state changes until initialization completes server validation
         if (!sessionValidatedRef.current) {
-          // Only allow explicit auth events (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED) through
-          // These events come from actual auth operations, not cached localStorage
-          const isTrustedEvent = ['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(event);
+          // Only allow critical auth events that bypass initialization
+          const isCriticalEvent = ['SIGNED_OUT', 'USER_UPDATED'].includes(event);
           
-          if (!isTrustedEvent) {
-            console.log('⏳ AUTH DEBUG: Ignoring auth state change - session not yet validated with server', {
+          if (!isCriticalEvent) {
+            console.log('🛡️ AUTH DEBUG: Blocking auth state change - server validation incomplete', {
               event,
-              reason: 'Waiting for initializeAuth to complete server-side validation',
+              reason: 'Preventing race condition - waiting for server validation',
               timestamp: new Date().toISOString()
             });
             return;
           }
           
-          // For trusted events during initialization, mark session as validated
-          console.log('✅ AUTH DEBUG: Trusted auth event received, marking session as validated', {
+          // For critical events, mark as validated to allow processing
+          console.log('🚨 AUTH DEBUG: Critical auth event bypassing validation check', {
             event,
             timestamp: new Date().toISOString()
           });
           sessionValidatedRef.current = true;
+        }
+        
+        // Additional protection: Ensure initialization has started
+        if (!initializationRef.current && event === 'INITIAL_SESSION') {
+          console.log('⚠️ AUTH DEBUG: INITIAL_SESSION before initialization - deferring');
+          return;
         }
         
         // SESSION DEBUG: Log detailed session state during auth changes
@@ -359,35 +368,76 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           timestamp: new Date().toISOString()
         });
         
-        // Prevent race conditions during initialization
-        if (!initializationRef.current && event !== 'INITIAL_SESSION' && !['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(event)) {
-          console.log('⚠️ AUTH DEBUG: Ignoring auth change during initialization');
-          return;
+        // ATOMIC STATE UPDATE: Update all auth state together to prevent partial updates
+        const updateAuthState = () => {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          // Only update loading state if not during initialization
+          if (initializationRef.current) {
+            setLoading(false);
+          }
+        };
+        
+        // Handle specific auth events with proper sequencing
+        switch (event) {
+          case 'SIGNED_IN':
+            if (session?.user) {
+              console.log('✅ AUTH DEBUG: SIGNED_IN event - updating state and loading user data');
+              updateAuthState();
+              
+              // Defer data loading to prevent deadlocks
+              setTimeout(() => {
+                loadUserData(session.user.id);
+              }, 0);
+            }
+            break;
+            
+          case 'SIGNED_OUT':
+            console.log('🚪 AUTH DEBUG: SIGNED_OUT event - clearing all user data');
+            clearUserData();
+            setLoading(false);
+            break;
+            
+          case 'TOKEN_REFRESHED':
+            if (session) {
+              console.log('🔍 SESSION DEBUG (Token Refresh): Session refreshed', {
+                userId: session.user?.id,
+                newTokenExpiry: session.expires_at,
+                timestamp: new Date().toISOString()
+              });
+              updateAuthState();
+            }
+            break;
+            
+          case 'USER_UPDATED':
+            console.log('👤 AUTH DEBUG: USER_UPDATED event - refreshing user data');
+            updateAuthState();
+            if (session?.user) {
+              setTimeout(() => {
+                loadUserData(session.user.id);
+              }, 0);
+            }
+            break;
+            
+          default:
+            // For other events, just update state if we have a session
+            if (session) {
+              updateAuthState();
+            } else {
+              clearUserData();
+              setLoading(false);
+            }
         }
         
-        // Update state synchronously - now safe because session is validated
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('✅ AUTH DEBUG: SIGNED_IN event - loading user data');
-          // Defer data loading to prevent deadlocks
-          setTimeout(() => {
-            loadUserData(session.user.id);
-          }, 0);
-        } else if (event === 'SIGNED_OUT') {
-          console.log('🚪 AUTH DEBUG: SIGNED_OUT event - clearing user data');
-          clearUserData();
-        } else if (event === 'TOKEN_REFRESHED' && session) {
-          console.log('🔍 SESSION DEBUG (Token Refresh): Session refreshed', {
-            userId: session.user?.id,
-            newTokenExpiry: session.expires_at,
-            timestamp: new Date().toISOString()
-          });
-        }
-        
-        console.log('🔄 AUTH DEBUG: Setting loading to false after validated auth change');
-        setLoading(false);
+        console.log('🔄 AUTH DEBUG: Auth state change processing complete', {
+          event,
+          finalState: {
+            hasUser: !!session?.user,
+            hasSession: !!session,
+            loading: false
+          }
+        });
       }
     );
 
@@ -399,7 +449,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('🧹 AUTH DEBUG: Cleaning up auth subscription');
       subscription.unsubscribe();
     };
-  }, [initializeAuth]);
+  }, [initializeAuth, loadUserData, clearUserData]);
 
   // Auth actions
   const signUp = useCallback(async (data: SignUpData): Promise<boolean> => {
