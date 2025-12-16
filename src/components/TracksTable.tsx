@@ -75,12 +75,13 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
   const tracksPerPage = 50;
   const { toast } = useToast();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, initialDataReady } = useAuth();
   const { hasOverride } = useGenreMappingOverrides();
 
   // Consolidated fetch effect - debounces search, immediate for other filters
+  // Wait for initialDataReady to prevent concurrent request deadlock
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !initialDataReady) return;
     if (!isAuthenticated || !user) {
       setTracks([]);
       setTotalTracks(0);
@@ -94,13 +95,13 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     }, searchQuery ? 300 : 0);
 
     return () => clearTimeout(timeoutId);
-  }, [authLoading, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter, noSuperGenre, noGenre, searchQuery]);
+  }, [authLoading, initialDataReady, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter, noSuperGenre, noGenre, searchQuery]);
 
   // Separate useEffect for filter options that updates when genre changes
   useEffect(() => {
-    if (authLoading || !isAuthenticated || !user) return;
+    if (authLoading || !initialDataReady || !isAuthenticated || !user) return;
     fetchFilterOptions();
-  }, [authLoading, isAuthenticated, user?.id, selectedGenre, selectedSuperGenre]);
+  }, [authLoading, initialDataReady, isAuthenticated, user?.id, selectedGenre, selectedSuperGenre]);
 
 
   const fetchTracks = async () => {

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { SpotifyAuthManager, type SpotifyAuthState, type SpotifyOperationResult } from '@/services/spotifyAuthManager.service';
 import type { SpotifyConnection } from '@/types/spotify';
+import { useAuth } from '@/contexts/NewAuthContext';
 
 /**
  * Unified Spotify Authentication Hook
@@ -54,6 +55,9 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
     onConnectionChange,
     onError
   } = config;
+
+  // Get auth context to wait for initialization
+  const { loading: authLoading, initialDataReady, isAuthenticated } = useAuth();
 
   // Get SpotifyAuthManager instance
   const authManager = useRef<SpotifyAuthManager>(
@@ -116,6 +120,23 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
       }
     });
 
+    return unsubscribe;
+  }, [onConnectionChange, onError]);
+
+  // Defer Spotify connection check until auth is fully complete
+  useEffect(() => {
+    // Don't check until auth initialization is complete
+    if (authLoading || !initialDataReady) {
+      console.log('🔍 UNIFIED SPOTIFY AUTH: Waiting for auth initialization to complete before checking Spotify connection');
+      return;
+    }
+
+    // Don't check if user is not authenticated
+    if (!isAuthenticated) {
+      console.log('🔍 UNIFIED SPOTIFY AUTH: User not authenticated, skipping Spotify connection check');
+      return;
+    }
+
     // Only check connection if we don't have recent data (avoid redundant checks)
     const currentState = authManager.current.getState();
     const timeSinceLastCheck = Date.now() - currentState.lastCheck;
@@ -123,9 +144,9 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
     
     if (shouldCheck && !initialCheckDone.current) {
       initialCheckDone.current = true;
-      console.log('🔍 UNIFIED SPOTIFY AUTH: Performing initial connection check');
+      console.log('🔍 UNIFIED SPOTIFY AUTH: Auth complete, performing initial connection check');
       console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Initial Check): Session preservation during initial Spotify connection check', {
-        checkReason: 'Initial connection check due to stale data',
+        checkReason: 'Initial connection check after auth initialization complete',
         timeSinceLastCheck,
         sessionPreservation: 'User session should be preserved during Spotify connection check',
         timestamp: new Date().toISOString()
@@ -140,9 +161,7 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
         timestamp: new Date().toISOString()
       });
     }
-
-    return unsubscribe;
-  }, [onConnectionChange, onError]);
+  }, [authLoading, initialDataReady, isAuthenticated]);
 
   // Clear error function
   const clearError = useCallback(() => {

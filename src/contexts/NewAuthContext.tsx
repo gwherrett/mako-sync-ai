@@ -20,6 +20,7 @@ export interface AuthContextType {
   profile: UserProfile | null;
   role: 'admin' | 'user' | null;
   loading: boolean;
+  initialDataReady: boolean; // Signals that auth initialization is complete and data queries can start
   
   // Auth states
   isAuthenticated: boolean;
@@ -78,6 +79,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [role, setRole] = useState<'admin' | 'user' | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialDataReady, setInitialDataReady] = useState(false); // Signals data queries can start
   
   // Update refs when state changes
   useEffect(() => { userRef.current = user; }, [user]);
@@ -310,8 +312,9 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       clearUserData();
     } finally {
-      console.log('🏁 INIT DEBUG: Setting loading to false');
+      console.log('🏁 INIT DEBUG: Setting loading to false and initialDataReady to true');
       setLoading(false);
+      setInitialDataReady(true); // Signal that data queries can now start
     }
   }, [loadUserData, toast, clearUserData]);
 
@@ -850,6 +853,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     profile,
     role,
     loading,
+    initialDataReady,
     
     // Auth states
     isAuthenticated,
