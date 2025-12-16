@@ -78,7 +78,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { hasOverride } = useGenreMappingOverrides();
 
-  // Only fetch when auth is ready and user is authenticated
+  // Consolidated fetch effect - debounces search, immediate for other filters
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated || !user) {
@@ -87,24 +87,20 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       setLoading(false);
       return;
     }
-    fetchTracks();
-  }, [authLoading, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter, noSuperGenre, noGenre]);
+    
+    // Debounce only for search query changes
+    const timeoutId = setTimeout(() => {
+      fetchTracks();
+    }, searchQuery ? 300 : 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [authLoading, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter, noSuperGenre, noGenre, searchQuery]);
 
   // Separate useEffect for filter options that updates when genre changes
   useEffect(() => {
     if (authLoading || !isAuthenticated || !user) return;
     fetchFilterOptions();
   }, [authLoading, isAuthenticated, user?.id, selectedGenre, selectedSuperGenre]);
-
-  // Separate useEffect for search with debouncing
-  useEffect(() => {
-    if (authLoading || !isAuthenticated || !user) return;
-    const timeoutId = setTimeout(() => {
-      fetchTracks();
-    }, 300); // 300ms debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [authLoading, isAuthenticated, user?.id, searchQuery]);
 
 
   const fetchTracks = async () => {
@@ -199,69 +195,83 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const fetchFilterOptions = async () => {
     if (!user) return;
 
-    try {
-      console.log('🎵 TracksTable: Fetching filter options...');
-      
-      const userId = user.id;
-      
-      // Get unique artists filtered by genre and super genre if selected
-      let artistQuery = supabase
-        .from('spotify_liked')
-        .select('artist')
-        .eq('user_id', userId)
-        .not('artist', 'is', null);
-      
-      if (selectedGenre) {
-        artistQuery = artistQuery.eq('genre', selectedGenre);
-      }
-      
-      if (noSuperGenre) {
-        artistQuery = artistQuery.is('super_genre', null);
-      } else if (selectedSuperGenre) {
-        artistQuery = artistQuery.eq('super_genre', selectedSuperGenre as any);
-      }
-      
-      const { data: artistData } = await artistQuery;
-      
-      if (artistData) {
-        const uniqueArtists = [...new Set(artistData.map(item => item.artist))].sort();
-        setArtists(uniqueArtists);
-      }
+    console.log('🎵 TracksTable: Fetching filter options...');
+    
+    const userId = user.id;
+    
+    // Get unique artists with timeout protection
+    const artistResult = await withQueryTimeout(
+      async (signal) => {
+        let query = supabase
+          .from('spotify_liked')
+          .select('artist')
+          .eq('user_id', userId)
+          .not('artist', 'is', null);
+        
+        if (selectedGenre) {
+          query = query.eq('genre', selectedGenre);
+        }
+        
+        if (noSuperGenre) {
+          query = query.is('super_genre', null);
+        } else if (selectedSuperGenre) {
+          query = query.eq('super_genre', selectedSuperGenre as any);
+        }
+        
+        return query.abortSignal(signal);
+      },
+      10000,
+      'TracksTable:filterOptions:artists'
+    );
+    
+    if (artistResult.data?.data) {
+      const uniqueArtists = [...new Set(artistResult.data.data.map(item => item.artist))].sort();
+      setArtists(uniqueArtists);
+    }
 
-      // Get unique genres filtered by super genre if selected
-      let genreQuery = supabase
-        .from('spotify_liked')
-        .select('genre')
-        .eq('user_id', user.id)
-        .not('genre', 'is', null);
+    // Get unique genres with timeout protection
+    const genreResult = await withQueryTimeout(
+      async (signal) => {
+        let query = supabase
+          .from('spotify_liked')
+          .select('genre')
+          .eq('user_id', userId)
+          .not('genre', 'is', null);
 
-      if (noSuperGenre) {
-        genreQuery = genreQuery.is('super_genre', null);
-      } else if (selectedSuperGenre) {
-        genreQuery = genreQuery.eq('super_genre', selectedSuperGenre as any);
-      }
-      
-      const { data: genreData } = await genreQuery;
-      
-      if (genreData) {
-        const uniqueGenres = [...new Set(genreData.map(item => item.genre))].sort();
-        setGenres(uniqueGenres);
-      }
+        if (noSuperGenre) {
+          query = query.is('super_genre', null);
+        } else if (selectedSuperGenre) {
+          query = query.eq('super_genre', selectedSuperGenre as any);
+        }
+        
+        return query.abortSignal(signal);
+      },
+      10000,
+      'TracksTable:filterOptions:genres'
+    );
+    
+    if (genreResult.data?.data) {
+      const uniqueGenres = [...new Set(genreResult.data.data.map(item => item.genre))].sort();
+      setGenres(uniqueGenres);
+    }
 
-      // Get unique super genres (not filtered)
-      const { data: superGenreData } = await supabase
-        .from('spotify_liked')
-        .select('super_genre')
-        .eq('user_id', user.id)
-        .not('super_genre', 'is', null);
-      
-      if (superGenreData) {
-        const uniqueSuperGenres = [...new Set(superGenreData.map(item => item.super_genre))].sort();
-        setSuperGenres(uniqueSuperGenres);
-      }
-
-    } catch (error) {
-      console.error('Error fetching filter options:', error);
+    // Get unique super genres with timeout protection
+    const superGenreResult = await withQueryTimeout(
+      async (signal) => {
+        return supabase
+          .from('spotify_liked')
+          .select('super_genre')
+          .eq('user_id', userId)
+          .not('super_genre', 'is', null)
+          .abortSignal(signal);
+      },
+      10000,
+      'TracksTable:filterOptions:superGenres'
+    );
+    
+    if (superGenreResult.data?.data) {
+      const uniqueSuperGenres = [...new Set(superGenreResult.data.data.map(item => item.super_genre))].sort();
+      setSuperGenres(uniqueSuperGenres);
     }
   };
 
