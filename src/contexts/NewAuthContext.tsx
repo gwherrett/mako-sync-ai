@@ -388,6 +388,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             if (session?.user) {
               console.log('✅ AUTH DEBUG: SIGNED_IN event - updating state and loading user data');
               updateAuthState();
+              setInitialDataReady(true); // Allow data queries to start
               
               // Defer data loading to prevent deadlocks
               setTimeout(() => {
@@ -400,6 +401,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.log('🚪 AUTH DEBUG: SIGNED_OUT event - clearing all user data');
             clearUserData();
             setLoading(false);
+            setInitialDataReady(true); // Allow UI to reset properly
             break;
             
           case 'TOKEN_REFRESHED':
@@ -410,6 +412,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 timestamp: new Date().toISOString()
               });
               updateAuthState();
+              setInitialDataReady(true); // Allow data queries to start
             }
             break;
             
