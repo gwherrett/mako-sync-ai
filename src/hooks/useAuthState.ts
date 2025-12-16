@@ -72,8 +72,6 @@ export const useAuthState = (config: AuthStateConfig = {}): AuthState => {
       const now = new Date();
       const timeRemaining = Math.max(0, expiresAt.getTime() - now.getTime());
       const minutesRemaining = Math.floor(timeRemaining / (1000 * 60));
-
-      console.log('🔴 DEBUG: Session timer update - minutes remaining:', minutesRemaining, 'warning threshold:', sessionTimeoutWarning);
       
       // Only update state if values actually changed to prevent unnecessary re-renders
       setSessionTimeRemaining(prev => prev !== minutesRemaining ? minutesRemaining : prev);
