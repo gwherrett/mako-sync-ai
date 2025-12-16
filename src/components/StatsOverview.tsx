@@ -15,7 +15,7 @@ const debouncedFetch = (fn: () => void, delay: number = 1000) => {
 };
 
 export const StatsOverview = () => {
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, initialDataReady } = useAuth();
   const [likedSongsCount, setLikedSongsCount] = useState<number>(0);
   const [localFilesCount, setLocalFilesCount] = useState<number>(0);
   const [lastSpotifySync, setLastSpotifySync] = useState<string | null>(null);
@@ -23,7 +23,8 @@ export const StatsOverview = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (authLoading) return;
+    // Wait for both auth loading AND initialDataReady to prevent concurrent request deadlock
+    if (authLoading || !initialDataReady) return;
 
     if (!isAuthenticated || !user) {
       setLikedSongsCount(0);
@@ -42,14 +43,18 @@ export const StatsOverview = () => {
         supabase.removeChannel(channel);
       }
     };
-  }, [authLoading, isAuthenticated, user?.id]);
+  }, [authLoading, initialDataReady, isAuthenticated, user?.id]);
 
   const fetchInitialData = async () => {
     if (!user || !isAuthenticated) return;
 
+    // Execute queries sequentially with small delays to prevent connection exhaustion
     await fetchLikedSongsCount(user.id);
+    await new Promise(resolve => setTimeout(resolve, 50));
     await fetchLocalFilesCount(user.id);
+    await new Promise(resolve => setTimeout(resolve, 50));
     await fetchLastSpotifySync(user.id);
+    await new Promise(resolve => setTimeout(resolve, 50));
     await fetchLastLocalSync(user.id);
   };
 
