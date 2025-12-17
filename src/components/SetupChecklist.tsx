@@ -4,7 +4,7 @@ import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, Circle, Play, Upload, Settings, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
+import { CheckCircle, Play, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ChecklistItem {
@@ -15,12 +15,11 @@ interface ChecklistItem {
   completed: boolean;
   action?: () => void;
   actionLabel?: string;
-  optional?: boolean;
 }
 
 const SetupChecklist: React.FC = () => {
-  const { user, isEmailVerified, profile } = useAuth();
-  const { isConnected, isSyncing, connectSpotify, syncLikedSongs } = useUnifiedSpotifyAuth();
+  const { isEmailVerified } = useAuth();
+  const { isConnected, connectSpotify } = useUnifiedSpotifyAuth();
 
   const checklist: ChecklistItem[] = [
     {
@@ -39,33 +38,13 @@ const SetupChecklist: React.FC = () => {
       action: connectSpotify,
       actionLabel: 'Connect Spotify',
     },
-    {
-      id: 'local-files',
-      title: 'Scan Local Music Files',
-      description: 'Upload your MP3 collection for comparison',
-      icon: <Upload className="w-5 h-5" />,
-      completed: false, // TODO: Track local files scanned
-      optional: true,
-      actionLabel: 'Scan Files',
-    },
-    {
-      id: 'preferences',
-      title: 'Configure Preferences',
-      description: 'Set up sync and genre preferences',
-      icon: <Settings className="w-5 h-5" />,
-      completed: profile?.onboarding_completed || false,
-      optional: true,
-      actionLabel: 'Set Preferences',
-    },
   ];
 
   const completedItems = checklist.filter(item => item.completed).length;
   const totalItems = checklist.length;
   const progress = (completedItems / totalItems) * 100;
 
-  const requiredItems = checklist.filter(item => !item.optional);
-  const completedRequired = requiredItems.filter(item => item.completed).length;
-  const isSetupComplete = completedRequired === requiredItems.length;
+  const isSetupComplete = completedItems === totalItems;
 
   return (
     <Card className="bg-card border-border">
@@ -115,19 +94,9 @@ const SetupChecklist: React.FC = () => {
               </div>
               
               <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <h4 className={cn(
-                    'font-medium',
-                    item.completed ? 'text-foreground' : 'text-foreground'
-                  )}>
-                    {item.title}
-                  </h4>
-                  {item.optional && (
-                    <span className="text-xs px-2 py-1 bg-muted text-muted-foreground rounded">
-                      Optional
-                    </span>
-                  )}
-                </div>
+                <h4 className="font-medium text-foreground">
+                  {item.title}
+                </h4>
                 <p className="text-sm text-muted-foreground">
                   {item.description}
                 </p>
@@ -156,41 +125,6 @@ const SetupChecklist: React.FC = () => {
             <p className="text-sm text-muted-foreground mt-1">
               You're all set to start syncing and organizing your music library.
             </p>
-          </div>
-        )}
-
-        {isConnected && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-foreground">Sync Controls</span>
-            </div>
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => syncLikedSongs(false)}
-                disabled={isSyncing}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium"
-              >
-                {isSyncing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Syncing...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Sync Liked Songs
-                  </>
-                )}
-              </Button>
-              <Button 
-                onClick={() => syncLikedSongs(true)}
-                disabled={isSyncing}
-                variant="outline"
-                title="Clear all songs and re-sync from scratch"
-              >
-                Force Full Sync
-              </Button>
-            </div>
           </div>
         )}
       </CardContent>
