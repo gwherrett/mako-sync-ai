@@ -53,6 +53,7 @@ const Index = () => {
   const [selectedLocalTrack, setSelectedLocalTrack] = useState<LocalTrack | null>(null);
   const [isDashboardCollapsed, setIsDashboardCollapsed] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [activeTab, setActiveTab] = useState('spotify');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black">
@@ -79,7 +80,7 @@ const Index = () => {
           </div>
         )}
         
-        <Tabs defaultValue="spotify" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="spotify">
               <svg viewBox="0 0 24 24" className="w-4 h-4 mr-2" fill="currentColor">
@@ -181,6 +182,7 @@ const Index = () => {
               onTrackSelect={setSelectedLocalTrack} 
               selectedTrack={selectedLocalTrack}
               refreshTrigger={refreshTrigger}
+              isActive={activeTab === 'local'}
             />
             {selectedLocalTrack && (
               <div className="bg-expos-dark-elevated/30 rounded-lg border border-expos-blue/20 p-6">
