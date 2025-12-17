@@ -56,35 +56,15 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black">
-      <LibraryHeader />
+      <LibraryHeader 
+        isDashboardCollapsed={isDashboardCollapsed}
+        onToggleDashboard={() => setIsDashboardCollapsed(!isDashboardCollapsed)}
+      />
       
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Collapsible Dashboard Section */}
-        <div className="mb-8">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsDashboardCollapsed(!isDashboardCollapsed)}
-            className="mb-4 text-gray-400 hover:text-white transition-colors"
-          >
-            {isDashboardCollapsed ? (
-              <>
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-                Show Dashboard
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                </svg>
-                Hide Dashboard
-              </>
-            )}
-          </Button>
-          
-          {!isDashboardCollapsed && (
+        {!isDashboardCollapsed && (
+          <div className="mb-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
               {/* Stats Cards - Left Column */}
               <div className="lg:col-span-4">
@@ -96,8 +76,8 @@ const Index = () => {
                 <SetupChecklist />
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
         
         <Tabs defaultValue="spotify" className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-8">

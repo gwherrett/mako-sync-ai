@@ -1,12 +1,17 @@
 import React from 'react';
-import { LogOut, Settings, Database, Home } from 'lucide-react';
+import { LogOut, Database, Home, ChevronUp, ChevronDown } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import BrandLogo from '@/components/BrandLogo';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/NewAuthContext';
 import { cn } from '@/lib/utils';
 
-const LibraryHeader = () => {
+interface LibraryHeaderProps {
+  isDashboardCollapsed?: boolean;
+  onToggleDashboard?: () => void;
+}
+
+const LibraryHeader = ({ isDashboardCollapsed, onToggleDashboard }: LibraryHeaderProps) => {
   const { user, signOut } = useAuth();
   const location = useLocation();
 
@@ -22,8 +27,7 @@ const LibraryHeader = () => {
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: Home },
-    { path: '/genre-mapping', label: 'Genre Mapping', icon: Settings },
-    { path: '/no-genre-tracks', label: 'No Genre Tracks', icon: Database },
+    { path: '/genre-mapping', label: 'Genre Mapping', icon: Database },
   ];
 
   return (
@@ -39,15 +43,35 @@ const LibraryHeader = () => {
           </Link>
           
           <div className="flex items-center space-x-3">
-          <Button
-            onClick={handleSignOut}
-            variant="outline"
-            size="sm"
-            className="text-white border-white/20 hover:bg-white/10"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
+            {onToggleDashboard && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onToggleDashboard}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isDashboardCollapsed ? (
+                  <>
+                    <ChevronDown className="w-4 h-4 mr-2" />
+                    Show Dashboard
+                  </>
+                ) : (
+                  <>
+                    <ChevronUp className="w-4 h-4 mr-2" />
+                    Hide Dashboard
+                  </>
+                )}
+              </Button>
+            )}
+            <Button
+              onClick={handleSignOut}
+              variant="outline"
+              size="sm"
+              className="text-white border-white/20 hover:bg-white/10"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
           </div>
         </div>
 
