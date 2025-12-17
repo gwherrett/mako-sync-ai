@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, Shield, Settings, Database, Home, Activity } from 'lucide-react';
+import { LogOut, Settings, Database, Home } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import BrandLogo from '@/components/BrandLogo';
 import { Button } from '@/components/ui/button';
@@ -24,8 +24,6 @@ const LibraryHeader = () => {
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/genre-mapping', label: 'Genre Mapping', icon: Settings },
     { path: '/no-genre-tracks', label: 'No Genre Tracks', icon: Database },
-    { path: '/security', label: 'Security', icon: Shield },
-    { path: '/spotify-auth-validation', label: 'Spotify Auth', icon: Activity },
   ];
 
   return (
