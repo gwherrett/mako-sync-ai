@@ -381,7 +381,7 @@ serve(async (req) => {
 
     const { error: dbError } = await supabaseClient
       .from('spotify_connections')
-      .upsert(connectionData)
+      .upsert(connectionData, { onConflict: 'user_id' })
 
     if (dbError) {
       logWithContext('error', 'Database error storing connection', {
