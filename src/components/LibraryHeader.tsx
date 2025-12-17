@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, Database, Home, ChevronUp, ChevronDown } from 'lucide-react';
+import { LogOut, Database, Home, ChevronUp, ChevronDown, Music } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import BrandLogo from '@/components/BrandLogo';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ const LibraryHeader = ({ isDashboardCollapsed, onToggleDashboard }: LibraryHeade
   const navItems = [
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/genre-mapping', label: 'Genre Mapping', icon: Database },
+    { path: '/no-genre-tracks', label: 'No Genre Tracks', icon: Music },
   ];
 
   return (
