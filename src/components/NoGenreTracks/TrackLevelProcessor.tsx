@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { TrackGenreService } from '@/services/trackGenre.service';
 import { SUPER_GENRES, type SuperGenre } from '@/types/genreMapping';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/NewAuthContext';
 
 interface TrackRow {
   id: string;
@@ -36,6 +37,7 @@ type SortDirection = 'asc' | 'desc';
 export function TrackLevelProcessor() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { initialDataReady } = useAuth();
   
   const [tracks, setTracks] = useState<TrackRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,8 +82,9 @@ export function TrackLevelProcessor() {
   };
 
   useEffect(() => {
+    if (!initialDataReady) return;
     loadTracks();
-  }, []);
+  }, [initialDataReady]);
 
   const loadTracks = async () => {
     setIsLoading(true);
