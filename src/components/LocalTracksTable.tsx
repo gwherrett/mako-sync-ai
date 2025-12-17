@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MoreHorizontal, ChevronUp, ChevronDown, Filter, X, Edit, Trash2, FileCheck, AlertCircle } from 'lucide-react';
 import { TrackFilters, FilterConfig, FilterState, FilterOptions, FilterCallbacks } from '@/components/common/TrackFilters';
 import { Button } from '@/components/ui/button';
@@ -59,9 +59,10 @@ interface LocalTracksTableProps {
   onTrackSelect: (track: LocalTrack) => void;
   selectedTrack: LocalTrack | null;
   refreshTrigger?: number;
+  isActive?: boolean; // For lazy loading - only fetch when tab is active
 }
 
-const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: LocalTracksTableProps) => {
+const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActive = true }: LocalTracksTableProps) => {
   const [tracks, setTracks] = useState<LocalTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -89,29 +90,60 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
   const [genres, setGenres] = useState<string[]>([]);
   const [fileFormats, setFileFormats] = useState<string[]>([]);
   
+  // Query deduplication ref
+  const fetchInProgress = useRef(false);
+  const hasInitiallyLoaded = useRef(false);
+  
   const tracksPerPage = 100;
   const { toast } = useToast();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, initialDataReady } = useAuth();
 
+  // Main data fetching effect - consolidated with debounce for text inputs
   useEffect(() => {
-    if (authLoading) return;
+    // Guard: Wait for auth to be ready AND tab to be active
+    if (authLoading || !initialDataReady || !isActive) return;
+    
     if (!isAuthenticated || !user) {
       setTracks([]);
       setTotalTracks(0);
       setLoading(false);
       return;
     }
-    fetchTracks(user.id);
-  }, [authLoading, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger]);
+    
+    // For text-based filters, use debounce
+    const needsDebounce = searchQuery || yearFrom || yearTo;
+    const timeoutId = needsDebounce 
+      ? setTimeout(() => fetchTracks(user.id), 300)
+      : null;
+    
+    // For non-text filters, fetch immediately
+    if (!needsDebounce) {
+      fetchTracks(user.id);
+    }
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [authLoading, initialDataReady, isActive, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger, searchQuery, yearFrom, yearTo]);
 
+  // Filter options fetch - only once when tab becomes active
   useEffect(() => {
-    if (authLoading || !isAuthenticated || !user) return;
+    if (authLoading || !initialDataReady || !isActive || !isAuthenticated || !user) return;
+    if (hasInitiallyLoaded.current) return; // Only fetch once
+    
+    hasInitiallyLoaded.current = true;
     fetchFilterOptions(user.id);
-  }, [authLoading, isAuthenticated, user?.id, refreshTrigger]); // Only re-fetch filter options when refreshTrigger changes
+  }, [authLoading, initialDataReady, isActive, isAuthenticated, user?.id]);
+
+  // Re-fetch filter options when refreshTrigger changes (after scan)
+  useEffect(() => {
+    if (!refreshTrigger || !isActive || !user) return;
+    fetchFilterOptions(user.id);
+  }, [refreshTrigger]);
 
   // Filter artists based on selected genre
   useEffect(() => {
-    if (!user || !isAuthenticated) return;
+    if (!user || !isAuthenticated || !initialDataReady) return;
 
     if (selectedGenre && allArtists.length > 0) {
       // Fetch artists for the selected genre
@@ -136,25 +168,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
       // Show all artists when no genre is selected
       setArtists(allArtists);
     }
-  }, [selectedGenre, allArtists, user?.id, isAuthenticated]);
-
-  // Debounced search
-  useEffect(() => {
-    if (authLoading || !isAuthenticated || !user) return;
-    const timeoutId = setTimeout(() => {
-      fetchTracks(user.id);
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [authLoading, isAuthenticated, user?.id, searchQuery]);
-
-  // Debounced year filters
-  useEffect(() => {
-    if (authLoading || !isAuthenticated || !user) return;
-    const timeoutId = setTimeout(() => {
-      fetchTracks(user.id);
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [authLoading, isAuthenticated, user?.id, yearFrom, yearTo]);
+  }, [selectedGenre, allArtists, user?.id, isAuthenticated, initialDataReady]);
 
   const fetchTracks = async (userId: string) => {
     if (!userId) {
@@ -164,6 +178,13 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
       return;
     }
 
+    // Prevent duplicate concurrent fetches
+    if (fetchInProgress.current) {
+      console.log('🔄 LocalTracksTable: Fetch already in progress, skipping');
+      return;
+    }
+    
+    fetchInProgress.current = true;
     setLoading(true);
 
     // Build filter function for reuse
@@ -213,6 +234,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
         });
       }
       setLoading(false);
+      fetchInProgress.current = false;
       return;
     }
 
@@ -244,11 +266,13 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger }: Loca
         });
       }
       setLoading(false);
+      fetchInProgress.current = false;
       return;
     }
 
     setTracks(dataResult.data?.data || []);
     setLoading(false);
+    fetchInProgress.current = false;
   };
 
   const fetchFilterOptions = async (userId: string) => {
