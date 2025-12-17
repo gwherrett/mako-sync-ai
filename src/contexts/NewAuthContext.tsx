@@ -489,11 +489,6 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       if (result.data?.user) {
-        // Clear in-memory session cache to ensure fresh tokens are used
-        // This prevents "Invalid Refresh Token" errors when immediate_login_after_signup is enabled
-        // NOTE: Don't clear localStorage/AuthService cache - that would delete the new tokens!
-        sessionCache.clearCache();
-        
         toast({
           title: 'Account Created',
           description: 'Please check your email to verify your account.',
@@ -577,10 +572,6 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           userId: result.data.user.id,
           sessionId: result.data.session.access_token.substring(0, 10) + '...'
         });
-        
-        // Clear in-memory session cache to ensure fresh tokens are used
-        // NOTE: Don't clear localStorage - that would delete the new tokens!
-        sessionCache.clearCache();
         
         toast({
           title: 'Welcome back!',
