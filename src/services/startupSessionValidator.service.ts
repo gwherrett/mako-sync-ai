@@ -50,7 +50,21 @@ class StartupSessionValidatorService {
 
     console.log('🔐 STARTUP VALIDATOR: Starting aggressive session validation...');
     
-    this.validationPromise = this.performValidation();
+    // Wrap entire validation with a hard 12-second global timeout
+    this.validationPromise = (async () => {
+      try {
+        const result = await withTimeout(
+          this.performValidation(),
+          12000,
+          'Overall startup validation timeout'
+        );
+        return result;
+      } catch (error: any) {
+        console.log('⚠️ STARTUP VALIDATOR: Global timeout hit, clearing stale tokens');
+        await this.clearStaleTokens('Global validation timeout');
+        return { isValid: false, wasCleared: true, reason: 'Global timeout' };
+      }
+    })();
     
     try {
       const result = await this.validationPromise;
@@ -75,8 +89,23 @@ class StartupSessionValidatorService {
 
       console.log('🔐 STARTUP VALIDATOR: Found cached tokens, validating with server...');
 
-      // Step 2: Get cached session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // Step 2: Get cached session WITH TIMEOUT (critical fix for stale token hangs)
+      let session = null;
+      let sessionError = null;
+
+      try {
+        const sessionResult = await withTimeout(
+          supabase.auth.getSession(),
+          5000, // 5 second timeout - fail fast for better UX
+          'Session fetch timeout'
+        );
+        session = sessionResult.data.session;
+        sessionError = sessionResult.error;
+      } catch (timeoutError: any) {
+        console.log('⚠️ STARTUP VALIDATOR: getSession() timed out after 5s, clearing stale tokens');
+        await this.clearStaleTokens('Session fetch timeout');
+        return { isValid: false, wasCleared: true, reason: 'Session fetch timeout' };
+      }
       
       if (sessionError || !session) {
         console.log('🔐 STARTUP VALIDATOR: No valid session in cache', {
@@ -111,7 +140,7 @@ class StartupSessionValidatorService {
       try {
         const { data: { user }, error: userError } = await withTimeout(
           supabase.auth.getUser(),
-          8000, // 8 second timeout for startup validation
+          5000, // 5 second timeout - consistent with getSession timeout
           'Startup validation timeout'
         );
 
