@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { GenreMappingService } from '@/services/genreMapping.service';
 import type { GenreMapping, SuperGenre } from '@/types/genreMapping';
+import { useAuth } from '@/contexts/NewAuthContext';
 
 export const useGenreMapping = () => {
   const [mappings, setMappings] = useState<GenreMapping[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { initialDataReady } = useAuth();
 
   const loadMappings = async () => {
     try {
@@ -120,8 +122,9 @@ export const useGenreMapping = () => {
   };
 
   useEffect(() => {
+    if (!initialDataReady) return;
     loadMappings();
-  }, []);
+  }, [initialDataReady]);
 
   return {
     mappings,

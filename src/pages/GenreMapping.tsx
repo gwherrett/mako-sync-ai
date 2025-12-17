@@ -7,8 +7,11 @@ import { useGenreMapping } from '@/hooks/useGenreMapping';
 import { GenreMappingService } from '@/services/genreMapping.service';
 import { supabase } from '@/integrations/supabase/client';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/NewAuthContext';
+
 export const GenreMapping = () => {
   const location = useLocation();
+  const { initialDataReady } = useAuth();
   const [noGenreCount, setNoGenreCount] = useState<number>(0);
   const [isLoadingCount, setIsLoadingCount] = useState(true);
   const {
@@ -23,6 +26,8 @@ export const GenreMapping = () => {
 
   // Fetch count on mount and set up realtime updates
   useEffect(() => {
+    if (!initialDataReady) return;
+
     const fetchNoGenreCount = async () => {
       try {
         setIsLoadingCount(true);
@@ -57,7 +62,7 @@ export const GenreMapping = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []); // Only run once on mount
+  }, [initialDataReady]);
   if (error) {
     return <div className="container mx-auto py-8">
         <div className="text-center">

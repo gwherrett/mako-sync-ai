@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { TrackGenreService } from '@/services/trackGenre.service';
 import { SUPER_GENRES, type SuperGenre } from '@/types/genreMapping';
+import { useAuth } from '@/contexts/NewAuthContext';
 
 interface Track {
   id: string;
@@ -35,6 +36,7 @@ const BATCH_SIZE = 25;
 export const NoGenreTracksProcessor = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { initialDataReady } = useAuth();
   
   const [allTracks, setAllTracks] = useState<Track[]>([]);
   const [batchTracks, setBatchTracks] = useState<TrackWithSuggestion[]>([]);
@@ -44,8 +46,9 @@ export const NoGenreTracksProcessor = () => {
   const [totalProcessed, setTotalProcessed] = useState(0);
 
   useEffect(() => {
+    if (!initialDataReady) return;
     loadAllTracks();
-  }, []);
+  }, [initialDataReady]);
 
   useEffect(() => {
     if (allTracks.length > 0) {
