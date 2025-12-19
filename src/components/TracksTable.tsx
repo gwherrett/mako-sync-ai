@@ -103,6 +103,36 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     fetchFilterOptions();
   }, [authLoading, initialDataReady, isAuthenticated, user?.id, selectedGenre, selectedSuperGenre]);
 
+  // Subscribe to sync_progress to refresh when sync completes
+  useEffect(() => {
+    if (!user || !isAuthenticated) return;
+
+    const channel = supabase
+      .channel('tracks-sync-refresh')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'sync_progress',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload: any) => {
+          // Refresh tracks when sync completes
+          if (payload.new?.status === 'completed') {
+            console.log('🔄 TracksTable: Sync completed, refreshing tracks...');
+            fetchTracks();
+            fetchFilterOptions();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, isAuthenticated]);
+
 
   const fetchTracks = async () => {
     if (!user) return;
