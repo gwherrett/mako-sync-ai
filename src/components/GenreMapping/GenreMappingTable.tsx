@@ -6,8 +6,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from '@/components/ui/pagination';
 import type { GenreMapping, SuperGenre } from '@/types/genreMapping';
 import { SUPER_GENRES } from '@/types/genreMapping';
+
+const PAGE_SIZE = 50;
 interface GenreMappingTableProps {
   mappings: GenreMapping[];
   onSetOverride: (spotifyGenre: string, superGenre: SuperGenre) => void;
@@ -32,6 +43,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [reviewedGenres, setReviewedGenres] = useState<Set<string>>(new Set());
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Load reviewed genres from localStorage
   useEffect(() => {
@@ -72,6 +84,19 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
     const comparison = aValue.localeCompare(bValue);
     return sortDirection === 'asc' ? comparison : -comparison;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredMappings.length / PAGE_SIZE);
+  const paginatedMappings = filteredMappings.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterSuperGenre, sortColumn, sortDirection]);
+
   const overriddenCount = mappings.filter(m => m.is_overridden).length;
   const unmappedCount = mappings.filter(m => !m.super_genre).length;
   const handleRowSelect = (spotifyGenre: string, checked: boolean) => {
@@ -85,7 +110,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
   };
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedRows(new Set(filteredMappings.map(m => m.spotify_genre)));
+      setSelectedRows(new Set(paginatedMappings.map(m => m.spotify_genre)));
     } else {
       setSelectedRows(new Set());
     }
@@ -178,7 +203,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">
-                <input type="checkbox" checked={selectedRows.size === filteredMappings.length && filteredMappings.length > 0} onChange={e => handleSelectAll(e.target.checked)} className="rounded" />
+                <input type="checkbox" checked={selectedRows.size === paginatedMappings.length && paginatedMappings.length > 0} onChange={e => handleSelectAll(e.target.checked)} className="rounded" />
               </TableHead>
               <TableHead>
                 <Button variant="ghost" size="sm" onClick={() => toggleSort('spotify_genre')} className="font-semibold -ml-3">
@@ -203,7 +228,7 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredMappings.map(mapping => <TableRow key={mapping.spotify_genre} className={mapping.is_overridden ? 'bg-accent/50' : ''}>
+            {paginatedMappings.map(mapping => <TableRow key={mapping.spotify_genre} className={mapping.is_overridden ? 'bg-accent/50' : ''}>
                 <TableCell>
                   <input type="checkbox" checked={selectedRows.has(mapping.spotify_genre)} onChange={e => handleRowSelect(mapping.spotify_genre, e.target.checked)} className="rounded" />
                 </TableCell>
@@ -252,6 +277,83 @@ export const GenreMappingTable: React.FC<GenreMappingTableProps> = ({
               </TableRow>)}
           </TableBody>
         </Table>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filteredMappings.length)} of {filteredMappings.length}
+            </p>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+                
+                {/* First page */}
+                {currentPage > 2 && (
+                  <PaginationItem>
+                    <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">1</PaginationLink>
+                  </PaginationItem>
+                )}
+                
+                {currentPage > 3 && (
+                  <PaginationItem>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                )}
+                
+                {/* Previous page */}
+                {currentPage > 1 && (
+                  <PaginationItem>
+                    <PaginationLink onClick={() => setCurrentPage(currentPage - 1)} className="cursor-pointer">
+                      {currentPage - 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                )}
+                
+                {/* Current page */}
+                <PaginationItem>
+                  <PaginationLink isActive>{currentPage}</PaginationLink>
+                </PaginationItem>
+                
+                {/* Next page */}
+                {currentPage < totalPages && (
+                  <PaginationItem>
+                    <PaginationLink onClick={() => setCurrentPage(currentPage + 1)} className="cursor-pointer">
+                      {currentPage + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                )}
+                
+                {currentPage < totalPages - 2 && (
+                  <PaginationItem>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                )}
+                
+                {/* Last page */}
+                {currentPage < totalPages - 1 && (
+                  <PaginationItem>
+                    <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">
+                      {totalPages}
+                    </PaginationLink>
+                  </PaginationItem>
+                )}
+                
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
 
         {selectedRows.size > 0 && <div className="mt-4 p-3 bg-accent rounded-lg">
             <p className="text-sm font-medium mb-2">
