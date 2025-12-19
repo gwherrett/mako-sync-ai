@@ -27,6 +27,11 @@ class SessionCacheService {
   private requestContexts: Map<string, Promise<{ session: Session | null; error: any }>> = new Map();
   private initializationRequest: Promise<{ session: Session | null; error: any }> | null = null;
   private requestSequence = 0; // Track request order for debugging
+  
+  // CIRCUIT BREAKER: Prevent too many concurrent validations
+  private concurrentValidations = 0;
+  private readonly MAX_CONCURRENT_VALIDATIONS = 2;
+  private validationInProgress = false;
 
   static getInstance(): SessionCacheService {
     if (!this.instance) {
@@ -184,9 +189,21 @@ class SessionCacheService {
         return { session: null, error: null };
       }
       
+      // CIRCUIT BREAKER: Limit concurrent validations to prevent hanging
+      if (this.concurrentValidations >= this.MAX_CONCURRENT_VALIDATIONS) {
+        console.log('⚠️ SESSION CACHE: Too many concurrent validations, returning session without validation', {
+          requestId,
+          context,
+          concurrentValidations: this.concurrentValidations
+        });
+        return { session, error: null };
+      }
+      
       // Validate session with server to prevent stale token issues
       console.log('🔍 SESSION CACHE: Validating session with server...', { requestId, context });
       const validationStart = Date.now();
+      this.concurrentValidations++;
+      this.validationInProgress = true;
       
       try {
         // Use withTimeout utility to prevent hanging validation
@@ -258,6 +275,9 @@ class SessionCacheService {
         // Only sign out for actual auth errors, not network/timeout issues
         await supabase.auth.signOut({ scope: 'local' });
         return { session: null, error: validationError };
+      } finally {
+        this.concurrentValidations--;
+        this.validationInProgress = false;
       }
     } catch (error: any) {
       console.error('❌ SESSION CACHE: Session fetch error:', error.message);
@@ -338,6 +358,8 @@ class SessionCacheService {
     isValid: boolean;
     hasPending: boolean;
     activeContexts: number;
+    validationInProgress: boolean;
+    concurrentValidations: number;
   } {
     const now = Date.now();
     return {
@@ -345,8 +367,17 @@ class SessionCacheService {
       cacheAge: this.cache ? now - this.cache.timestamp : null,
       isValid: this.cache?.isValid || false,
       hasPending: !!this.pendingRequest,
-      activeContexts: this.requestContexts.size
+      activeContexts: this.requestContexts.size,
+      validationInProgress: this.validationInProgress,
+      concurrentValidations: this.concurrentValidations
     };
+  }
+
+  /**
+   * Check if auth state is stable (no pending validations)
+   */
+  isAuthStable(): boolean {
+    return !this.validationInProgress && this.concurrentValidations === 0;
   }
 }
 
