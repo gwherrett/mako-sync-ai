@@ -93,6 +93,10 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const initializationRef = useRef(false);
   const sessionValidatedRef = useRef(false); // Track if session has been validated with server
   
+  // DEDUPLICATION: Track recent SIGNED_IN events to prevent duplicate processing
+  const lastSignedInUserRef = useRef<string | null>(null);
+  const lastSignedInTimeRef = useRef<number>(0);
+  
   // Refs for logging without causing re-renders
   const userRef = useRef<User | null>(null);
   const sessionRef = useRef<Session | null>(null);
@@ -386,6 +390,39 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         switch (event) {
           case 'SIGNED_IN':
             if (session?.user) {
+              const now = Date.now();
+              const timeSinceLastSignIn = now - lastSignedInTimeRef.current;
+              
+              // DEDUPLICATION: Check if this is a duplicate SIGNED_IN event
+              const isDuplicate = 
+                lastSignedInUserRef.current === session.user.id &&
+                timeSinceLastSignIn < 5000; // Within 5 seconds
+              
+              if (isDuplicate) {
+                console.log('⚠️ AUTH DEBUG: Ignoring duplicate SIGNED_IN event', {
+                  userId: session.user.id,
+                  timeSinceLastSignIn,
+                  timestamp: new Date().toISOString()
+                });
+                return; // Don't process duplicate
+              }
+              
+              // SAME-USER CHECK: If already authenticated as this user, treat as token refresh
+              const isSameUser = userRef.current?.id === session.user.id;
+              if (isSameUser && initialDataReady) {
+                console.log('🔄 AUTH DEBUG: SIGNED_IN for current user - treating as token refresh', {
+                  userId: session.user.id,
+                  timestamp: new Date().toISOString()
+                });
+                startupSessionValidator.markAsValidated();
+                updateAuthState();
+                return; // Don't trigger full initialization
+              }
+              
+              // Update deduplication tracking
+              lastSignedInUserRef.current = session.user.id;
+              lastSignedInTimeRef.current = now;
+              
               console.log('✅ AUTH DEBUG: SIGNED_IN event - updating state and loading user data');
               updateAuthState();
               setInitialDataReady(true); // Allow data queries to start

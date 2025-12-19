@@ -1,4 +1,5 @@
 import { startupSessionValidator } from './startupSessionValidator.service';
+import { sessionCache } from './sessionCache.service';
 
 /**
  * Query Wrapper Service
@@ -18,6 +19,41 @@ interface QueryResult<T> {
   data: T | null;
   error: Error | null;
   wasAborted: boolean;
+}
+
+/**
+ * Wait for auth state to stabilize (no pending validations)
+ */
+export async function waitForAuthStability(context: string, timeoutMs: number = 3000): Promise<boolean> {
+  const startTime = Date.now();
+  
+  // If already stable, return immediately
+  if (sessionCache.isAuthStable()) {
+    return true;
+  }
+  
+  console.log(`⏳ QUERY WRAPPER: Waiting for auth stability - ${context}`);
+  
+  // Poll for stability
+  return new Promise((resolve) => {
+    const checkInterval = setInterval(() => {
+      if (sessionCache.isAuthStable()) {
+        clearInterval(checkInterval);
+        const elapsed = Date.now() - startTime;
+        console.log(`✅ QUERY WRAPPER: Auth stable after ${elapsed}ms - ${context}`);
+        resolve(true);
+        return;
+      }
+      
+      // Check for timeout
+      if (Date.now() - startTime > timeoutMs) {
+        clearInterval(checkInterval);
+        console.log(`⚠️ QUERY WRAPPER: Auth stability timeout after ${timeoutMs}ms - ${context}`);
+        resolve(false);
+        return;
+      }
+    }, 50); // Check every 50ms
+  });
 }
 
 /**
@@ -75,6 +111,9 @@ export async function safeQuery<T>(
         console.log(`⚠️ SAFE QUERY: Proceeding without validation confirmation - ${context}`);
         // Continue anyway, but log the issue
       }
+      
+      // Also wait for auth stability (no pending session validations)
+      await waitForAuthStability(context, 3000);
     }
     
     // Check if tokens still exist after validation
