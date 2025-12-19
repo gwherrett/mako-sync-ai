@@ -388,42 +388,49 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Handle specific auth events with proper sequencing
         switch (event) {
-          case 'SIGNED_IN':
+        case 'SIGNED_IN':
             if (session?.user) {
               const now = Date.now();
               const timeSinceLastSignIn = now - lastSignedInTimeRef.current;
               
-              // DEDUPLICATION: Check if this is a duplicate SIGNED_IN event
-              const isDuplicate = 
+              // EXTENDED DEDUPLICATION: Check if this is the same user within 60 seconds
+              // Supabase can fire SIGNED_IN events for token refreshes at various intervals
+              const isSameUserRecently = 
                 lastSignedInUserRef.current === session.user.id &&
-                timeSinceLastSignIn < 5000; // Within 5 seconds
+                timeSinceLastSignIn < 60000; // Within 60 seconds
               
-              if (isDuplicate) {
-                console.log('⚠️ AUTH DEBUG: Ignoring duplicate SIGNED_IN event', {
+              // CRITICAL FIX: Also check if we're already authenticated with this user
+              // Use both ref AND sessionRef for redundancy since refs may be stale
+              const isAlreadyAuthenticated = 
+                userRef.current?.id === session.user.id ||
+                sessionRef.current?.user?.id === session.user.id;
+              
+              // If same user recently signed in OR already authenticated, treat as token refresh
+              if (isSameUserRecently || (isAlreadyAuthenticated && initialDataReady)) {
+                console.log('🔄 AUTH DEBUG: SIGNED_IN for already-authenticated user - treating as silent token refresh', {
                   userId: session.user.id,
                   timeSinceLastSignIn,
+                  isAlreadyAuthenticated,
+                  isSameUserRecently,
+                  reason: isSameUserRecently ? 'Same user signed in within 60s' : 'User already authenticated',
                   timestamp: new Date().toISOString()
                 });
-                return; // Don't process duplicate
-              }
-              
-              // SAME-USER CHECK: If already authenticated as this user, treat as token refresh
-              const isSameUser = userRef.current?.id === session.user.id;
-              if (isSameUser && initialDataReady) {
-                console.log('🔄 AUTH DEBUG: SIGNED_IN for current user - treating as token refresh', {
-                  userId: session.user.id,
-                  timestamp: new Date().toISOString()
-                });
+                
+                // Just update the session/user state without full re-initialization
                 startupSessionValidator.markAsValidated();
-                updateAuthState();
-                return; // Don't trigger full initialization
+                setSession(session);
+                setUser(session.user);
+                
+                // Update tracking for next event
+                lastSignedInTimeRef.current = now;
+                return; // Don't trigger data reload or cascading effects
               }
               
-              // Update deduplication tracking
+              // This is a genuine new sign-in - update tracking
               lastSignedInUserRef.current = session.user.id;
               lastSignedInTimeRef.current = now;
               
-              console.log('✅ AUTH DEBUG: SIGNED_IN event - updating state and loading user data');
+              console.log('✅ AUTH DEBUG: SIGNED_IN event - genuine new sign-in, updating state and loading user data');
               updateAuthState();
               setInitialDataReady(true); // Allow data queries to start
               
