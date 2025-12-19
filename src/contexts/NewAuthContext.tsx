@@ -406,6 +406,10 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             
           case 'TOKEN_REFRESHED':
             if (session) {
+              // CRITICAL: Mark startup validator as externally validated
+              // This prevents the validator from clearing tokens if it times out after this refresh
+              startupSessionValidator.markAsValidated();
+              
               console.log('🔍 SESSION DEBUG (Token Refresh): Session refreshed', {
                 userId: session.user?.id,
                 newTokenExpiry: session.expires_at,
