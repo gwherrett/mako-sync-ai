@@ -1,0 +1,81 @@
+/**
+ * Rule: Auth Context Deferred Loading
+ * User data loading must be deferred with setTimeout to prevent initialization deadlocks
+ */
+
+import { BaseRule } from '../../core/Rule';
+import { RuleCategory, RuleSeverity, RuleViolation, ValidationContext } from '../../core/types';
+
+export class AuthDeferredLoadingRule extends BaseRule {
+  constructor() {
+    super({
+      id: 'auth-003-deferred-loading',
+      category: RuleCategory.CODING_PATTERN,
+      severity: RuleSeverity.ERROR,
+      description: 'Auth context user data loading must be deferred with setTimeout',
+      rationale: 'Prevents initialization deadlocks in auth context setup',
+      filePatterns: ['**/NewAuthContext.tsx', '**/contexts/*Auth*.tsx'],
+      excludePatterns: ['**/node_modules/**', '**/dist/**', '**/build/**']
+    });
+  }
+
+  validate(context: ValidationContext): RuleViolation[] {
+    const violations: RuleViolation[] = [];
+    const { fileContent, filePath } = context;
+
+    // Only check auth context files
+    if (!filePath.includes('AuthContext') && !filePath.includes('contexts')) {
+      return violations;
+    }
+
+    // Check if this file has user data loading
+    const hasUserDataLoad =
+      fileContent.includes('loadUserData') ||
+      fileContent.includes('fetchUser') ||
+      fileContent.includes('getUserData');
+
+    if (!hasUserDataLoad) {
+      return violations;
+    }
+
+    const lines = fileContent.split('\n');
+    let foundDeferredLoad = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Check if user data loading is wrapped in setTimeout
+      if (
+        (line.includes('loadUserData') ||
+         line.includes('fetchUser') ||
+         line.includes('getUserData')) &&
+        line.includes('(')
+      ) {
+        // Check if setTimeout is used in this block
+        const contextBlock = lines
+          .slice(Math.max(0, i - 3), Math.min(i + 3, lines.length))
+          .join('\n');
+
+        if (contextBlock.includes('setTimeout')) {
+          foundDeferredLoad = true;
+        } else {
+          // This is a direct call without deferment
+          const snippet = this.extractCodeSnippet(fileContent, i + 1);
+
+          violations.push(
+            this.createViolation(
+              context,
+              'User data loading must be deferred with setTimeout to prevent deadlocks',
+              i + 1,
+              undefined,
+              snippet,
+              'Wrap the data loading call in: setTimeout(() => { loadUserData() }, 0)'
+            )
+          );
+        }
+      }
+    }
+
+    return violations;
+  }
+}

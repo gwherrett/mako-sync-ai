@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run Mako Agents validation
+echo "🤖 Running Mako Agents validation..."
+npm run agents:validate
+
+# Exit with error code if validation fails
+if [ $? -ne 0 ]; then
+  echo "❌ Validation failed. Please fix the issues before committing."
+  exit 1
+fi
+
+echo "✅ Validation passed!"

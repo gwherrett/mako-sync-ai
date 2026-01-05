@@ -1,0 +1,19 @@
+{
+  "name": "@mako/agents",
+  "version": "1.0.0",
+  "description": "Mako code validation agents",
+  "main": "index.ts",
+  "bin": {
+    "mako-agents": "./cli/index.ts"
+  },
+  "scripts": {
+    "validate": "ts-node cli/index.ts",
+    "validate:debug": "ts-node cli/index.ts --agents debug",
+    "validate:auth": "ts-node cli/index.ts --agents auth",
+    "validate:json": "ts-node cli/index.ts --json",
+    "test": "jest"
+  },
+  "keywords": ["validation", "linting", "code-quality", "agents"],
+  "author": "Mako Sync",
+  "license": "MIT"
+}
