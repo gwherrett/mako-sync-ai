@@ -568,7 +568,7 @@ export type Database = {
         | "Reggae/Dancehall"
         | "Rock"
         | "Seasonal"
-        | "Soul-Jazz-Funk"
+        | "Soul-Jazz"
         | "UK Garage"
         | "Urban"
         | "World"
@@ -724,7 +724,7 @@ export const Constants = {
         "Reggae/Dancehall",
         "Rock",
         "Seasonal",
-        "Soul-Jazz-Funk",
+        "Soul-Jazz",
         "UK Garage",
         "Urban",
         "World",

@@ -18,6 +18,7 @@ class StartupSessionValidatorService {
   private static instance: StartupSessionValidatorService | null = null;
   private validationComplete = false;
   private validationPromise: Promise<ValidationResult> | null = null;
+  private externallyValidated = false; // Set when TOKEN_REFRESHED confirms valid session
 
   static getInstance(): StartupSessionValidatorService {
     if (!this.instance) {
@@ -30,7 +31,24 @@ class StartupSessionValidatorService {
    * Check if validation has been completed
    */
   isValidationComplete(): boolean {
-    return this.validationComplete;
+    return this.validationComplete || this.externallyValidated;
+  }
+
+  /**
+   * Mark session as externally validated (e.g., from TOKEN_REFRESHED event)
+   * This prevents the validator from clearing tokens if it times out after a successful refresh
+   */
+  markAsValidated(): void {
+    console.log('✅ STARTUP VALIDATOR: Externally marked as validated (token refresh received)');
+    this.externallyValidated = true;
+    this.validationComplete = true;
+  }
+
+  /**
+   * Check if session was externally validated
+   */
+  isExternallyValidated(): boolean {
+    return this.externallyValidated;
   }
 
   /**
@@ -221,6 +239,12 @@ class StartupSessionValidatorService {
    * Clear stale tokens from localStorage and sign out locally
    */
   private async clearStaleTokens(reason: string): Promise<void> {
+    // CRITICAL: Skip clearing if session was externally validated (e.g., TOKEN_REFRESHED)
+    if (this.externallyValidated) {
+      console.log('⚠️ STARTUP VALIDATOR: Skipping token clear - externally validated via TOKEN_REFRESHED');
+      return;
+    }
+
     console.log(`🧹 STARTUP VALIDATOR: Clearing stale tokens - ${reason}`);
 
     try {
@@ -297,6 +321,7 @@ class StartupSessionValidatorService {
   reset(): void {
     this.validationComplete = false;
     this.validationPromise = null;
+    this.externallyValidated = false;
     console.log('🔄 STARTUP VALIDATOR: Reset validation state');
   }
 }

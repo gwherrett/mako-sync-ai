@@ -179,43 +179,100 @@ This document outlines the comprehensive authentication implementation plan for 
   - Enhanced edge function configuration ([`supabase/functions/spotify-auth/index.ts`](../supabase/functions/spotify-auth/index.ts))
   - Added environment variable validation and detailed error reporting
 
-- **Debug Process Enhancement** ([`.roo/rules-debug/AGENTS.md`](../.roo/rules-debug/AGENTS.md))
-  - Added critical rule: "NEVER DECLARE SUCCESS UNTIL USER CONFIRMS"
-  - Established systematic debugging approach for auth issues
-  - Created framework for production testing validation
-
 - **Session Validation Fix** ([`src/services/sessionCache.service.ts`](../src/services/sessionCache.service.ts), [`src/services/auth.service.ts`](../src/services/auth.service.ts))
   - **COMPLETED December 12, 2025**: Fixed "Token Status: expired" false positives
   - Enhanced session validation with timeout protection (10-second limit)
   - Distinguished network errors from authentication errors
   - Preserved sessions during network issues instead of premature sign-outs
-  - Improved error classification and logging for better debugging
-  - **Production Validated**: Users no longer see false "expired token" messages
 
 #### **Remaining Tasks:**
 - **Task 5.1: Comprehensive Error Handling**
   - User-friendly error messages with actionable guidance
   - Error categorization and appropriate response strategies
   - Fallback mechanisms for critical authentication failures
-  - Error logging and monitoring integration
 
 - **Task 5.2: Retry Mechanisms with Exponential Backoff**
   - Configurable retry policies for different error types
   - Circuit breaker pattern for service protection
-  - Graceful degradation during service outages
-  - User notification during retry attempts
 
 - **Task 5.3: Authentication State Recovery**
   - Automatic session recovery after network interruptions
   - State persistence across browser sessions
-  - Conflict resolution for concurrent sessions
-  - Backup authentication methods
 
-#### **Expected Deliverables:**
-- Enhanced error handling service
-- Retry mechanism implementation
-- State recovery utilities
-- Comprehensive error documentation
+---
+
+### **Phase 5.5: Email Verification Implementation** 🆕
+**Status:** 🔄 IN PROGRESS  
+**Token Estimate:** ~900-2,700 tokens (depending on scope)  
+**Priority:** HIGH  
+**Added:** December 20, 2025
+
+#### **Current State Analysis:**
+
+**✅ Already Implemented:**
+- `isEmailVerified` state tracking in `NewAuthContext.tsx`
+- Basic verification notice in `NewAuth.tsx` post-signup
+- `resendConfirmation()` function in auth context
+- `requireEmailVerification` prop support in `NewProtectedRoute.tsx`
+- Verification check logic in protected route component
+
+**❌ Gaps Identified:**
+- `email_confirm = false` in `supabase/config.toml` (local dev)
+- Protected routes not enforcing `requireEmailVerification={true}`
+- No dedicated `/verify-email` callback route
+- No enhanced verification UI (countdown timer, refresh button)
+- Production Supabase Dashboard may need "Confirm email" enabled
+
+#### **Implementation Phases:**
+
+**Phase 5.5.1: Production Configuration (User Action Required)**
+- Enable "Confirm email" in Supabase Dashboard → Authentication → Providers → Email
+- Verify Site URL set to `https://mako-sync.vercel.app`
+- Add redirect URLs for preview and production environments
+
+**Phase 5.5.2: Enable Verification on Protected Routes (~150 tokens)**
+Update `src/App.tsx` to enforce email verification:
+```tsx
+<NewProtectedRoute requireEmailVerification={true}>
+```
+Apply to routes: `/`, `/genre-mapping`, `/no-genre-tracks`, `/security`
+
+**Phase 5.5.3: Update Local Development Config (~50 tokens)**
+Update `supabase/config.toml`:
+```toml
+[auth]
+email_confirm = true
+```
+
+**Phase 5.5.4: Enhanced Verification UI (~600 tokens) - Optional**
+Improve `NewProtectedRoute.tsx` verification screen:
+- Add "Resend Verification Email" button with 60-second countdown
+- Add "I've verified my email - Refresh" button
+- Show user's email address
+- Add Mail icon and improved styling
+
+**Phase 5.5.5: Dedicated Verification Callback Route (~400 tokens) - Optional**
+Create `/verify-email` route for:
+- Handling Supabase verification links
+- Success/error state display
+- Auto-redirect to main app
+
+**Phase 5.5.6: Custom Email Templates (~800-1000 tokens) - Optional**
+Create branded templates using React Email + Resend:
+- Verification email template
+- Password reset email template
+
+#### **Token Estimate Summary:**
+| Component | Tokens | Priority |
+|-----------|--------|----------|
+| Protected routes enforcement | ~150 | Core |
+| Local config update | ~50 | Core |
+| Enhanced verification UI | ~600 | Recommended |
+| Verification callback route | ~400 | Optional |
+| Custom email templates | ~1,000 | Optional |
+| **Core Implementation** | **~200** | **Required** |
+| **With Enhanced UI** | **~800** | **Recommended** |
+| **Full Implementation** | **~2,700** | **Complete** |
 
 ---
 
@@ -235,13 +292,11 @@ This document outlines the comprehensive authentication implementation plan for 
   - Admin dashboard with user management
   - Role assignment and permission management
   - Audit logging for admin actions
-  - Bulk user operations
 
 - **Task 6.3: User Settings and Account Management**
   - Account settings interface
   - Privacy controls and data management
   - Account deletion and data export
-  - Notification preferences
 
 #### **Expected Deliverables:**
 - User profile management system
@@ -260,19 +315,16 @@ This document outlines the comprehensive authentication implementation plan for 
 - **Task 7.1: Authentication Performance Monitoring**
   - Performance metrics collection and analysis
   - Authentication flow optimization
-  - Database query optimization
   - Caching strategies for auth data
 
 - **Task 7.2: Session Management Optimization**
   - Session storage optimization
   - Concurrent session handling
-  - Session cleanup and garbage collection
   - Performance monitoring dashboard
 
 - **Task 7.3: Authentication Flow Analytics**
   - User journey analytics
   - Conversion funnel analysis
-  - A/B testing framework for auth flows
   - Performance insights and recommendations
 
 #### **Expected Deliverables:**
@@ -292,10 +344,11 @@ This document outlines the comprehensive authentication implementation plan for 
 | Phase 2 | ✅ Complete | 12,000 | 11,800 | 102% |
 | Phase 3 | ✅ Complete | 15,000 | 13,300 | 113% |
 | Phase 4 | ✅ Complete | 10,000 | 9,200 | 109% |
-| Phase 5 | ✅ Session Fix Complete | 8,000 | 2,500 | 320% |
+| Phase 5 | ✅ Session Fix | 8,000 | 2,500 | 320% |
+| Phase 5.5 | 🔄 Email Verification | 2,700 | TBD | TBD |
 | Phase 6 | ⏳ Pending | 12,000 | TBD | TBD |
 | Phase 7 | ⏳ Pending | 10,000 | TBD | TBD |
-| **Total** | | **75,000** | **44,300** | **169%** |
+| **Total** | | **77,700** | **44,300+** | **~175%** |
 
 ### **Key Technical Achievements**
 - **Enterprise-grade security** with comprehensive monitoring
@@ -304,7 +357,7 @@ This document outlines the comprehensive authentication implementation plan for 
 - **Production-ready authentication** with robust error handling
 - **Session validation resilience** - Fixed false "expired token" errors
 - **Network error handling** - Distinguished network issues from auth failures
-- **Comprehensive security validation** with threat detection
+- **Email verification foundation** - Core infrastructure in place
 - **User-friendly interfaces** with progressive enhancement
 
 ### **Architecture Highlights**
@@ -313,24 +366,22 @@ This document outlines the comprehensive authentication implementation plan for 
 - **Vault-based token storage** with encryption validation
 - **Service-oriented architecture** with clear separation of concerns
 - **Real-time monitoring** with intelligent alerting
-- **Automated remediation** for common security issues
+- **Protected route system** with email verification support
 
 ---
 
 ## 🚀 **Next Steps**
 
-### **Immediate Actions (Phase 5 Remaining)**
-1. ✅ **COMPLETED**: Session validation and "expired token" fix
-2. Implement comprehensive error handling with user-friendly messages
-3. Add retry mechanisms with exponential backoff for auth operations
-4. Create authentication state recovery and fallback flows
-5. Enhance error logging and monitoring integration
+### **Immediate Actions (Phase 5.5 - Email Verification)**
+1. 🔧 **User Action**: Enable "Confirm email" in Supabase Dashboard
+2. ⏳ Enable `requireEmailVerification={true}` on all protected routes
+3. ⏳ Update `supabase/config.toml` to set `email_confirm = true`
+4. ⏳ (Optional) Add enhanced verification UI with countdown timer
 
-### **Critical Priority: Spotify OAuth Callback Fix**
-**Status**: 🔧 Needs Immediate Attention
-**Issue**: OAuth callback flow never completes properly (identified in current assessment)
-**Impact**: Users cannot connect Spotify accounts
-**Timeline**: 3-5 days estimated
+### **Phase 5 Remaining Tasks**
+1. Implement comprehensive error handling with user-friendly messages
+2. Add retry mechanisms with exponential backoff for auth operations
+3. Create authentication state recovery and fallback flows
 
 ### **Medium-term Goals (Phase 6)**
 1. Complete user profile management system
@@ -341,8 +392,7 @@ This document outlines the comprehensive authentication implementation plan for 
 ### **Long-term Objectives (Phase 7)**
 1. Implement performance monitoring and optimization
 2. Add authentication flow analytics and insights
-3. Create A/B testing framework for auth improvements
-4. Optimize session management and caching strategies
+3. Optimize session management and caching strategies
 
 ---
 
@@ -354,6 +404,14 @@ Each phase includes comprehensive testing:
 - **End-to-end tests** for complete user journeys
 - **Security tests** for vulnerability assessment
 - **Performance tests** for scalability validation
+
+### **Email Verification Testing Checklist**
+- [ ] New user signup triggers verification email
+- [ ] Unverified users see verification notice
+- [ ] Unverified users cannot access protected routes
+- [ ] Resend verification email works with rate limiting
+- [ ] Verification link properly confirms email
+- [ ] Verified users can access all protected routes
 
 ---
 
@@ -371,11 +429,11 @@ Each phase includes comprehensive testing:
 Following the successful completion of auth debugging in December 2025, future development should follow a task-based approach:
 
 ### **Recommended Next Tasks**
-1. **🎵 Spotify Connection Stability** - Build on auth foundation to ensure reliable Spotify API connectivity
-2. **🎵 Spotify Sync Process** - Debug and optimize music synchronization functionality
-3. **📊 Data Integrity Validation** - Ensure sync accuracy and data consistency
-4. **⚡ Performance Optimization** - Enhance user experience and system performance
-5. **🔒 Security Hardening** - Final production readiness and security validation
+1. **📧 Email Verification** - Enable and enforce email verification (Phase 5.5)
+2. **🎵 Spotify Connection Stability** - Build on auth foundation for reliable API connectivity
+3. **🎵 Spotify Sync Process** - Debug and optimize music synchronization functionality
+4. **📊 Data Integrity Validation** - Ensure sync accuracy and data consistency
+5. **⚡ Performance Optimization** - Enhance user experience and system performance
 
 ### **Task Management Principles**
 - **Single Responsibility**: Each task focuses on one specific system or issue
@@ -387,9 +445,10 @@ For detailed task breakdown and debugging methodology, see [`debugging-task-stra
 
 ---
 
-**Last Updated:** December 12, 2025
-**Document Version:** 1.2
-**Implementation Progress:** 65% Complete (4.5/7 phases)
+**Last Updated:** December 20, 2025
+**Document Version:** 1.3
+**Implementation Progress:** 68% Complete (4.5/7 phases + Phase 5.5 in progress)
 **Auth Debugging:** ✅ Completed (December 2025)
 **Session Validation Fix:** ✅ Completed (December 12, 2025)
-**Next Critical Priority:** 🔧 Spotify OAuth Callback Fix
+**Email Verification:** 🔄 In Progress (Phase 5.5)
+**Next Priority:** 📧 Enable Email Verification on Protected Routes

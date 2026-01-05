@@ -43,7 +43,12 @@ const LibraryHeader = ({ isDashboardCollapsed, onToggleDashboard }: LibraryHeade
             </div>
           </Link>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
+            {user?.email && (
+              <span className="text-sm text-muted-foreground hidden sm:block">
+                {user.email}
+              </span>
+            )}
             {onToggleDashboard && (
               <Button
                 variant="ghost"
