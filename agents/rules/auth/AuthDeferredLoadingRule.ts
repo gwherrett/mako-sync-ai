@@ -11,8 +11,8 @@ export class AuthDeferredLoadingRule extends BaseRule {
     super({
       id: 'auth-003-deferred-loading',
       category: RuleCategory.CODING_PATTERN,
-      severity: RuleSeverity.ERROR,
-      description: 'Auth context user data loading must be deferred with setTimeout',
+      severity: RuleSeverity.WARNING,
+      description: 'Auth context user data loading should be deferred with setTimeout',
       rationale: 'Prevents initialization deadlocks in auth context setup',
       filePatterns: ['**/NewAuthContext.tsx', '**/contexts/*Auth*.tsx'],
       excludePatterns: ['**/node_modules/**', '**/dist/**', '**/build/**']

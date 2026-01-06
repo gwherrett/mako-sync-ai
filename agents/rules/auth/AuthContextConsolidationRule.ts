@@ -15,7 +15,14 @@ export class AuthContextConsolidationRule extends BaseRule {
       description: 'Only NewAuthProvider exists - no legacy AuthContext imports allowed',
       rationale: 'Legacy AuthContext was removed to prevent conflicts and race conditions',
       filePatterns: ['**/*.ts', '**/*.tsx'],
-      excludePatterns: ['**/node_modules/**', '**/dist/**', '**/build/**']
+      excludePatterns: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/build/**',
+        '**/__tests__/**',
+        '**/agents/rules/**',
+        '**/agents/__tests__/**'
+      ]
     });
   }
 

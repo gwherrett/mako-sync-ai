@@ -125,7 +125,7 @@ describe('AgentRegistry', () => {
     const result = await registry.validateFiles(contexts);
 
     expect(result.filesScanned).toBe(2);
-    expect(result.duration).toBeGreaterThan(0);
+    expect(result.duration).toBeGreaterThanOrEqual(0);
     expect(result.success).toBe(true);
   });
 

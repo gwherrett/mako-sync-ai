@@ -2,6 +2,22 @@
 
 This file provides guidance to agents when working with code in this repository.
 
+## 🤖 Automated Validation
+
+**Mako Agents Framework** - 3 agents enforcing 15 coding patterns automatically.
+
+```bash
+npm run agents:validate          # All agents
+npm run agents:validate:debug    # Debug patterns only
+npm run agents:validate:auth     # Auth patterns only
+npm run agents:validate:code     # Code patterns only
+npm run agents:test              # Run framework tests
+```
+
+📚 Full docs: [`docs/agents/`](docs/agents/) | Architecture, usage guide, phase summaries
+
+---
+
 ## Critical Non-Obvious Patterns
 
 - **File System Access API Required**: Local file scanning only works in Chromium browsers and fails in iframes (like Lovable preview). Must open deployed app in new tab for testing.

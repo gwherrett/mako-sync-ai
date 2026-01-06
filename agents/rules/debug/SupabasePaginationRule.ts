@@ -15,71 +15,61 @@ export class SupabasePaginationRule extends BaseRule {
       description: 'Supabase queries return max 1000 rows without error - must use explicit .limit() or .range()',
       rationale: 'Supabase silently truncates results at 1000 rows which can cause hard-to-debug issues',
       filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
-      excludePatterns: ['**/node_modules/**', '**/dist/**', '**/build/**']
+      excludePatterns: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/build/**',
+        '**/__tests__/**',
+        '**/agents/**'
+      ]
     });
   }
 
   validate(context: ValidationContext): RuleViolation[] {
     const violations: RuleViolation[] = [];
-    const { fileContent, filePath } = context;
+    const { fileContent } = context;
 
     // Skip if file doesn't use Supabase
-    if (!fileContent.includes('supabase.from(')) {
+    if (!fileContent.includes('supabase') || !fileContent.includes('.from(')) {
       return violations;
     }
 
-    // Find all supabase query chains
-    const lines = fileContent.split('\n');
+    // Normalize the file content for easier parsing (remove extra whitespace)
+    const normalized = fileContent.replace(/\s+/g, ' ');
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+    // Find all supabase.from() query patterns
+    const queryPattern = /supabase[^;]*\.from\([^)]+\)[^;]*/g;
+    const matches = normalized.matchAll(queryPattern);
 
-      // Check if line contains a query start
-      if (line.includes('supabase.from(')) {
-        // Check the query chain - look ahead to see if .limit() or .range() is called
-        const queryChain = this.extractQueryChain(lines, i);
+    for (const match of matches) {
+      const queryChain = match[0];
 
-        if (!queryChain.includes('.limit(') && !queryChain.includes('.range(')) {
-          // Check if it's a .select() that might return multiple rows
-          if (queryChain.includes('.select(')) {
-            const snippet = this.extractCodeSnippet(fileContent, i + 1);
+      // Check if query has .select() and is missing both .limit() and .range()
+      if (
+        queryChain.includes('.select(') &&
+        !queryChain.includes('.limit(') &&
+        !queryChain.includes('.range(')
+      ) {
+        // Find the line number in original content
+        const matchIndex = fileContent.indexOf('supabase');
+        const lineNumber = matchIndex >= 0 ? fileContent.substring(0, matchIndex).split('\n').length : 1;
 
-            violations.push(
-              this.createViolation(
-                context,
-                'Supabase query without .limit() or .range() - may silently truncate at 1000 rows',
-                i + 1,
-                undefined,
-                snippet,
-                'Add .limit(n) or .range(start, end) to the query chain'
-              )
-            );
-          }
-        }
+        const snippet = this.extractCodeSnippet(fileContent, lineNumber);
+
+        violations.push(
+          this.createViolation(
+            context,
+            'Supabase query without .limit() or .range() - may silently truncate at 1000 rows',
+            lineNumber,
+            undefined,
+            snippet,
+            'Add .limit(n) or .range(start, end) to the query chain'
+          )
+        );
       }
     }
 
     return violations;
   }
 
-  private extractQueryChain(lines: string[], startLine: number): string {
-    let chain = '';
-    let depth = 0;
-
-    for (let i = startLine; i < Math.min(startLine + 10, lines.length); i++) {
-      const line = lines[i].trim();
-      chain += ' ' + line;
-
-      // Count parentheses to detect end of chain
-      depth += (line.match(/\(/g) || []).length;
-      depth -= (line.match(/\)/g) || []).length;
-
-      // If we hit a semicolon or closing statement, stop
-      if (line.includes(';') || (depth <= 0 && i > startLine)) {
-        break;
-      }
-    }
-
-    return chain;
-  }
 }

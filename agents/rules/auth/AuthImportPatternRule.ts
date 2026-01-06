@@ -15,7 +15,15 @@ export class AuthImportPatternRule extends BaseRule {
       description: "Auth imports must use '@/contexts/NewAuthContext' path",
       rationale: 'Ensures consistent auth context usage across the application',
       filePatterns: ['**/*.ts', '**/*.tsx'],
-      excludePatterns: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/NewAuthContext.tsx']
+      excludePatterns: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/build/**',
+        '**/NewAuthContext.tsx',
+        '**/__tests__/**',
+        '**/agents/rules/**',
+        '**/agents/__tests__/**'
+      ]
     });
   }
 
@@ -29,7 +37,8 @@ export class AuthImportPatternRule extends BaseRule {
       const line = lines[i];
 
       // Check for auth-related imports from wrong paths
-      if (line.includes('import') && line.includes('useAuth')) {
+      // Match exact 'useAuth' import (not useAuthRedirect, useAuthState, etc.)
+      if (line.includes('import') && /\buseAuth\b/.test(line)) {
         // Check if it's importing from the correct path
         if (!line.includes('@/contexts/NewAuthContext')) {
           // Could be importing from relative path or different location

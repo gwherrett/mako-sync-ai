@@ -12,7 +12,9 @@
     "agents:validate": "ts-node agents/cli/index.ts",
     "agents:validate:debug": "ts-node agents/cli/index.ts --agents debug",
     "agents:validate:auth": "ts-node agents/cli/index.ts --agents auth",
-    "agents:validate:json": "ts-node agents/cli/index.ts --json"
+    "agents:validate:code": "ts-node agents/cli/index.ts --agents code",
+    "agents:validate:json": "ts-node agents/cli/index.ts --json",
+    "agents:test": "cd agents && npm test"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

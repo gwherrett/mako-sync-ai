@@ -15,7 +15,14 @@ export class PromiseTimeoutRule extends BaseRule {
       description: 'Critical auth operations should use withTimeout() to prevent hanging',
       rationale: 'Operations like signOut can hang indefinitely without timeout protection',
       filePatterns: ['**/*.ts', '**/*.tsx'],
-      excludePatterns: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/promiseUtils.ts']
+      excludePatterns: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/build/**',
+        '**/promiseUtils.ts',
+        '**/__tests__/**',
+        '**/agents/**'
+      ]
     });
   }
 
