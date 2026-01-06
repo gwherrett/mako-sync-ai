@@ -60,6 +60,7 @@ export const GenreMapping = () => {
       .subscribe();
 
     return () => {
+      channel.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, [initialDataReady]);

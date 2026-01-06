@@ -13,7 +13,17 @@
     "validate:json": "ts-node cli/index.ts --json",
     "test": "jest"
   },
-  "keywords": ["validation", "linting", "code-quality", "agents"],
+  "keywords": [
+    "validation",
+    "linting",
+    "code-quality",
+    "agents"
+  ],
   "author": "Mako Sync",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@typescript-eslint/parser": "^8.52.0",
+    "@typescript-eslint/typescript-estree": "^8.52.0",
+    "typescript": "^5.9.3"
+  }
 }

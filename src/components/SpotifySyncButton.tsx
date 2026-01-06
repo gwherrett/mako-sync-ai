@@ -179,6 +179,7 @@ const SpotifySyncButton = () => {
       .subscribe();
 
     return () => {
+      channel.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, [isConnected]);

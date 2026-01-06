@@ -24,13 +24,15 @@ export class SessionCacheDirectCallRule extends BaseRule {
     const violations: RuleViolation[] = [];
     const { fileContent, filePath } = context;
 
-    // Check if this is a critical auth flow file
+    // Check if this is a critical USER auth flow file (not Spotify/third-party OAuth)
     const isCriticalAuthFlow =
-      filePath.includes('/auth/') ||
-      filePath.includes('/contexts/') ||
-      filePath.includes('Auth') ||
-      filePath.includes('Login') ||
-      filePath.includes('Callback');
+      (filePath.includes('/auth/') ||
+       filePath.includes('/contexts/') ||
+       filePath.includes('AuthContext') ||
+       filePath.includes('Login') ||
+       filePath.includes('Callback')) &&
+      !filePath.includes('spotify') &&
+      !filePath.includes('Spotify');
 
     if (!isCriticalAuthFlow) {
       return violations;

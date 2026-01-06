@@ -5,6 +5,7 @@
 
 import { BaseRule } from '../../core/Rule';
 import { RuleCategory, RuleSeverity, RuleViolation, ValidationContext } from '../../core/types';
+import { CodeFix } from '../../core/AutoFix';
 
 export class AuthDeferredLoadingRule extends BaseRule {
   constructor() {
@@ -77,5 +78,62 @@ export class AuthDeferredLoadingRule extends BaseRule {
     }
 
     return violations;
+  }
+
+  /**
+   * Auto-fix: Wrap loadUserData call in setTimeout
+   */
+  autofix(violation: RuleViolation, context: ValidationContext): CodeFix | null {
+    const { fileContent } = context;
+    const lines = fileContent.split('\n');
+
+    if (!violation.line) {
+      return null;
+    }
+
+    const lineIndex = violation.line - 1;
+    if (lineIndex < 0 || lineIndex >= lines.length) {
+      return null;
+    }
+
+    const line = lines[lineIndex];
+
+    // Extract the function call (e.g., "await loadUserData(user.id)")
+    const callMatch = line.match(/(await\s+)?(\w+)\([^)]*\)/);
+
+    if (!callMatch) {
+      return null;
+    }
+
+    const fullCall = callMatch[0];
+    const hasAwait = !!callMatch[1];
+
+    // Determine the indentation
+    const indent = line.match(/^(\s*)/)?.[1] || '';
+
+    // Create the wrapped version
+    let newText: string;
+
+    if (hasAwait) {
+      // Can't await inside setTimeout, so remove await and wrap
+      const callWithoutAwait = fullCall.replace('await ', '');
+      newText = `${indent}setTimeout(() => { ${callWithoutAwait}; }, 0);`;
+    } else {
+      newText = `${indent}setTimeout(() => { ${fullCall}; }, 0);`;
+    }
+
+    return {
+      description: 'Wrap user data loading in setTimeout to prevent deadlocks',
+      filePath: context.filePath,
+      changes: [
+        {
+          type: 'replace',
+          start: { line: violation.line, column: 1 },
+          end: { line: violation.line, column: line.length },
+          oldText: line,
+          newText
+        }
+      ]
+    };
   }
 }

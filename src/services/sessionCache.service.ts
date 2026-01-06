@@ -241,7 +241,7 @@ class SessionCacheService {
           });
           
           // Only sign out for actual auth errors, not network issues
-          await supabase.auth.signOut({ scope: 'local' });
+          await withTimeout(supabase.auth.signOut({ scope: 'local' }), 5000);
           return { session: null, error: userError || new Error('Stale token detected') };
         }
         
@@ -273,7 +273,7 @@ class SessionCacheService {
         console.error(`❌ SESSION CACHE: Session validation error after ${validationTime}ms:`, validationError.message);
         
         // Only sign out for actual auth errors, not network/timeout issues
-        await supabase.auth.signOut({ scope: 'local' });
+        await withTimeout(supabase.auth.signOut({ scope: 'local' }), 5000);
         return { session: null, error: validationError };
       } finally {
         this.concurrentValidations--;

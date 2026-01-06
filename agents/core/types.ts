@@ -55,7 +55,11 @@ export enum RuleCategory {
   SECURITY = 'security',
   PERFORMANCE = 'performance',
   DOCUMENTATION = 'documentation',
-  DEBUGGING = 'debugging'
+  DEBUGGING = 'debugging',
+  MEMORY_LEAK = 'memory_leak',
+  RACE_CONDITION = 'race_condition',
+  AUTHENTICATION_FLOW = 'authentication_flow',
+  ERROR_HANDLING = 'error_handling'
 }
 
 export enum RuleSeverity {

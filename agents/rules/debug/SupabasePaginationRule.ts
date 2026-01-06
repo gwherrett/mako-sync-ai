@@ -5,6 +5,7 @@
 
 import { BaseRule } from '../../core/Rule';
 import { RuleCategory, RuleSeverity, RuleViolation, ValidationContext } from '../../core/types';
+import { CodeFix } from '../../core/AutoFix';
 
 export class SupabasePaginationRule extends BaseRule {
   constructor() {
@@ -34,42 +35,80 @@ export class SupabasePaginationRule extends BaseRule {
       return violations;
     }
 
-    // Normalize the file content for easier parsing (remove extra whitespace)
-    const normalized = fileContent.replace(/\s+/g, ' ');
+    const lines = fileContent.split('\n');
 
-    // Find all supabase.from() query patterns
-    const queryPattern = /supabase[^;]*\.from\([^)]+\)[^;]*/g;
-    const matches = normalized.matchAll(queryPattern);
+    // Track if we're inside a multi-line query
+    let queryStartLine = -1;
+    let queryBuffer = '';
 
-    for (const match of matches) {
-      const queryChain = match[0];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
 
-      // Check if query has .select() and is missing both .limit() and .range()
-      if (
-        queryChain.includes('.select(') &&
-        !queryChain.includes('.limit(') &&
-        !queryChain.includes('.range(')
-      ) {
-        // Find the line number in original content
-        const matchIndex = fileContent.indexOf('supabase');
-        const lineNumber = matchIndex >= 0 ? fileContent.substring(0, matchIndex).split('\n').length : 1;
+      // Skip import lines
+      if (line.trim().startsWith('import')) {
+        continue;
+      }
 
-        const snippet = this.extractCodeSnippet(fileContent, lineNumber);
+      // Check if line contains supabase query start
+      if (line.includes('supabase') && line.includes('.from(')) {
+        queryStartLine = i + 1;
+        queryBuffer = line;
 
-        violations.push(
-          this.createViolation(
-            context,
-            'Supabase query without .limit() or .range() - may silently truncate at 1000 rows',
-            lineNumber,
-            undefined,
-            snippet,
-            'Add .limit(n) or .range(start, end) to the query chain'
-          )
-        );
+        // Check if query continues on next lines
+        let j = i + 1;
+        while (j < lines.length && !lines[j].includes(';') && j < i + 20) {
+          queryBuffer += ' ' + lines[j];
+          j++;
+        }
+
+        // Normalize query buffer
+        const normalized = queryBuffer.replace(/\s+/g, ' ');
+
+        // Check if query has .select() and is missing both .limit() and .range()
+        if (
+          normalized.includes('.select(') &&
+          !normalized.includes('.limit(') &&
+          !normalized.includes('.range(')
+        ) {
+          const snippet = this.extractCodeSnippet(fileContent, queryStartLine);
+
+          violations.push(
+            this.createViolation(
+              context,
+              'Supabase query without .limit() or .range() - may silently truncate at 1000 rows',
+              queryStartLine,
+              undefined,
+              snippet,
+              'Add .limit(n) or .range(start, end) to the query chain'
+            )
+          );
+        }
+
+        // Skip lines we already processed
+        i = j - 1;
+        queryBuffer = '';
+        queryStartLine = -1;
       }
     }
 
     return violations;
+  }
+
+  /**
+   * Auto-fix: Add .limit(1000) to the query chain
+   *
+   * NOTE: This is a complex fix because:
+   * 1. The validation logic incorrectly flags import lines
+   * 2. Supabase queries are often multi-line
+   * 3. We need to find the actual query, not the import
+   *
+   * For now, returning null to prevent incorrect fixes.
+   * The validation logic itself needs to be fixed first.
+   */
+  autofix(violation: RuleViolation, context: ValidationContext): CodeFix | null {
+    // TODO: Fix the validation logic to report correct line numbers
+    // then implement proper autofix
+    return null;
   }
 
 }

@@ -13,7 +13,11 @@
     "agents:validate:debug": "ts-node agents/cli/index.ts --agents debug",
     "agents:validate:auth": "ts-node agents/cli/index.ts --agents auth",
     "agents:validate:code": "ts-node agents/cli/index.ts --agents code",
+    "agents:validate:architect": "ts-node agents/cli/index.ts --agents architect",
     "agents:validate:json": "ts-node agents/cli/index.ts --json",
+    "agents:fix": "ts-node agents/cli/fix.ts",
+    "agents:fix:auto": "ts-node agents/cli/fix.ts --auto",
+    "agents:fix:dry-run": "ts-node agents/cli/fix.ts --dry-run",
     "agents:test": "cd agents && npm test"
   },
   "dependencies": {

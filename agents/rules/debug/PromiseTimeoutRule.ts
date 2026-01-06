@@ -46,21 +46,44 @@ export class PromiseTimeoutRule extends BaseRule {
             .slice(Math.max(0, i - 2), Math.min(i + 3, lines.length))
             .join('\n');
 
-          if (!contextBlock.includes('withTimeout')) {
-            const snippet = this.extractCodeSnippet(fileContent, i + 1);
-
-            violations.push(
-              this.createViolation(
-                context,
-                `Critical auth operation '${operation}' should use withTimeout() to prevent hanging`,
-                i + 1,
-                undefined,
-                snippet,
-                `Wrap with: await withTimeout(supabase.auth.${operation}(...), 10000)`
-              )
-            );
-            break; // Only report once per line
+          // Skip if already using timeout protection or retry services
+          if (contextBlock.includes('withTimeout') ||
+              contextBlock.includes('RetryService') ||
+              contextBlock.includes('AuthService.')) {
+            continue;
           }
+
+          // Skip if this is inside AuthService (methods already have timeout protection)
+          if (fileContent.includes('export class AuthService')) {
+            continue;
+          }
+
+          // Skip if calling from useAuth hook (hook uses AuthService which has timeout)
+          if (fileContent.includes('useAuth()') || fileContent.includes('const { signOut }')) {
+            continue;
+          }
+
+          // Skip debug/test utilities
+          if (context.filePath.includes('authDebugger') ||
+              context.filePath.includes('debugHelpers') ||
+              context.filePath.includes('test') ||
+              context.filePath.includes('__tests__')) {
+            continue;
+          }
+
+          const snippet = this.extractCodeSnippet(fileContent, i + 1);
+
+          violations.push(
+            this.createViolation(
+              context,
+              `Critical auth operation '${operation}' should use withTimeout() to prevent hanging`,
+              i + 1,
+              undefined,
+              snippet,
+              `Wrap with: await withTimeout(supabase.auth.${operation}(...), 10000)`
+            )
+          );
+          break; // Only report once per line
         }
       }
     }

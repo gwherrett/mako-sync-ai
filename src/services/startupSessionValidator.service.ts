@@ -273,7 +273,7 @@ class StartupSessionValidatorService {
 
       // Force local signout to clear Supabase internal state
       try {
-        await supabase.auth.signOut({ scope: 'local' });
+        await withTimeout(supabase.auth.signOut({ scope: 'local' }), 5000);
       } catch (signOutError) {
         // Ignore signout errors - tokens are already cleared
         console.log('⚠️ STARTUP VALIDATOR: Signout error (ignored):', signOutError);

@@ -22,15 +22,49 @@ export interface SignInData {
 
 export class AuthService {
   /**
+   * Allowed redirect URLs for OAuth callbacks and email confirmations
+   */
+  private static readonly ALLOWED_REDIRECT_ORIGINS = [
+    'http://localhost:8080',
+    'http://localhost:5173',
+    'https://mako-sync.vercel.app',
+    window.location.origin // Current origin is always allowed
+  ];
+
+  /**
+   * Validate redirect URL against whitelist
+   */
+  private static validateRedirectUrl(url: string): string {
+    try {
+      const redirectUrl = new URL(url);
+      const isAllowed = this.ALLOWED_REDIRECT_ORIGINS.some(
+        origin => redirectUrl.origin === origin
+      );
+
+      if (!isAllowed) {
+        console.warn(`Redirect URL ${url} not in whitelist, using default`);
+        return `${window.location.origin}/`;
+      }
+
+      return url;
+    } catch (error) {
+      console.error('Invalid redirect URL:', error);
+      return `${window.location.origin}/`;
+    }
+  }
+
+  /**
    * Sign up a new user
    */
   static async signUp({ email, password, displayName }: SignUpData): Promise<AuthResult> {
     try {
+      const redirectUrl = this.validateRedirectUrl(`${window.location.origin}/`);
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: redirectUrl,
           data: {
             display_name: displayName
           }
@@ -175,8 +209,10 @@ export class AuthService {
    */
   static async resetPassword(email: string): Promise<{ error: AuthError | null }> {
     try {
+      const redirectUrl = this.validateRedirectUrl(`${window.location.origin}/reset-password`);
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
+        redirectTo: redirectUrl
       });
       return { error };
     } catch (error) {
@@ -203,11 +239,13 @@ export class AuthService {
    */
   static async resendConfirmation(email: string): Promise<{ error: AuthError | null }> {
     try {
+      const redirectUrl = this.validateRedirectUrl(`${window.location.origin}/`);
+
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/`
+          emailRedirectTo: redirectUrl
         }
       });
       return { error };

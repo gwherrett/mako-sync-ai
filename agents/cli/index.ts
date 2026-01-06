@@ -10,6 +10,7 @@ import { AgentRegistry } from '../core/AgentRegistry';
 import { debugAgent } from '../agents/DebugAgent';
 import { authAgent } from '../agents/AuthAgent';
 import { codeAgent } from '../agents/CodeAgent';
+import { architectAgent } from '../agents/ArchitectAgent';
 import { FileScanner } from './fileScanner';
 import { ViolationFormatter } from './formatters';
 
@@ -48,11 +49,15 @@ class MakoAgentsCLI {
       if (agents.includes('code')) {
         this.registry.registerAgent(codeAgent);
       }
+      if (agents.includes('architect')) {
+        this.registry.registerAgent(architectAgent);
+      }
     } else {
       // Register all agents by default
       this.registry.registerAgent(debugAgent);
       this.registry.registerAgent(authAgent);
       this.registry.registerAgent(codeAgent);
+      this.registry.registerAgent(architectAgent);
     }
   }
 

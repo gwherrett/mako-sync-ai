@@ -501,7 +501,7 @@ function GenreCombobox({ onSelect }: GenreComboboxProps) {
           <CommandList>
             <CommandEmpty>No genre found.</CommandEmpty>
             <CommandGroup>
-              {SUPER_GENRES.map((genre) => (
+              {[...SUPER_GENRES].sort().map((genre) => (
                 <CommandItem
                   key={genre}
                   value={genre}

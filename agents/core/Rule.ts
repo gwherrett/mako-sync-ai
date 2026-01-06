@@ -3,6 +3,7 @@
  */
 
 import { RuleCategory, RuleSeverity, RuleViolation, ValidationContext } from './types';
+import { CodeFix } from './AutoFix';
 
 export interface RuleConfig {
   /** Unique rule identifier (e.g., 'auth-001-context-consolidation') */
@@ -30,6 +31,12 @@ export interface Rule {
    * @returns RuleViolation if rule is violated, null otherwise
    */
   validate(context: ValidationContext): RuleViolation[] | Promise<RuleViolation[]>;
+
+  /**
+   * Generate an automatic fix for a violation (optional)
+   * @returns CodeFix if the violation can be auto-fixed, null otherwise
+   */
+  autofix?(violation: RuleViolation, context: ValidationContext): CodeFix | null;
 
   /**
    * Check if this rule applies to the given file path

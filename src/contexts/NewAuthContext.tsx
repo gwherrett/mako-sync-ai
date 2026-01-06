@@ -813,7 +813,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!user) return;
 
     try {
-      await loadUserData(user.id);
+      setTimeout(() => { loadUserData(user.id); }, 0);
     } catch (error) {
       console.error('Error refreshing profile:', error);
     }

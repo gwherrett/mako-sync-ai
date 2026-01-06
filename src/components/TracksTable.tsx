@@ -129,6 +129,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
       .subscribe();
 
     return () => {
+      channel.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, [user?.id, isAuthenticated]);
