@@ -1,182 +1,181 @@
-# Supabase CLI (v1)
+# Mako Sync
 
-[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main)
+**Music library synchronization between Spotify and local MP3 collections with AI-powered genre classification.**
 
-[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18.3-61dafb)](https://reactjs.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Latest-3ECF8E)](https://supabase.com/)
 
-This repository contains all the functionality for Supabase CLI.
+---
 
-- [x] Running Supabase locally
-- [x] Managing database migrations
-- [x] Creating and deploying Supabase Functions
-- [x] Generating types directly from your database schema
-- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
+## 🎯 What is Mako Sync?
 
-## Getting started
+Mako Sync bridges your Spotify library and local MP3 collection, providing:
 
-### Install the CLI
+- **🎵 Bi-directional Sync** - Sync liked songs from Spotify to your database
+- **🏷️ Smart Genre Classification** - AI-powered genre mapping with 27 super-genres
+- **📊 Missing Track Analysis** - Identify tracks missing from your local collection
+- **🔒 Secure OAuth** - Industry-standard Spotify authentication with vault token storage
+- **⚡ Real-time Updates** - Live sync status and progress tracking
 
-Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
+## 🚀 Quick Start
 
-```bash
-npm i supabase --save-dev
-```
+### Prerequisites
 
-To install the beta release channel:
+- Node.js 18+ and npm
+- Supabase account and project
+- Spotify Developer account
 
-```bash
-npm i supabase@beta --save-dev
-```
-
-When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
-
-```
-NODE_OPTIONS=--no-experimental-fetch yarn add supabase
-```
-
-> **Note**
-For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
-
-<details>
-  <summary><b>macOS</b></summary>
-
-  Available via [Homebrew](https://brew.sh). To install:
-
-  ```sh
-  brew install supabase/tap/supabase
-  ```
-
-  To install the beta release channel:
-  
-  ```sh
-  brew install supabase/tap/supabase-beta
-  brew link --overwrite supabase-beta
-  ```
-  
-  To upgrade:
-
-  ```sh
-  brew upgrade supabase
-  ```
-</details>
-
-<details>
-  <summary><b>Windows</b></summary>
-
-  Available via [Scoop](https://scoop.sh). To install:
-
-  ```powershell
-  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
-  scoop install supabase
-  ```
-
-  To upgrade:
-
-  ```powershell
-  scoop update supabase
-  ```
-</details>
-
-<details>
-  <summary><b>Linux</b></summary>
-
-  Available via [Homebrew](https://brew.sh) and Linux packages.
-
-  #### via Homebrew
-
-  To install:
-
-  ```sh
-  brew install supabase/tap/supabase
-  ```
-
-  To upgrade:
-
-  ```sh
-  brew upgrade supabase
-  ```
-
-  #### via Linux packages
-
-  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
-
-  ```sh
-  sudo apk add --allow-untrusted <...>.apk
-  ```
-
-  ```sh
-  sudo dpkg -i <...>.deb
-  ```
-
-  ```sh
-  sudo rpm -i <...>.rpm
-  ```
-
-  ```sh
-  sudo pacman -U <...>.pkg.tar.zst
-  ```
-</details>
-
-<details>
-  <summary><b>Other Platforms</b></summary>
-
-  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
-
-  ```sh
-  go install github.com/supabase/cli@latest
-  ```
-
-  Add a symlink to the binary in `$PATH` for easier access:
-
-  ```sh
-  ln -s "$(go env GOPATH)/cli" /usr/bin/supabase
-  ```
-
-  This works on other non-standard Linux distros.
-</details>
-
-<details>
-  <summary><b>Community Maintained Packages</b></summary>
-
-  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
-  To install in your working directory:
-
-  ```bash
-  pkgx install supabase
-  ```
-
-  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
-</details>
-
-### Run the CLI
+### Installation
 
 ```bash
-supabase bootstrap
+# Clone the repository
+git clone https://github.com/gwherrett/mako-sync.git
+cd mako-sync
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your Supabase and Spotify credentials
+
+# Start development server
+npm run dev
 ```
 
-Or using npx:
+### Configuration
+
+See [Production Deployment Guide](docs/reference/production-deployment.md) for complete setup instructions.
+
+## 📚 Documentation
+
+**Start here:** [Documentation Hub](docs/README.md)
+
+### Quick Links
+
+- [Architecture Overview](docs/architecture-mako-sync.md) - System design and technical architecture
+- [Product Requirements](docs/prd-mako-sync.md) - Product vision and features
+- [Authentication System](docs/systems/authentication.md) - Auth status and implementation
+- [Spotify Integration](docs/systems/spotify-integration.md) - Spotify sync status
+
+### Implementation Guides
+
+- [Authentication Reference](docs/reference/authentication-reference.md) - Auth implementation, debugging, testing
+- [Spotify Reference](docs/reference/spotify-reference.md) - Spotify OAuth and troubleshooting
+- [Production Deployment](docs/reference/production-deployment.md) - Deployment checklist
+
+### Development
+
+- [Agents Framework](docs/agents/README.md) - Code validation with 15 automated rules
+- [Debugging Strategy](docs/debugging-task-strategy.md) - Development methodology
+- [AGENTS.md](AGENTS.md) - Critical coding patterns for AI agents
+
+## 🛠️ Development
+
+### Available Commands
 
 ```bash
-npx supabase bootstrap
+# Development
+npm run dev              # Start dev server
+npm run build           # Production build
+npm run preview         # Preview production build
+
+# Code Quality
+npm run lint            # Run ESLint
+npm run agents:validate # Validate code patterns (15 rules)
+npm test               # Run tests
+
+# Agents Framework
+npm run agents:validate:debug    # Debug patterns only
+npm run agents:validate:auth     # Auth patterns only
+npm run agents:validate:code     # Code patterns only
+npm run agents:test             # Test agent framework
 ```
 
-The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
+### Code Validation
 
-## Docs
+This project uses the **Mako Agents Framework** - a TypeScript-based validation system enforcing 15 coding patterns automatically:
 
-Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+- ✅ 5 Debug rules (pagination, timeouts, session handling)
+- ✅ 4 Auth rules (context consolidation, import patterns)
+- ✅ 6 Code rules (service layer, edge functions, singletons)
 
-## Breaking changes
+Run `npm run agents:validate` before committing to catch issues early.
 
-We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+See [docs/agents/](docs/agents/) for complete framework documentation.
 
-However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+## 🏗️ Tech Stack
 
-## Developing
+### Frontend
+- **React 18** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Build tool and dev server
+- **Tailwind CSS** - Styling
+- **Shadcn/ui** - Component library
+- **Tanstack Query** - Data fetching and caching
 
-To run from source:
+### Backend
+- **Supabase** - Database, auth, and edge functions
+- **PostgreSQL** - Primary database
+- **Supabase Vault** - Secure token storage
+- **Row Level Security** - Data access control
 
-```sh
-# Go >= 1.22
-go run . help
-```
+### Integration
+- **Spotify Web API** - Music data and OAuth
+- **music-metadata-browser** - Local MP3 file parsing
+- **OpenAI API** - AI-powered genre classification
+
+## 🔐 Security
+
+- ✅ OAuth 2.0 for Spotify authentication
+- ✅ Tokens stored in Supabase Vault (encrypted at rest)
+- ✅ Row Level Security (RLS) on all tables
+- ✅ Service role keys only in edge functions
+- ✅ No credentials in client-side code
+
+See [Production Deployment Guide](docs/reference/production-deployment.md) for security best practices.
+
+## 📊 Project Status
+
+**Current State:** Production-ready core features
+
+- ✅ **Authentication** - Complete (4/4 phases)
+- 🔄 **Spotify Integration** - 85% complete (3/4 phases)
+- ✅ **Genre Classification** - 90% complete
+- ✅ **Missing Tracks Analysis** - Complete
+- 🔄 **AI Genre Suggestions** - 60% complete
+
+See [Current Status Assessment](docs/current-status-assessment.md) for detailed status.
+
+## 🤝 Contributing
+
+### Code Quality Standards
+
+1. **Follow coding patterns** - Run `npm run agents:validate` before committing
+2. **Read AGENTS.md** - Critical patterns for AI agents and developers
+3. **Update documentation** - Keep docs in sync with code changes
+4. **Write tests** - Maintain test coverage
+
+### Development Workflow
+
+1. Create feature branch from `main`
+2. Implement feature following coding patterns
+3. Run validation: `npm run agents:validate`
+4. Test thoroughly
+5. Update documentation if needed
+6. Submit pull request
+
+## 📝 License
+
+MIT
+
+## 🔗 Links
+
+- **Repository**: [github.com/gwherrett/mako-sync](https://github.com/gwherrett/mako-sync)
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/gwherrett/mako-sync/issues)
+
+---
+
+**Made with ❤️ for music lovers who want their library organized**

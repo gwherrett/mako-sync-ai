@@ -450,6 +450,90 @@ As a user, I want clear feedback when operations fail so that I can understand w
 
 ---
 
+### **4.10 Epic 10: slskd Integration for Missing Track Acquisition**
+
+**User Story:**
+As a DJ, I want to automatically push missing tracks to my slskd wishlist so that they can be automatically downloaded via Soulseek.
+
+**Acceptance Criteria:**
+
+* **FR-10.1:** System SHALL provide slskd configuration interface allowing users to:
+  - Enter slskd API endpoint URL (e.g., `http://localhost:5030`)
+  - Enter slskd API key for authentication
+  - Test connection to validate credentials
+  - Save connection settings per user
+  - Display connection status (connected/disconnected/error)
+* **FR-10.2:** System SHALL store slskd configuration securely:
+  - API endpoint and API key stored in user_preferences table
+  - Row Level Security (RLS) enforced for user isolation
+  - No encryption required (user responsibility to secure slskd instance)
+* **FR-10.3:** Missing Tracks Analyzer SHALL display artist-level selection interface:
+  - Grouped missing tracks by artist (existing functionality)
+  - Checkbox per artist for multi-select
+  - Display track count per artist (e.g., "15 tracks")
+  - Show genres associated with artist
+* **FR-10.4:** System SHALL provide "Push to slskd Wishlist" button that:
+  - Is enabled only when slskd is connected and artists are selected
+  - Displays count of tracks to be synced
+  - Shows confirmation dialog before syncing
+* **FR-10.5:** For each approved missing track, system SHALL:
+  - Format search query as: `"[Artist] - [Track Title] 320 MP3"`
+  - Check slskd wishlist for existing entries (skip duplicates)
+  - POST new search to slskd API endpoint `/api/v0/searches`
+  - Track sync status (pending/synced/failed) per track
+  - Handle errors gracefully with retry logic
+* **FR-10.6:** System SHALL prevent duplicate wishlist entries:
+  - Query existing slskd searches via GET `/api/v0/searches`
+  - Compare normalized search text before adding
+  - Skip tracks already in wishlist
+  - Report skipped duplicates to user
+* **FR-10.7:** System SHALL display sync progress and results:
+  - Progress bar showing X/Y tracks synced
+  - Count of successfully added tracks
+  - Count of skipped duplicates
+  - Count of failed additions with error messages
+  - Option to retry failed tracks
+* **FR-10.8:** System SHALL handle slskd connectivity issues:
+  - Connection timeout: Stop processing, show error, preserve state
+  - 401 Unauthorized: Prompt to re-enter credentials
+  - 429 Rate Limited: Exponential backoff and retry
+  - 500 Server Error: Log error, mark track for retry
+  - Network errors: Show user-friendly message and stop
+* **FR-10.9:** System SHALL track slskd sync state per track:
+  - `synced_to_slskd` boolean flag on missing tracks
+  - `slskd_sync_timestamp` datetime
+  - `slskd_sync_attempts` count
+  - `slskd_search_id` returned from slskd API
+* **FR-10.10:** System SHALL support multi-user scenarios:
+  - Each user maintains separate slskd configuration
+  - Different users can connect to different slskd instances
+  - Sync state is per-user, per-track
+* **FR-10.11:** System SHALL handle special characters in track names:
+  - Sanitize quotes, dashes, and special characters
+  - URL encode query strings for API calls
+  - Example: `Artist - "Song" (Remix)` → `Artist - Song (Remix) 320 MP3`
+
+**Priority:** P2 (Medium)
+**Dependencies:** Missing Tracks Analysis (Epic 6), slskd instance running
+**Estimated Effort:** 21 story points
+
+**Integration Architecture:**
+- One-way integration: Mako Sync → slskd only
+- No bi-directional sync (download status not tracked)
+- REST API communication using fetch/axios
+- Retry logic for transient failures
+- State persistence in Supabase tables
+
+**Future Enhancements (Out of Scope):**
+- Bi-directional sync (import download status from slskd)
+- Quality preferences beyond 320 MP3 (FLAC, variable bitrates)
+- Download progress monitoring within Mako Sync
+- Automatic periodic sync of new missing tracks
+- Album-level approval workflow
+- Priority queue for track downloads
+
+---
+
 ## **5. Technical Requirements**
 
 ### **5.0 Data Model Preservation (Critical Constraint)**

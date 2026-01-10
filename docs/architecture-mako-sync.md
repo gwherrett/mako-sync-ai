@@ -399,9 +399,167 @@ All colors must use HSL-based semantic tokens from `index.css`:
 
 ---
 
-## **10. Testing Considerations**
+## **10. External Integrations**
 
-### **10.1 RLS Testing**
+### **10.1 slskd Integration (One-Way)**
+
+**Architecture Pattern:** Direct REST API integration from client-side
+
+The slskd integration enables users to push missing tracks to their Soulseek download queue via the slskd REST API.
+
+#### **Integration Flow**
+
+```
+┌──────────────────┐
+│ Missing Tracks   │
+│ Analysis (Client)│
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ User Preferences │ (slskd config + RLS)
+│ (Supabase Table) │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ slskdClient      │ (fetch API calls)
+│ Service          │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ slskd REST API   │ (user's local/remote instance)
+│ /api/v0/searches │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ slskd_sync_state │ (track sync status + RLS)
+│ (Supabase Table) │
+└──────────────────┘
+```
+
+#### **Key Architectural Decisions**
+
+1. **Client-Side Integration**
+   - No edge function required (public slskd API, user-provided credentials)
+   - Direct fetch calls from browser to slskd instance
+   - User responsible for CORS configuration on slskd
+
+2. **Data Storage**
+   - `user_preferences` table stores slskd API endpoint + API key per user
+   - `slskd_sync_state` table tracks which tracks have been synced
+   - Both tables protected by RLS (user isolation)
+
+3. **Security Model**
+   - **No encryption** of slskd credentials (user responsibility)
+   - Stored in Supabase table (not Vault) as user's local service
+   - RLS prevents cross-user access
+   - API key transmitted in `X-API-Key` header
+
+4. **Error Handling**
+   - Network failures: Stop processing, preserve state, allow retry
+   - 401 Unauthorized: Prompt credential re-entry
+   - 429 Rate Limit: Exponential backoff with user feedback
+   - Connection timeout: 10 second timeout per request
+
+#### **Database Schema**
+
+```sql
+-- User preferences (includes slskd config)
+CREATE TABLE IF NOT EXISTS public.user_preferences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  slskd_api_endpoint TEXT,
+  slskd_api_key TEXT,
+  slskd_last_connection_test TIMESTAMPTZ,
+  slskd_connection_status BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
+-- Sync state tracking
+CREATE TABLE IF NOT EXISTS public.slskd_sync_state (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  spotify_track_id UUID NOT NULL,
+  synced_to_slskd BOOLEAN DEFAULT false,
+  sync_timestamp TIMESTAMPTZ,
+  sync_attempts INTEGER DEFAULT 0,
+  slskd_search_id TEXT,
+  last_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, spotify_track_id)
+);
+```
+
+#### **Service Pattern**
+
+```typescript
+// Client-side service (no edge function)
+export class SlskdClientService {
+  // All methods are static (stateless)
+  static async testConnection(config: SlskdConfig): Promise<boolean>
+  static async getExistingSearches(config: SlskdConfig): Promise<SlskdSearchResponse[]>
+  static async addToWishlist(config: SlskdConfig, searchText: string): Promise<SlskdSearchResponse>
+  static formatSearchQuery(artist: string, title: string): string
+  static isSearchDuplicate(existing: SlskdSearchResponse[], newSearch: string): boolean
+}
+```
+
+#### **UI Integration Points**
+
+1. **Settings Page** (`src/pages/Security.tsx`)
+   - Add slskd configuration section
+   - API endpoint + API key inputs
+   - Test connection button
+   - Connection status indicator
+
+2. **Missing Tracks Analyzer** (`src/components/MissingTracksAnalyzer.tsx`)
+   - Add artist-level checkboxes (multi-select)
+   - "Push to slskd Wishlist" button
+   - Sync progress UI
+   - Results summary display
+
+#### **Multi-User Isolation**
+
+- Each user has separate slskd configuration
+- Different users can connect to different slskd instances
+- RLS policies ensure users only see their own:
+  - Configuration (`user_preferences.user_id`)
+  - Sync state (`slskd_sync_state.user_id`)
+
+#### **Performance Considerations**
+
+- Small delay (100ms) between API calls to avoid rate limiting
+- Batch processing with progress updates
+- No pagination needed (slskd handles wishlist management)
+- Sync state updates after each track (preserves progress)
+
+#### **Limitations & Future Enhancements**
+
+**Current Scope (V1):**
+- ✓ One-way sync (Mako → slskd only)
+- ✓ Artist-level approval workflow
+- ✓ Duplicate prevention
+- ✓ Error handling and retry
+- ✓ Multi-user support
+
+**Out of Scope (Future):**
+- ✗ Bi-directional sync (download status tracking)
+- ✗ Quality preferences (320 MP3 only)
+- ✗ Album-level or track-level approval
+- ✗ Automatic periodic sync
+- ✗ Download progress monitoring
+
+---
+
+## **11. Testing Considerations**
+
+### **11.1 RLS Testing**
 
 Test queries with actual user context, not service role:
 
@@ -416,7 +574,7 @@ const { data, error } = await supabase
 expect(data.every(row => row.user_id === testUserId)).toBe(true);
 ```
 
-### **10.2 Edge Function Testing**
+### **11.2 Edge Function Testing**
 
 Use Supabase dashboard or curl with auth header:
 

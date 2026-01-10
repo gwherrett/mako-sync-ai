@@ -1,9 +1,10 @@
 # Mako-Sync Design Brief
 
 ## Document Information
-- **Version**: 1.0
-- **Last Updated**: December 5, 2025
+- **Version**: 1.1
+- **Last Updated**: January 10, 2026
 - **Project**: mako-sync
+- **Recent Updates**: Added slskd integration design patterns
 
 ---
 
@@ -472,3 +473,284 @@ tailwind.config.ts         # Tailwind configuration with design tokens
 - **Keyboard navigation**: Test all interactive flows
 - **Screen reader testing**: Validate with NVDA/JAWS
 - **Color blindness**: Test with color vision simulators
+
+---
+
+## 14. slskd Integration UI Patterns
+
+### 14.1 Configuration Section (Settings Page)
+
+**Location**: Add to existing Security/Settings page
+
+**Visual Design**:
+```
+┌─────────────────────────────────────────────────────┐
+│ slskd Integration                           [badge] │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│ API Endpoint                                        │
+│ ┌──────────────────────────────────────────────┐  │
+│ │ http://localhost:5030                        │  │
+│ └──────────────────────────────────────────────┘  │
+│                                                     │
+│ API Key                                             │
+│ ┌──────────────────────────────────────────────┐  │
+│ │ ••••••••••••••••••••                        │  │
+│ └──────────────────────────────────────────────┘  │
+│                                                     │
+│ [Test Connection]    [Save]                         │
+│                                                     │
+│ Status: ● Connected                                 │
+└─────────────────────────────────────────────────────┘
+```
+
+**Component Specifications**:
+- **Card**: Use `<Card>` with `bg-card` background
+- **Badge**: Connection status indicator
+  - Green (`bg-success`) when connected
+  - Red (`bg-destructive`) when disconnected
+  - Yellow (`bg-warning`) when testing
+- **Inputs**: Use `<Input>` components
+  - API Endpoint: `type="url"` with validation
+  - API Key: `type="password"` for security
+- **Buttons**:
+  - Test Connection: `variant="outline"` with loading spinner
+  - Save: `variant="default"` (primary ocean blue)
+- **Status**: Small text with colored dot indicator
+
+### 14.2 Artist Selection Interface (Missing Tracks Analyzer)
+
+**Enhancement**: Add checkboxes to existing artist groups
+
+**Visual Design**:
+```
+┌─────────────────────────────────────────────────────┐
+│ Missing Tracks by Artist                            │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│ ☑ Pink Floyd                             12 tracks │
+│   ◦ House  ◦ Rock                                  │
+│   Comfortably Numb                                  │
+│   Time                                              │
+│   Money                                             │
+│   [+ 9 more tracks]                                 │
+│                                                     │
+│ ☐ Radiohead                               8 tracks │
+│   ◦ Alternative  ◦ Electronic                       │
+│   Karma Police                                      │
+│   Paranoid Android                                  │
+│   [+ 6 more tracks]                                 │
+│                                                     │
+│ Selected: 12 tracks from 1 artist                   │
+│                                                     │
+│ [Push to slskd Wishlist]                            │
+└─────────────────────────────────────────────────────┘
+```
+
+**Component Specifications**:
+- **Checkbox**: Use `<Checkbox>` from Shadcn/ui
+  - Position: Left of artist name
+  - Hover: Show subtle background highlight
+  - State: Indeterminate if partially selected (future)
+- **Artist Group**: Existing card design with added checkbox
+  - Hover: `hover:bg-accent/50` for entire row
+  - Selected: Subtle border or background change
+- **Track Count Badge**: `<Badge variant="secondary">`
+- **Genre Pills**: `<Badge variant="outline" className="text-xs">`
+- **Action Button**:
+  - Label: "Push to slskd Wishlist"
+  - Style: Primary button with icon
+  - Disabled state: When no slskd config or no artists selected
+  - Icon: Download or arrow icon from lucide-react
+
+### 14.3 Sync Progress Modal
+
+**Trigger**: When user clicks "Push to slskd Wishlist"
+
+**Visual Design**:
+```
+┌─────────────────────────────────────────────────────┐
+│ Syncing to slskd                          [X Close] │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│ Progress: 47/120 tracks                             │
+│ ████████████░░░░░░░░░░░░░░░░░░░░░░ 39%             │
+│                                                     │
+│ ✓ Added: 42                                         │
+│ ⊘ Skipped (duplicates): 5                          │
+│ ✗ Failed: 0                                         │
+│                                                     │
+│ Currently processing:                               │
+│ Pink Floyd - Comfortably Numb 320 MP3              │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+**Component Specifications**:
+- **Modal**: `<Dialog>` component
+- **Progress Bar**: `<Progress>` component
+  - Color: Primary ocean blue
+  - Height: 8px for visibility
+- **Status Counts**:
+  - Success: Green text with checkmark
+  - Skipped: Yellow/orange text with skip icon
+  - Failed: Red text with error icon
+- **Current Track**: Muted text, updates in real-time
+- **Close Button**: Disabled while syncing, enabled after completion
+
+### 14.4 Results Summary
+
+**Display**: After sync completes (same modal, updated)
+
+**Visual Design**:
+```
+┌─────────────────────────────────────────────────────┐
+│ Sync Complete                             [X Close] │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│ ✓ Successfully Added: 115 tracks                    │
+│ ⊘ Skipped (duplicates): 5 tracks                   │
+│ ✗ Failed: 0 tracks                                  │
+│                                                     │
+│ All missing tracks have been added to your slskd    │
+│ wishlist and will be downloaded automatically.      │
+│                                                     │
+│ [Close]                                             │
+└─────────────────────────────────────────────────────┘
+```
+
+**With Errors**:
+```
+┌─────────────────────────────────────────────────────┐
+│ Sync Completed with Errors                [X Close] │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│ ✓ Successfully Added: 112 tracks                    │
+│ ⊘ Skipped (duplicates): 5 tracks                   │
+│ ✗ Failed: 3 tracks                                  │
+│                                                     │
+│ Errors:                                             │
+│ • Pink Floyd - Echoes 320 MP3                       │
+│   Network timeout                                   │
+│ • Radiohead - Creep 320 MP3                         │
+│   Connection refused                                │
+│ • The Beatles - Let It Be 320 MP3                   │
+│   Rate limited                                      │
+│                                                     │
+│ [Retry Failed Tracks]    [Close]                    │
+└─────────────────────────────────────────────────────┘
+```
+
+**Component Specifications**:
+- **Alert/Banner**: Use appropriate color for status
+  - Success: `bg-success/10` border `border-success`
+  - Warning: `bg-warning/10` border `border-warning`
+- **Error List**: Scrollable if many errors, max-height 200px
+- **Retry Button**: `variant="default"` only shown if failures exist
+- **Close Button**: `variant="outline"`
+
+### 14.5 Connection Status Indicator
+
+**Location**: In MissingTracksAnalyzer header (top right)
+
+**Visual Design**:
+```
+Small badge:  [● slskd: Connected]
+
+Or if disconnected:  [⊘ slskd: Not configured]
+```
+
+**Component Specifications**:
+- **Badge**: Small, subtle, top-right of Missing Tracks card
+- **States**:
+  - Connected: Green dot + "Connected"
+  - Disconnected: Red dot + "Not configured"
+  - Error: Yellow dot + "Connection error"
+- **Tooltip**: Show endpoint on hover
+- **Click**: Navigate to settings (optional)
+
+### 14.6 Accessibility Requirements
+
+**Keyboard Navigation**:
+- Tab through artist checkboxes
+- Space to toggle checkbox
+- Enter to activate "Push to slskd" button
+- Esc to close modal
+
+**Screen Reader**:
+- Checkbox: "Select Pink Floyd, 12 tracks"
+- Progress: "Syncing 47 of 120 tracks, 39 percent"
+- Status: "Successfully added 115 tracks"
+
+**ARIA Labels**:
+```tsx
+<Checkbox
+  aria-label={`Select ${artist}, ${trackCount} tracks`}
+  aria-describedby={`genres-${artistId}`}
+/>
+
+<Button
+  aria-label="Push selected tracks to slskd wishlist"
+  aria-disabled={!canSync}
+>
+  Push to slskd Wishlist
+</Button>
+```
+
+### 14.7 Color Usage for slskd Integration
+
+- **Primary Action**: Ocean blue (`--primary`) for sync button
+- **Success States**: Use `--success` for added tracks
+- **Warning States**: Use `--warning` for skipped/rate limited
+- **Error States**: Use `--destructive` for failed syncs
+- **Neutral States**: Use `--muted` for disabled states
+
+### 14.8 Responsive Behavior
+
+**Desktop (≥1024px)**:
+- Full width artist groups with all tracks visible
+- Side-by-side buttons in sync modal
+- Wide progress bar
+
+**Tablet (768px - 1023px)**:
+- Collapsible track lists (show first 3, "+ X more")
+- Stack buttons in sync modal
+- Maintain progress bar width
+
+**Mobile (<768px)**:
+- Artist name + track count only
+- Expandable track list on tap
+- Full-width buttons
+- Progress bar fills container
+
+---
+
+## 15. Component Checklist for slskd Integration
+
+**New Files to Create**:
+- [ ] `src/components/SlskdConfigSection.tsx` - Settings UI
+- [ ] `src/components/SlskdSyncProgress.tsx` - Progress modal
+- [ ] `src/components/SlskdConnectionBadge.tsx` - Status indicator
+- [ ] `src/services/slskdClient.service.ts` - API client
+- [ ] `src/hooks/useSlskdConfig.ts` - Config management
+- [ ] `src/hooks/useSlskdSync.ts` - Sync operations
+- [ ] `src/types/slskd.ts` - TypeScript interfaces
+
+**Files to Modify**:
+- [ ] `src/components/MissingTracksAnalyzer.tsx` - Add checkboxes + sync button
+- [ ] `src/pages/Security.tsx` - Add slskd config section
+
+**Design System Components to Use**:
+- `<Card>`, `<CardHeader>`, `<CardContent>` - Container structure
+- `<Input>` - API endpoint and key inputs
+- `<Button>` - Actions (test, save, sync)
+- `<Checkbox>` - Artist selection
+- `<Badge>` - Status indicators, genre pills
+- `<Dialog>` - Sync progress modal
+- `<Progress>` - Sync progress bar
+- `<Alert>` - Error/success messages
+- `<Tooltip>` - Contextual help
+
+---
+
+**End of Document**
