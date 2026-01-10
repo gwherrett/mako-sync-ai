@@ -79,6 +79,13 @@ class StartupSessionValidatorService {
         return result;
       } catch (error: any) {
         console.log('⚠️ STARTUP VALIDATOR: Global timeout hit, clearing stale tokens');
+
+        // CRITICAL FIX: Check if externally validated BEFORE clearing
+        if (this.externallyValidated) {
+          console.log('⚠️ STARTUP VALIDATOR: Global timeout but externally validated - treating as valid session');
+          return { isValid: true, wasCleared: false, reason: 'Global timeout but externally validated' };
+        }
+
         await this.clearStaleTokens('Global validation timeout');
         return { isValid: false, wasCleared: true, reason: 'Global timeout' };
       }
@@ -121,6 +128,13 @@ class StartupSessionValidatorService {
         sessionError = sessionResult.error;
       } catch (timeoutError: any) {
         console.log('⚠️ STARTUP VALIDATOR: getSession() timed out after 5s, clearing stale tokens');
+
+        // CRITICAL FIX: Check if externally validated BEFORE clearing
+        if (this.externallyValidated) {
+          console.log('⚠️ STARTUP VALIDATOR: Timeout but externally validated - treating as valid session');
+          return { isValid: true, wasCleared: false, reason: 'Timeout but externally validated' };
+        }
+
         await this.clearStaleTokens('Session fetch timeout');
         return { isValid: false, wasCleared: true, reason: 'Session fetch timeout' };
       }
