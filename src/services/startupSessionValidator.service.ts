@@ -127,14 +127,18 @@ class StartupSessionValidatorService {
         session = sessionResult.data.session;
         sessionError = sessionResult.error;
       } catch (timeoutError: any) {
-        console.log('⚠️ STARTUP VALIDATOR: getSession() timed out after 5s, clearing stale tokens');
+        console.log('⚠️ STARTUP VALIDATOR: getSession() timed out after 5s', {
+          externallyValidated: this.externallyValidated,
+          timestamp: new Date().toISOString()
+        });
 
         // CRITICAL FIX: Check if externally validated BEFORE clearing
         if (this.externallyValidated) {
-          console.log('⚠️ STARTUP VALIDATOR: Timeout but externally validated - treating as valid session');
+          console.log('✅ STARTUP VALIDATOR: Timeout but externally validated - skipping token clear');
           return { isValid: true, wasCleared: false, reason: 'Timeout but externally validated' };
         }
 
+        console.log('🧹 STARTUP VALIDATOR: Not externally validated, clearing stale tokens');
         await this.clearStaleTokens('Session fetch timeout');
         return { isValid: false, wasCleared: true, reason: 'Session fetch timeout' };
       }
