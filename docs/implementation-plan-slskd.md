@@ -117,7 +117,6 @@ src/pages/
 │ 2. Format query: "Artist - Track    │
 │    320 MP3"                          │
 │ 3. POST to /api/v0/searches         │
-│ 4. Update sync state                │
 └───────────┬─────────────────────────┘
             │
             ▼
@@ -176,54 +175,7 @@ CREATE POLICY "Users can insert own preferences"
 CREATE INDEX idx_user_preferences_user_id ON public.user_preferences(user_id);
 ```
 
-### New Table: `slskd_sync_state`
-
-Track which tracks have been synced to slskd.
-
-```sql
-CREATE TABLE IF NOT EXISTS public.slskd_sync_state (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  spotify_track_id UUID NOT NULL REFERENCES public.spotify_liked(id) ON DELETE CASCADE,
-
-  -- Sync State
-  synced_to_slskd BOOLEAN DEFAULT false,
-  sync_timestamp TIMESTAMPTZ,
-  sync_attempts INTEGER DEFAULT 0,
-  slskd_search_id TEXT,  -- ID returned from slskd API
-  last_error TEXT,
-
-  -- Timestamps
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-  -- Constraints
-  UNIQUE(user_id, spotify_track_id)
-);
-
--- Row Level Security
-ALTER TABLE public.slskd_sync_state ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view own sync state"
-  ON public.slskd_sync_state
-  FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own sync state"
-  ON public.slskd_sync_state
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own sync state"
-  ON public.slskd_sync_state
-  FOR UPDATE
-  USING (auth.uid() = user_id);
-
--- Indexes
-CREATE INDEX idx_slskd_sync_user_id ON public.slskd_sync_state(user_id);
-CREATE INDEX idx_slskd_sync_spotify_track ON public.slskd_sync_state(spotify_track_id);
-CREATE INDEX idx_slskd_sync_synced ON public.slskd_sync_state(user_id, synced_to_slskd);
-```
+**Note:** No separate sync state table is needed. Sync operations are ephemeral - users can re-sync tracks at any time. Duplicate prevention is handled by querying slskd's existing wishlist in real-time.
 
 ### TypeScript Interfaces
 
@@ -235,17 +187,6 @@ export interface SlskdConfig {
   apiKey: string;
   lastConnectionTest?: string;
   connectionStatus: boolean;
-}
-
-export interface SlskdSyncState {
-  id: string;
-  userId: string;
-  spotifyTrackId: string;
-  syncedToSlskd: boolean;
-  syncTimestamp?: string;
-  syncAttempts: number;
-  slskdSearchId?: string;
-  lastError?: string;
 }
 
 export interface SlskdSearchRequest {
@@ -285,10 +226,9 @@ export interface SlskdSyncResult {
 
 **Tasks:**
 
-1. **Database Setup** (2 hours)
+1. **Database Setup** (1 hour)
    - [ ] Create migration for `user_preferences` table
-   - [ ] Create migration for `slskd_sync_state` table
-   - [ ] Test migrations locally
+   - [ ] Test migration locally
    - [ ] Apply to production (after testing)
 
 2. **Service Layer** (4 hours)
@@ -325,7 +265,6 @@ export interface SlskdSyncResult {
 
 **Files Created:**
 - `supabase/migrations/[timestamp]_create_user_preferences.sql`
-- `supabase/migrations/[timestamp]_create_slskd_sync_state.sql`
 - `src/types/slskd.ts`
 - `src/services/slskdClient.service.ts`
 - `src/hooks/useSlskdConfig.ts`
@@ -393,12 +332,12 @@ export interface SlskdSyncResult {
    - [ ] Add duplicate detection logic (normalize + compare)
    - [ ] Implement retry logic with exponential backoff
 
-2. **Sync State Management** (4 hours)
-   - [ ] Create `useSlskdSyncState()` hook to fetch sync state
+2. **Sync Hook** (4 hours)
    - [ ] Create `useSyncToSlskd()` mutation hook
    - [ ] Implement batch sync logic (process multiple tracks)
-   - [ ] Update database sync state after each track
+   - [ ] Track sync progress in component state (not database)
    - [ ] Handle partial failures (some succeed, some fail)
+   - [ ] Return sync results to UI
 
 3. **Error Handling** (3 hours)
    - [ ] Handle 401 Unauthorized → prompt re-auth
@@ -417,7 +356,7 @@ export interface SlskdSyncResult {
 **Acceptance Criteria:**
 - ✓ Duplicates are detected and skipped
 - ✓ Queries formatted correctly ("Artist - Title 320 MP3")
-- ✓ Sync state tracked per track in database
+- ✓ Sync progress tracked in real-time during operation
 - ✓ Errors handled gracefully with user feedback
 - ✓ Retry logic works for transient failures
 
@@ -725,33 +664,13 @@ export function useSlskdSync() {
 
         try {
           // Add to wishlist
-          const searchResult = await SlskdClientService.addToWishlist(config, searchText);
-
-          // Update sync state
-          await supabase.from('slskd_sync_state').upsert({
-            user_id: user.id,
-            spotify_track_id: track.spotifyTrack.id,
-            synced_to_slskd: true,
-            sync_timestamp: new Date().toISOString(),
-            sync_attempts: 1,
-            slskd_search_id: searchResult.id,
-          });
-
+          await SlskdClientService.addToWishlist(config, searchText);
           result.addedCount++;
         } catch (error: any) {
           result.failedCount++;
           result.errors.push({
             track: `${track.spotifyTrack.artist} - ${track.spotifyTrack.title}`,
             error: error.message || 'Unknown error',
-          });
-
-          // Update sync state with error
-          await supabase.from('slskd_sync_state').upsert({
-            user_id: user.id,
-            spotify_track_id: track.spotifyTrack.id,
-            synced_to_slskd: false,
-            sync_attempts: 1,
-            last_error: error.message,
           });
         }
 
@@ -766,7 +685,6 @@ export function useSlskdSync() {
         title: 'Sync Complete',
         description: `Added ${result.addedCount}, Skipped ${result.skippedCount}, Failed ${result.failedCount}`,
       });
-      queryClient.invalidateQueries({ queryKey: ['slskd-sync-state'] });
     },
     onError: (error: Error) => {
       toast({

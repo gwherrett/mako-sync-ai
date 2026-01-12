@@ -136,7 +136,7 @@ This document provides a quick overview of the slskd integration documentation a
 
 ### 2. Database Setup (First Step)
 
-Create two new tables:
+Create one new table:
 
 ```sql
 -- User preferences (slskd config)
@@ -148,17 +148,9 @@ CREATE TABLE public.user_preferences (
   slskd_connection_status BOOLEAN,
   ...
 );
-
--- Sync state tracking
-CREATE TABLE public.slskd_sync_state (
-  id UUID PRIMARY KEY,
-  user_id UUID NOT NULL,
-  spotify_track_id UUID NOT NULL,
-  synced_to_slskd BOOLEAN,
-  ...
-  UNIQUE(user_id, spotify_track_id)
-);
 ```
+
+**Note:** No sync state table needed. Duplicate detection handled by querying slskd API in real-time.
 
 **Full schema:** See [implementation-plan-slskd.md](implementation-plan-slskd.md#database-schema)
 
@@ -306,10 +298,9 @@ Modify existing and create new components:
 1. `src/components/MissingTracksAnalyzer.tsx` - Add selection + sync
 2. `src/pages/Security.tsx` - Add config section
 
-### Database Migrations (2)
+### Database Migrations (1)
 
 1. `supabase/migrations/[timestamp]_create_user_preferences.sql`
-2. `supabase/migrations/[timestamp]_create_slskd_sync_state.sql`
 
 ---
 

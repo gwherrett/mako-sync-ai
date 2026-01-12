@@ -497,18 +497,12 @@ As a DJ, I want to automatically push missing tracks to my slskd wishlist so tha
   - Connection timeout: Stop processing, show error, preserve state
   - 401 Unauthorized: Prompt to re-enter credentials
   - 429 Rate Limited: Exponential backoff and retry
-  - 500 Server Error: Log error, mark track for retry
+  - 500 Server Error: Log error, allow manual retry
   - Network errors: Show user-friendly message and stop
-* **FR-10.9:** System SHALL track slskd sync state per track:
-  - `synced_to_slskd` boolean flag on missing tracks
-  - `slskd_sync_timestamp` datetime
-  - `slskd_sync_attempts` count
-  - `slskd_search_id` returned from slskd API
-* **FR-10.10:** System SHALL support multi-user scenarios:
+* **FR-10.9:** System SHALL support multi-user scenarios:
   - Each user maintains separate slskd configuration
   - Different users can connect to different slskd instances
-  - Sync state is per-user, per-track
-* **FR-10.11:** System SHALL handle special characters in track names:
+* **FR-10.10:** System SHALL handle special characters in track names:
   - Sanitize quotes, dashes, and special characters
   - URL encode query strings for API calls
   - Example: `Artist - "Song" (Remix)` → `Artist - Song (Remix) 320 MP3`

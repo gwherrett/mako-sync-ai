@@ -431,12 +431,6 @@ The slskd integration enables users to push missing tracks to their Soulseek dow
 ┌──────────────────┐
 │ slskd REST API   │ (user's local/remote instance)
 │ /api/v0/searches │
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ slskd_sync_state │ (track sync status + RLS)
-│ (Supabase Table) │
 └──────────────────┘
 ```
 
@@ -449,8 +443,9 @@ The slskd integration enables users to push missing tracks to their Soulseek dow
 
 2. **Data Storage**
    - `user_preferences` table stores slskd API endpoint + API key per user
-   - `slskd_sync_state` table tracks which tracks have been synced
-   - Both tables protected by RLS (user isolation)
+   - No sync state tracking (operations are ephemeral)
+   - Duplicate prevention via real-time slskd API queries
+   - User preferences protected by RLS (user isolation)
 
 3. **Security Model**
    - **No encryption** of slskd credentials (user responsibility)
@@ -480,20 +475,8 @@ CREATE TABLE IF NOT EXISTS public.user_preferences (
   UNIQUE(user_id)
 );
 
--- Sync state tracking
-CREATE TABLE IF NOT EXISTS public.slskd_sync_state (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  spotify_track_id UUID NOT NULL,
-  synced_to_slskd BOOLEAN DEFAULT false,
-  sync_timestamp TIMESTAMPTZ,
-  sync_attempts INTEGER DEFAULT 0,
-  slskd_search_id TEXT,
-  last_error TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(user_id, spotify_track_id)
-);
+-- Note: No separate sync state table needed
+-- Duplicate detection handled via real-time slskd API queries
 ```
 
 #### **Service Pattern**
@@ -528,16 +511,14 @@ export class SlskdClientService {
 
 - Each user has separate slskd configuration
 - Different users can connect to different slskd instances
-- RLS policies ensure users only see their own:
-  - Configuration (`user_preferences.user_id`)
-  - Sync state (`slskd_sync_state.user_id`)
+- RLS policies ensure users only see their own configuration (`user_preferences.user_id`)
 
 #### **Performance Considerations**
 
 - Small delay (100ms) between API calls to avoid rate limiting
-- Batch processing with progress updates
+- Batch processing with progress updates in component state
 - No pagination needed (slskd handles wishlist management)
-- Sync state updates after each track (preserves progress)
+- No database writes during sync (only reads slskd API)
 
 #### **Limitations & Future Enhancements**
 
