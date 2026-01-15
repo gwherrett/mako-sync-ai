@@ -30,7 +30,7 @@ This implementation guide covers the complete slskd integration for Mako Sync, i
 
 ### Key Architecture Decisions
 
-✅ **Supercrates is single source of truth**
+✅ **Supercrates are  single source of truth for Supergenres**
 - Mako Sync scans Supercrates folders (not MediaMonkey)
 - Downloads flow: slskd → post-processor → Supercrates → Serato
 
@@ -45,6 +45,10 @@ This implementation guide covers the complete slskd integration for Mako Sync, i
 ✅ **Static genre mapping**
 - Simple, reliable genre classification
 - Based on ID3 tags from downloaded files
+- Mako Sync owns the SuperGenre to genre map
+
+
+
 
 ### End-to-End Flow
 
