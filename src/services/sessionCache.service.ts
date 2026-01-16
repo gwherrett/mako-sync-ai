@@ -22,22 +22,59 @@ class SessionCacheService {
   private pendingRequest: Promise<{ session: Session | null; error: any }> | null = null;
   private readonly CACHE_DURATION = 30000; // 30 seconds
   private readonly REQUEST_TIMEOUT = 30000; // 30 seconds - removed aggressive timeout for critical flows
-  
+
   // Enhanced request tracking to prevent race conditions
   private requestContexts: Map<string, Promise<{ session: Session | null; error: any }>> = new Map();
   private initializationRequest: Promise<{ session: Session | null; error: any }> | null = null;
   private requestSequence = 0; // Track request order for debugging
-  
+
   // CIRCUIT BREAKER: Prevent too many concurrent validations
   private concurrentValidations = 0;
   private readonly MAX_CONCURRENT_VALIDATIONS = 2;
   private validationInProgress = false;
+
+  // Pre-populated session from auth context (avoids redundant getSession calls)
+  private prePopulatedSession: Session | null = null;
+  private prePopulatedTimestamp: number = 0;
 
   static getInstance(): SessionCacheService {
     if (!this.instance) {
       this.instance = new SessionCacheService();
     }
     return this.instance;
+  }
+
+  /**
+   * Pre-populate session from auth context to avoid redundant getSession calls
+   * Call this when the auth context has a validated session
+   */
+  setSessionFromAuthContext(session: Session | null): void {
+    if (session) {
+      console.log('✅ SESSION CACHE: Pre-populated with session from auth context', {
+        userId: session.user?.id,
+        expiresAt: session.expires_at,
+        timestamp: new Date().toISOString()
+      });
+      this.prePopulatedSession = session;
+      this.prePopulatedTimestamp = Date.now();
+
+      // Also update the main cache
+      this.cache = {
+        session,
+        error: null,
+        timestamp: Date.now(),
+        isValid: true
+      };
+    }
+  }
+
+  /**
+   * Check if we have a valid pre-populated session
+   */
+  private hasValidPrePopulatedSession(): boolean {
+    if (!this.prePopulatedSession) return false;
+    const age = Date.now() - this.prePopulatedTimestamp;
+    return age < this.CACHE_DURATION;
   }
 
   /**
@@ -53,7 +90,7 @@ class SessionCacheService {
   ): Promise<{ session: Session | null; error: any }> {
     const now = Date.now();
     const requestId = ++this.requestSequence;
-    
+
     console.log('🔍 SESSION CACHE: Session request started', {
       requestId,
       context: context || 'default',
@@ -61,6 +98,21 @@ class SessionCacheService {
       force,
       timestamp: new Date().toISOString()
     });
+
+    // OPTIMIZATION: Use pre-populated session from auth context if available
+    // This avoids redundant getSession() calls that can hang
+    if (!force && this.hasValidPrePopulatedSession()) {
+      console.log('🔍 SESSION CACHE: Using pre-populated session from auth context', {
+        requestId,
+        age: now - this.prePopulatedTimestamp,
+        hasSession: !!this.prePopulatedSession,
+        userId: this.prePopulatedSession?.user?.id
+      });
+      return {
+        session: this.prePopulatedSession,
+        error: null
+      };
+    }
 
     // Return cached session if valid and not forced (except for initialization)
     if (!force && priority !== 'initialization' && this.cache && this.cache.isValid && (now - this.cache.timestamp) < this.CACHE_DURATION) {

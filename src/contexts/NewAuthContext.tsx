@@ -402,6 +402,9 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               // This prevents the startup validator from clearing tokens if it times out
               startupSessionValidator.markAsValidated();
 
+              // OPTIMIZATION: Pre-populate session cache to avoid redundant getSession() calls
+              sessionCache.setSessionFromAuthContext(session);
+
               const now = Date.now();
               const timeSinceLastSignIn = now - lastSignedInTimeRef.current;
 
@@ -464,7 +467,10 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               // CRITICAL: Mark startup validator as externally validated
               // This prevents the validator from clearing tokens if it times out after this refresh
               startupSessionValidator.markAsValidated();
-              
+
+              // OPTIMIZATION: Pre-populate session cache to avoid redundant getSession() calls
+              sessionCache.setSessionFromAuthContext(session);
+
               console.log('🔍 SESSION DEBUG (Token Refresh): Session refreshed', {
                 userId: session.user?.id,
                 newTokenExpiry: session.expires_at,
