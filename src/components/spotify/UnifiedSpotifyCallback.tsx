@@ -6,7 +6,6 @@ import { SpotifyAuthManager } from '@/services/spotifyAuthManager.service';
 import { useAuth } from '@/contexts/NewAuthContext';
 import { Loader2, Music, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { withTimeout } from '@/utils/promiseUtils';
 
 // Retry configuration
 const MAX_RETRIES = 3;
@@ -22,6 +21,9 @@ const CALLBACK_STEPS = [
 ];
 
 // Retry wrapper for edge function calls
+// IMPORTANT: Only retry on network errors (connection failures, timeouts)
+// Do NOT retry on HTTP errors - OAuth authorization codes are single-use
+// and will be invalid after the first attempt reaches Spotify
 const callEdgeFunctionWithRetry = async (
   url: string,
   options: RequestInit,
@@ -29,13 +31,15 @@ const callEdgeFunctionWithRetry = async (
 ): Promise<Response> => {
   try {
     const response = await fetch(url, options);
-    if (!response.ok && attempt < MAX_RETRIES) {
-      console.log(`🔄 RETRY: Attempt ${attempt + 1}/${MAX_RETRIES} failed, retrying in ${RETRY_DELAYS[attempt]}ms`);
-      await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
-      return callEdgeFunctionWithRetry(url, options, attempt + 1);
+    // Do NOT retry on HTTP errors - the authorization code was already consumed
+    // HTTP 400/401/etc means the request reached the server and the code is now invalid
+    if (!response.ok) {
+      console.log(`❌ HTTP ERROR: Status ${response.status} - not retrying (OAuth code already consumed)`);
     }
     return response;
   } catch (error) {
+    // Only retry on network errors (fetch failed to reach the server)
+    // These indicate the authorization code may not have been consumed yet
     if (attempt < MAX_RETRIES) {
       console.log(`🔄 RETRY: Network error on attempt ${attempt + 1}/${MAX_RETRIES}, retrying in ${RETRY_DELAYS[attempt]}ms`);
       await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
@@ -52,7 +56,6 @@ export const UnifiedSpotifyCallback: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(true);
   const [callbackFailed, setCallbackFailed] = useState(false);
   const [failureReason, setFailureReason] = useState<string>('');
-  const [retryData, setRetryData] = useState<{code: string; state: string} | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
 
   // Create refs to track current state values and avoid stale closures
@@ -68,25 +71,28 @@ export const UnifiedSpotifyCallback: React.FC = () => {
     sessionRef.current = session;
   }, [session]);
 
-  // Retry callback function
-  const retryCallback = async (data: {code: string; state: string} | null) => {
-    if (!data) return;
-    
-    setCallbackFailed(false);
-    setFailureReason('');
-    setIsProcessing(true);
-    setCurrentStep(0);
-    
-    // Re-trigger the callback process with the stored data
-    const urlParams = new URLSearchParams();
-    urlParams.set('code', data.code);
-    urlParams.set('state', data.state);
-    
-    // Update the URL to trigger the useEffect again
-    window.history.replaceState({}, '', `${window.location.pathname}?${urlParams.toString()}`);
-    
-    // Clear the execution flag to allow re-processing
-    sessionStorage.removeItem('unified_spotify_callback_processing');
+  // Start a fresh OAuth flow (old authorization codes cannot be reused)
+  const startFreshOAuthFlow = async () => {
+    try {
+      setCallbackFailed(false);
+      setFailureReason('');
+      setIsProcessing(true);
+
+      // Clean up old state
+      localStorage.removeItem('spotify_auth_state');
+      sessionStorage.removeItem('spotify_auth_state_backup');
+      sessionStorage.removeItem('unified_spotify_callback_processing');
+
+      // Start a fresh OAuth flow
+      const authManager = SpotifyAuthManager.getInstance();
+      await authManager.connectSpotify();
+      // This will redirect to Spotify, so no need to handle anything else
+    } catch (error: any) {
+      console.error('Failed to start fresh OAuth flow:', error);
+      setCallbackFailed(true);
+      setFailureReason(`Failed to restart connection: ${error.message}`);
+      setIsProcessing(false);
+    }
   };
 
   useEffect(() => {
@@ -295,7 +301,6 @@ export const UnifiedSpotifyCallback: React.FC = () => {
             // Show actionable error with retry button
             setCallbackFailed(true);
             setFailureReason("Session recovery failed. Please log in again and retry connecting Spotify.");
-            setRetryData({ code, state });
             sessionStorage.removeItem(executionFlag);
             return;
           }
@@ -586,7 +591,6 @@ export const UnifiedSpotifyCallback: React.FC = () => {
         // Show retry UI instead of auto-navigating
         setCallbackFailed(true);
         setFailureReason(`Failed to connect to Spotify: ${error.message}`);
-        setRetryData({ code, state });
         sessionStorage.removeItem(executionFlag);
       } finally {
         setIsProcessing(false);
@@ -605,9 +609,9 @@ export const UnifiedSpotifyCallback: React.FC = () => {
           <h2 className="text-xl font-semibold">Connection Failed</h2>
           <p className="text-muted-foreground text-center">{failureReason}</p>
           <div className="flex gap-2 w-full">
-            <Button onClick={() => retryCallback(retryData)} className="flex-1">
+            <Button onClick={() => startFreshOAuthFlow()} className="flex-1">
               <RefreshCw className="w-4 h-4 mr-2" />
-              Retry Connection
+              Reconnect Spotify
             </Button>
             <Button variant="outline" onClick={() => navigate('/')}>
               Return to Dashboard
