@@ -534,19 +534,31 @@ export const UnifiedSpotifyCallback: React.FC = () => {
           return;
         }
 
-        // Step 6: Force auth manager refresh
-        console.log('🔄 UNIFIED CALLBACK: Step 6 - Refreshing auth manager state');
-        const authManagerStartTime = Date.now();
-        
+        // Step 6: Update auth manager state optimistically
+        // Since the edge function succeeded, we know the connection was created
+        // Don't wait for a potentially slow database query - update state immediately
+        console.log('🔄 UNIFIED CALLBACK: Step 6 - Updating auth manager state optimistically');
+
         const authManager = SpotifyAuthManager.getInstance();
-        const authManagerResult = await authManager.checkConnection(true);
-        
-        console.log('✅ UNIFIED CALLBACK: Auth manager refresh completed', {
-          elapsed: Date.now() - authManagerStartTime,
-          success: authManagerResult.success,
-          error: authManagerResult.error,
-          step: 6
-        });
+
+        // Use the data from the edge function response to set connected state
+        if (response.data?.data?.spotifyUserId) {
+          authManager.setConnectedOptimistically(
+            response.data.data.spotifyUserId,
+            response.data.data.displayName
+          );
+          console.log('✅ UNIFIED CALLBACK: Auth manager state updated optimistically', {
+            spotifyUserId: response.data.data.spotifyUserId,
+            displayName: response.data.data.displayName,
+            step: 6
+          });
+        } else {
+          // Fallback: trigger a background refresh (don't await)
+          console.log('⚠️ UNIFIED CALLBACK: No Spotify user data in response, triggering background refresh');
+          authManager.checkConnection(true).catch(err => {
+            console.warn('Background connection check failed:', err);
+          });
+        }
 
         // Step 7: Clean up and complete
         console.log('🧹 UNIFIED CALLBACK: Step 7 - Cleaning up and completing');

@@ -739,7 +739,7 @@ export class SpotifyAuthManager {
    */
   private updateState(updates: Partial<SpotifyAuthState>): void {
     this.state = { ...this.state, ...updates };
-    
+
     // Notify all listeners
     this.listeners.forEach(listener => {
       try {
@@ -747,6 +747,38 @@ export class SpotifyAuthManager {
       } catch (error) {
         console.error('Error in state listener:', error);
       }
+    });
+  }
+
+  /**
+   * Optimistically mark as connected after successful OAuth flow
+   * Called when we know the edge function succeeded but don't want to wait for DB query
+   */
+  setConnectedOptimistically(spotifyUserId: string, displayName?: string): void {
+    console.log('✅ SPOTIFY AUTH MANAGER: Optimistically setting connected state', {
+      spotifyUserId,
+      displayName,
+      timestamp: new Date().toISOString()
+    });
+
+    this.updateState({
+      isConnected: true,
+      isLoading: false,
+      error: null,
+      healthStatus: 'healthy',
+      lastCheck: Date.now(),
+      // Create a minimal connection object - full details will be loaded on next check
+      connection: {
+        spotify_user_id: spotifyUserId,
+        display_name: displayName || null,
+        // These will be populated on next full check
+        user_id: '',
+        access_token: '***ENCRYPTED_IN_VAULT***',
+        refresh_token: '***ENCRYPTED_IN_VAULT***',
+        expires_at: new Date(Date.now() + 3600000).toISOString(), // Assume 1 hour
+        scope: '',
+        token_type: 'Bearer',
+      } as SpotifyConnection,
     });
   }
 
