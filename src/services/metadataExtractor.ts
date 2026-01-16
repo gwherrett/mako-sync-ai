@@ -3,6 +3,11 @@ import { Buffer } from 'buffer';
 import { generateFileHash } from '@/utils/fileHash';
 import { NormalizationService } from './normalization.service';
 import { z } from 'zod';
+import { withTimeout } from '@/utils/promiseUtils';
+
+// Timeout constants for metadata extraction
+const PARSE_BLOB_TIMEOUT_MS = 30000; // 30 seconds per file
+const FILE_EXTRACTION_TIMEOUT_MS = 45000; // 45 seconds including hash generation
 
 /**
  * Extracts year from various value formats
@@ -110,16 +115,20 @@ export const extractMetadata = async (file: File): Promise<ScannedTrack> => {
 
     console.log(`🔍 About to call parseBlob for: ${file.name}`);
     
-    // Try parseBlob with specific error handling
+    // Try parseBlob with specific error handling and timeout protection
     let metadata;
     try {
-      metadata = await parseBlob(file, { 
-        includeChapters: false,
-        skipCovers: true,
-        skipPostHeaders: false 
-      });
+      metadata = await withTimeout(
+        parseBlob(file, {
+          includeChapters: false,
+          skipCovers: true,
+          skipPostHeaders: false
+        }),
+        PARSE_BLOB_TIMEOUT_MS,
+        `Metadata parsing timed out for ${file.name} after ${PARSE_BLOB_TIMEOUT_MS / 1000}s`
+      );
       console.log(`✅ parseBlob completed successfully for: ${file.name}`);
-    } catch (parseError) {
+    } catch (parseError: any) {
       console.error(`❌ parseBlob FAILED for ${file.name}:`, parseError);
       throw new Error(`parseBlob failed: ${parseError.message}`);
     }

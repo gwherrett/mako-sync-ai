@@ -233,13 +233,13 @@ serve(async (req) => {
       userId: user.id,
       spotifyUserId: profileData.id
     });
-    
+
     const dbUrl = Deno.env.get('SUPABASE_DB_URL')
     logWithContext('info', 'Database connection check', {
       hasDbUrl: !!dbUrl,
       dbUrlPreview: dbUrl?.substring(0, 20) + '...'
     });
-    
+
     if (!dbUrl) {
       logWithContext('error', 'SUPABASE_DB_URL not configured');
       return new Response(
@@ -252,80 +252,94 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-    
+
     // Create Postgres connection pool - use connection string for internal socket connection
     const pool = new Pool(dbUrl, 1)
-    let poolEnded = false
 
     let accessTokenSecretId: string
     let refreshTokenSecretId: string
-    
+    // Track old secret IDs for cleanup after upsert removes FK references
+    let oldAccessSecretId: string | null = null
+    let oldRefreshSecretId: string | null = null
+
     try {
       const connection = await pool.connect()
-      
+
       try {
-        // Delete existing access token secret if it exists (upsert pattern)
-        logWithContext('info', 'Deleting existing access token secret if present', {
+        // Step 1: Get existing secret IDs from spotify_connections (if any)
+        logWithContext('info', 'Checking for existing spotify connection', {
           userId: user.id
         });
-        await connection.queryObject`
-          DELETE FROM vault.secrets
-          WHERE name = ${'spotify_access_token_' + user.id}
+
+        const existingConnection = await connection.queryObject<{
+          access_token_secret_id: string | null,
+          refresh_token_secret_id: string | null
+        }>`
+          SELECT access_token_secret_id, refresh_token_secret_id
+          FROM spotify_connections
+          WHERE user_id = ${user.id}
         `;
 
-        // Store access token in vault
+        oldAccessSecretId = existingConnection.rows[0]?.access_token_secret_id || null;
+        oldRefreshSecretId = existingConnection.rows[0]?.refresh_token_secret_id || null;
+
+        if (oldAccessSecretId || oldRefreshSecretId) {
+          logWithContext('info', 'Found existing connection, will clean up old secrets after upsert', {
+            userId: user.id,
+            oldAccessSecretId,
+            oldRefreshSecretId
+          });
+        }
+
+        // Step 2: Create new secrets in vault (with unique names to avoid conflicts)
+        const timestamp = Date.now();
+        const accessTokenName = `spotify_access_token_${user.id}_${timestamp}`;
+        const refreshTokenName = `spotify_refresh_token_${user.id}_${timestamp}`;
+
         logWithContext('info', 'Creating access token secret in vault', {
-          userId: user.id
+          userId: user.id,
+          secretName: accessTokenName
         });
         const accessTokenResult = await connection.queryObject<{ id: string }>`
           SELECT vault.create_secret(
             ${tokenData.access_token},
-            ${'spotify_access_token_' + user.id},
+            ${accessTokenName},
             ${'Spotify access_token for user ' + user.id}
           ) as id
         `
-        
+
         if (!accessTokenResult.rows[0]?.id) {
           throw new Error('Failed to create access token secret')
         }
-        
+
         accessTokenSecretId = accessTokenResult.rows[0].id
         logWithContext('info', 'Access token stored in vault successfully', {
           userId: user.id,
           secretId: accessTokenSecretId
         });
 
-        // Delete existing refresh token secret if it exists (upsert pattern)
-        logWithContext('info', 'Deleting existing refresh token secret if present', {
-          userId: user.id
-        });
-        await connection.queryObject`
-          DELETE FROM vault.secrets
-          WHERE name = ${'spotify_refresh_token_' + user.id}
-        `;
-
-        // Store refresh token in vault
         logWithContext('info', 'Creating refresh token secret in vault', {
-          userId: user.id
+          userId: user.id,
+          secretName: refreshTokenName
         });
         const refreshTokenResult = await connection.queryObject<{ id: string }>`
           SELECT vault.create_secret(
             ${tokenData.refresh_token},
-            ${'spotify_refresh_token_' + user.id},
+            ${refreshTokenName},
             ${'Spotify refresh_token for user ' + user.id}
           ) as id
         `
-        
+
         if (!refreshTokenResult.rows[0]?.id) {
           throw new Error('Failed to create refresh token secret')
         }
-        
+
         refreshTokenSecretId = refreshTokenResult.rows[0].id
         logWithContext('info', 'Refresh token stored in vault successfully', {
           userId: user.id,
           secretId: refreshTokenSecretId
         });
-        
+
       } finally {
         connection.release()
       }
@@ -335,10 +349,7 @@ serve(async (req) => {
         error: vaultError.message,
         stack: vaultError.stack
       });
-      if (!poolEnded) {
-        await pool.end()
-        poolEnded = true
-      }
+      await pool.end()
       return new Response(
         JSON.stringify({
           error: 'Failed to securely store tokens. Please try again.',
@@ -348,11 +359,6 @@ serve(async (req) => {
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
-    } finally {
-      if (!poolEnded) {
-        await pool.end()
-        poolEnded = true
-      }
     }
 
     // Store connection with vault references only (no plain text fallback)
@@ -389,6 +395,7 @@ serve(async (req) => {
         error: dbError.message,
         code: dbError.code
       });
+      await pool.end()
       return new Response(
         JSON.stringify({
           error: `Database error: ${dbError.message}`,
@@ -404,7 +411,51 @@ serve(async (req) => {
       spotifyUserId: profileData.id,
       connectionId: connectionData.user_id
     });
-    
+
+    // Step 4: Clean up old secrets now that FK references have been updated
+    if (oldAccessSecretId || oldRefreshSecretId) {
+      logWithContext('info', 'Cleaning up old vault secrets', {
+        userId: user.id,
+        oldAccessSecretId,
+        oldRefreshSecretId
+      });
+
+      try {
+        const cleanupConnection = await pool.connect()
+        try {
+          if (oldAccessSecretId) {
+            await cleanupConnection.queryObject`
+              DELETE FROM vault.secrets WHERE id = ${oldAccessSecretId}
+            `;
+            logWithContext('info', 'Deleted old access token secret', {
+              userId: user.id,
+              secretId: oldAccessSecretId
+            });
+          }
+          if (oldRefreshSecretId) {
+            await cleanupConnection.queryObject`
+              DELETE FROM vault.secrets WHERE id = ${oldRefreshSecretId}
+            `;
+            logWithContext('info', 'Deleted old refresh token secret', {
+              userId: user.id,
+              secretId: oldRefreshSecretId
+            });
+          }
+        } finally {
+          cleanupConnection.release()
+        }
+      } catch (cleanupError: any) {
+        // Log but don't fail - old secrets will be orphaned but connection is valid
+        logWithContext('warn', 'Failed to clean up old vault secrets (non-fatal)', {
+          userId: user.id,
+          error: cleanupError.message
+        });
+      }
+    }
+
+    // Close the pool
+    await pool.end()
+
     return new Response(
       JSON.stringify({
         success: true,
