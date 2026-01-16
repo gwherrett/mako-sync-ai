@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { scanDirectoryForLocalFiles } from '@/services/fileScanner';
-import { extractMetadataBatch, ScannedTrack } from '@/services/metadataExtractor';
+import { extractMetadataBatch } from '@/services/metadataExtractor';
+import { withTimeout } from '@/utils/promiseUtils';
+
+const DB_UPSERT_TIMEOUT_MS = 60000; // 60 seconds for database operations
 
 export const useLocalScanner = (onScanComplete?: () => void) => {
   const [isScanning, setIsScanning] = useState(false);
@@ -84,18 +87,24 @@ export const useLocalScanner = (onScanComplete?: () => void) => {
       }, [] as typeof tracksWithUserId);
       
       console.log(`💾 Inserting ${uniqueTracks.length} unique tracks (${scannedTracks.length - uniqueTracks.length} duplicates removed)...`);
-      
-      // Insert tracks into database using upsert to handle duplicates
-      const { error } = await supabase
+
+      // Insert tracks into database using upsert to handle duplicates (with timeout)
+      const upsertPromise = supabase
         .from('local_mp3s')
-        .upsert(uniqueTracks, { 
+        .upsert(uniqueTracks, {
           onConflict: 'hash',
-          ignoreDuplicates: false 
+          ignoreDuplicates: false
         });
 
-      if (error) {
-        console.error('❌ Database insertion error:', error);
-        throw error;
+      const result = await withTimeout(
+        Promise.resolve(upsertPromise),
+        DB_UPSERT_TIMEOUT_MS,
+        `Database upsert timed out after ${DB_UPSERT_TIMEOUT_MS / 1000}s`
+      );
+
+      if (result.error) {
+        console.error('❌ Database insertion error:', result.error);
+        throw result.error;
       }
 
       console.log('✅ Database insertion successful');
