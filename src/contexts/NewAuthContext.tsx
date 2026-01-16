@@ -204,15 +204,23 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // If tokens were cleared due to staleness, show notification and exit early
       if (validationResult.wasCleared) {
         console.log('🔐 INIT DEBUG: Stale tokens were cleared, user needs to re-authenticate');
-        
+
         toast({
           title: 'Session Expired',
           description: 'Your previous session has expired. Please sign in again.',
           variant: 'destructive'
         });
-        
+
         clearUserData();
         sessionValidatedRef.current = true; // Mark as validated (no valid session)
+        return;
+      }
+
+      // OPTIMIZATION: If externally validated (via TOKEN_REFRESHED/SIGNED_IN),
+      // skip the redundant getCurrentSession call - the auth state handler already set everything up
+      if (validationResult.reason?.includes('externally validated')) {
+        console.log('🔐 INIT DEBUG: Session externally validated, skipping redundant getCurrentSession call');
+        sessionValidatedRef.current = true;
         return;
       }
 
