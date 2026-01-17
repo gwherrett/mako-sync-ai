@@ -23,32 +23,79 @@
 
 ## Overview
 
-This implementation guide covers the complete slskd integration for Mako Sync, including:
+This document defines the **end-to-end, opinionated integration** between **Mako Sync** and **slskd**, optimized for a DJ workflow where **local crates are the system of record**.
 
-1. **One-way sync**: Push missing tracks from Mako Sync → slskd wishlist
-2. **Post-download processing**: Automatically organize downloaded files into Supercrates
+The integration is intentionally simple, resilient, and user-controlled. It avoids background services, server-side jobs, or long-lived sync state in favor of **explicit user actions**, **idempotent operations**, and tooling that can be safely re-run without fear of lock-in.
+
+### What This Integration Does
+
+1. **One-way sync (intentional)**
+   Push *missing tracks* from Mako Sync → slskd wishlist. There is no automatic pull, background download, or bidirectional sync.
+
+2. **Tracks downloaded by slskd are processed locally**
+
+ * Python script reads genre to supergenre mapping and applies a supergnere tag to each file tag
+ * Missing genre map
+   
+3. **Post-download organization via MediaMonkey**
+   * Tracks downloaded by slskd are proceesed into folder structure by Media Monkey
+   * ID3 metadata is read and normalized manually
+
+4. **Fast re-runs, no lock-in**
+   Users can safely re-run sync at any time. Duplicate detection is handled dynamically via slskd’s API and normalized search logic, not stored sync state.
+
+
 
 ### Key Architecture Decisions
 
-✅ **Supercrates are  single source of truth for Supergenres**
-- Mako Sync scans Supercrates folders (not MediaMonkey)
-- Downloads flow: slskd → post-processor → Supercrates → Serato
+✅ **Supercrates are the single source of truth for SuperGenres**
 
-✅ **Client-side integration**
-- Direct REST API calls from browser to slskd
-- No edge function required
+* Mako Sync scans Supercrate folders directly
+* MediaMonkey is optional and treated as secondary/backup
+* Download flow is linear: `slskd → post-processor → Mediamonkey → Serato`
 
-✅ **No sync state persistence**
-- Duplicate detection via real-time slskd API queries
-- Users can re-sync tracks anytime
+✅ **Client-side slskd integration**
 
-✅ **Static genre mapping**
-- Simple, reliable genre classification
-- Based on ID3 tags from downloaded files
-- Mako Sync owns the SuperGenre to genre map
+* Browser makes direct REST calls to slskd
+* No edge functions, queues, or background workers
+* Assumes slskd is reachable from the user’s machine
+
+✅ **No persistent sync state**
+
+* No tables tracking “what was pushed” or “what was downloaded”
+* Duplicate detection happens at runtime via slskd search normalization
+* Keeps the system debuggable and restart-safe
+
+✅ **Static, owned genre mapping**
+
+* Genre → SuperGenre mapping lives in code
+* Based on ID3 genre tags from downloaded files
+* Mako Sync explicitly owns and evolves this mapping
+
+### Non-Goals (Explicitly Out of Scope)
+
+* ❌ Two-way sync or automatic downloads
+* ❌ Real-time background monitoring of slskd
+* ❌ Audio fingerprinting or waveform matching
+* ❌ Server-side control of local files
+
+These are intentionally excluded to keep the system predictable, inspectable, and low-maintenance
+
+### Core Assumptions
+
+* **Supercrates are the source of truth** for genre and availability
+* **Local files matter more than libraries** (Serato > MediaMonkey > everything else)
+* **Users want control**, not automation they can’t see or undo
+* **Failure is expected** (bad tags, missing genres, failed downloads) and must degrade safely
+
+---
 
 
+* ❌ Server-side control of local files
 
+These are intentionally excluded to keep the system predictable, inspectable, and low-maintenance.
+
+---
 
 ### End-to-End Flow
 
@@ -88,7 +135,12 @@ This implementation guide covers the complete slskd integration for Mako Sync, i
 │ Python script        │
 │ - Read genre tags    │
 │ - Map to super_genre │
-│ - Clean metadata     │
+└──────────┬───────────┘
+           │
+           ▼ 
+┌──────────────────────┐
+|  MediaMonkey         |
+| - Clean metadata     │
 │ - Move to Supercrates│
 └──────────┬───────────┘
            │
@@ -97,10 +149,10 @@ This implementation guide covers the complete slskd integration for Mako Sync, i
 │ Supercrates/[genre]/ │
 └──────────┬───────────┘
            │
-           ├─────────┬─────────┐
-           ▼         ▼         ▼
-      Mako Sync  Serato  MediaMonkey
-      (re-scan)  (use)   (backup)
+           ├─────────┬
+           ▼         ▼ 
+      Mako Sync  Serato
+      (re-scan)  (use)   
 ```
 
 ---
@@ -109,15 +161,14 @@ This implementation guide covers the complete slskd integration for Mako Sync, i
 
 ### Weekly Cycle
 
-**Monday:**
+**Daily:**
 1. Run Mako Sync "Missing Tracks" analysis
 2. Select artists → Push to slskd
 3. slskd downloads overnight
 
-**Tuesday:**
+**Weekly:**
 1. Run post-processor script
-2. Run Mako Sync "Scan Local Files"
-3. Review "Unclassified" folder
+2. Review in MediaMonkey
 
 **Rest of week:**
 - Use tracks in Serato for gigs
@@ -133,7 +184,7 @@ This implementation guide covers the complete slskd integration for Mako Sync, i
 
 ### Objective
 
-Automatically organize slskd downloads into Supercrates folders based on genre tags.
+Automatically map  slskd downloads into Supergenres
 
 ### Installation
 
