@@ -4,6 +4,7 @@ import { Music, Database, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/NewAuthContext';
+import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
 import { withQueryTimeout } from '@/utils/supabaseQuery';
 
 // Add debounce helper
@@ -16,6 +17,7 @@ const debouncedFetch = (fn: () => void, delay: number = 1000) => {
 
 export const StatsOverview = () => {
   const { user, isAuthenticated, loading: authLoading, initialDataReady } = useAuth();
+  const { isInitialCheckComplete: spotifyCheckComplete } = useUnifiedSpotifyAuth();
   const [likedSongsCount, setLikedSongsCount] = useState<number>(0);
   const [localFilesCount, setLocalFilesCount] = useState<number>(0);
   const [lastSpotifySync, setLastSpotifySync] = useState<string | null>(null);
@@ -23,8 +25,9 @@ export const StatsOverview = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Wait for both auth loading AND initialDataReady to prevent concurrent request deadlock
-    if (authLoading || !initialDataReady) return;
+    // Wait for auth loading, initialDataReady, AND Spotify connection check to complete
+    // This prevents queries from firing before all auth state is resolved
+    if (authLoading || !initialDataReady || !spotifyCheckComplete) return;
 
     if (!isAuthenticated || !user) {
       setLikedSongsCount(0);
@@ -43,7 +46,7 @@ export const StatsOverview = () => {
         supabase.removeChannel(channel);
       }
     };
-  }, [authLoading, initialDataReady, isAuthenticated, user?.id]);
+  }, [authLoading, initialDataReady, spotifyCheckComplete, isAuthenticated, user?.id]);
 
   const fetchInitialData = async () => {
     if (!user || !isAuthenticated) return;

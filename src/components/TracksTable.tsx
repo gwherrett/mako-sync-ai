@@ -25,6 +25,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/NewAuthContext';
+import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
 import { IframeBanner } from '@/components/common/IframeBanner';
 import { openInNewTab, copyToClipboard } from '@/utils/linkUtils';
 import { useGenreMappingOverrides } from '@/hooks/useGenreMappingOverrides';
@@ -76,32 +77,33 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const tracksPerPage = 50;
   const { toast } = useToast();
   const { user, isAuthenticated, loading: authLoading, initialDataReady } = useAuth();
+  const { isInitialCheckComplete: spotifyCheckComplete } = useUnifiedSpotifyAuth();
   const { hasOverride } = useGenreMappingOverrides();
 
   // Consolidated fetch effect - debounces search, immediate for other filters
-  // Wait for initialDataReady to prevent concurrent request deadlock
+  // Wait for initialDataReady AND Spotify connection check to prevent concurrent request deadlock
   useEffect(() => {
-    if (authLoading || !initialDataReady) return;
+    if (authLoading || !initialDataReady || !spotifyCheckComplete) return;
     if (!isAuthenticated || !user) {
       setTracks([]);
       setTotalTracks(0);
       setLoading(false);
       return;
     }
-    
+
     // Debounce only for search query changes
     const timeoutId = setTimeout(() => {
       fetchTracks();
     }, searchQuery ? 300 : 0);
 
     return () => clearTimeout(timeoutId);
-  }, [authLoading, initialDataReady, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter, noSuperGenre, noGenre, searchQuery]);
+  }, [authLoading, initialDataReady, spotifyCheckComplete, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter, noSuperGenre, noGenre, searchQuery]);
 
   // Separate useEffect for filter options that updates when genre changes
   useEffect(() => {
-    if (authLoading || !initialDataReady || !isAuthenticated || !user) return;
+    if (authLoading || !initialDataReady || !spotifyCheckComplete || !isAuthenticated || !user) return;
     fetchFilterOptions();
-  }, [authLoading, initialDataReady, isAuthenticated, user?.id, selectedGenre, selectedSuperGenre]);
+  }, [authLoading, initialDataReady, spotifyCheckComplete, isAuthenticated, user?.id, selectedGenre, selectedSuperGenre]);
 
   // Subscribe to sync_progress to refresh when sync completes
   useEffect(() => {

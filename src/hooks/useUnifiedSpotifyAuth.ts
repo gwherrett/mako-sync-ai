@@ -23,6 +23,7 @@ export interface UseUnifiedSpotifyAuthReturn {
   // Connection state
   isConnected: boolean;
   isLoading: boolean;
+  isInitialCheckComplete: boolean; // True after initial connection check finishes (success or failure)
   connection: SpotifyConnection | null;
   error: string | null;
   healthStatus: 'healthy' | 'warning' | 'error' | 'unknown';
@@ -73,6 +74,7 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
   
   // Track if initial check has been done to prevent multiple checks
   const initialCheckDone = useRef(false);
+  const [isInitialCheckComplete, setIsInitialCheckComplete] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -131,9 +133,10 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
       return;
     }
 
-    // Don't check if user is not authenticated
+    // Don't check if user is not authenticated - mark as complete immediately
     if (!isAuthenticated) {
       console.log('🔍 UNIFIED SPOTIFY AUTH: User not authenticated, skipping Spotify connection check');
+      setIsInitialCheckComplete(true);
       return;
     }
 
@@ -141,7 +144,7 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
     const currentState = authManager.current.getState();
     const timeSinceLastCheck = Date.now() - currentState.lastCheck;
     const shouldCheck = timeSinceLastCheck > 30000; // 30 seconds
-    
+
     if (shouldCheck && !initialCheckDone.current) {
       initialCheckDone.current = true;
       console.log('🔍 UNIFIED SPOTIFY AUTH: Auth complete, performing initial connection check');
@@ -151,7 +154,11 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
         sessionPreservation: 'User session should be preserved during Spotify connection check',
         timestamp: new Date().toISOString()
       });
-      authManager.current.checkConnection();
+      // Perform the check and mark complete when done
+      authManager.current.checkConnection().finally(() => {
+        console.log('✅ UNIFIED SPOTIFY AUTH: Initial connection check complete');
+        setIsInitialCheckComplete(true);
+      });
     } else {
       console.log('🔍 UNIFIED SPOTIFY AUTH: Using cached connection status');
       console.log('🔍 SESSION DEBUG (useUnifiedSpotifyAuth - Cached): Session preservation with cached Spotify status', {
@@ -160,6 +167,8 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
         sessionPreservation: 'User session unaffected by cached Spotify status',
         timestamp: new Date().toISOString()
       });
+      // Mark as complete since we're using cached data
+      setIsInitialCheckComplete(true);
     }
   }, [authLoading, initialDataReady, isAuthenticated]);
 
@@ -500,6 +509,7 @@ export const useUnifiedSpotifyAuth = (config: UseUnifiedSpotifyAuthConfig = {}):
     // Connection state
     isConnected: authState.isConnected,
     isLoading: authState.isLoading,
+    isInitialCheckComplete,
     connection: authState.connection,
     error: authState.error,
     healthStatus: authState.healthStatus,

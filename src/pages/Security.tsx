@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/NewAuthContext';
 import { useUnifiedSpotifyAuth } from '@/hooks/useUnifiedSpotifyAuth';
+import { SlskdConfigSection } from '@/components/SlskdConfigSection';
 import { format } from 'date-fns';
 
 type TokenStatus = 'Valid' | 'Missing' | 'Expired' | 'Unknown';
@@ -123,7 +124,7 @@ const Security = () => {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Token Status</CardTitle>
@@ -155,6 +156,9 @@ const Security = () => {
             </Table>
           </CardContent>
         </Card>
+
+        {/* slskd Configuration */}
+        <SlskdConfigSection />
       </main>
     </div>
   );
