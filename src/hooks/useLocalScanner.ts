@@ -5,8 +5,8 @@ import { scanDirectoryForLocalFiles } from '@/services/fileScanner';
 import { extractMetadataBatch } from '@/services/metadataExtractor';
 import { withTimeout } from '@/utils/promiseUtils';
 
-const DB_UPSERT_TIMEOUT_MS = 60000; // 60 seconds per batch for database operations
-const DB_BATCH_SIZE = 100; // Insert 100 tracks at a time to avoid timeouts
+const DB_UPSERT_TIMEOUT_MS = 120000; // 120 seconds per batch for database operations
+const DB_BATCH_SIZE = 50; // Insert 50 tracks at a time to avoid timeouts
 
 export const useLocalScanner = (onScanComplete?: () => void) => {
   const [isScanning, setIsScanning] = useState(false);

@@ -13,6 +13,13 @@ import { startupSessionValidator } from '@/services/startupSessionValidator.serv
 import { useAuthErrors } from '@/hooks/useAuthErrors';
 import { useToast } from '@/hooks/use-toast';
 
+/**
+ * Auth Context
+ *
+ * Console log prefixes:
+ *   🔐 AUTH: Supabase authentication flow
+ */
+
 export interface AuthContextType {
   // Core state
   user: User | null;
@@ -21,12 +28,12 @@ export interface AuthContextType {
   role: 'admin' | 'user' | null;
   loading: boolean;
   initialDataReady: boolean; // Signals that auth initialization is complete and data queries can start
-  
+
   // Auth states
   isAuthenticated: boolean;
   isEmailVerified: boolean;
   isOnboardingComplete: boolean;
-  
+
   // Auth actions
   signUp: (data: SignUpData) => Promise<boolean>;
   signIn: (data: SignInData) => Promise<boolean>;
@@ -34,25 +41,25 @@ export interface AuthContextType {
   resendConfirmation: (email: string) => Promise<boolean>;
   resetPassword: (email: string) => Promise<boolean>;
   updatePassword: (password: string) => Promise<boolean>;
-  
+
   // Profile actions
   updateProfile: (updates: Partial<UserProfile>) => Promise<boolean>;
   refreshProfile: () => Promise<void>;
-  
+
   // Session actions
   refreshSession: () => Promise<void>;
-  
+
   // Recovery actions
   recoverAuthState: () => Promise<boolean>;
-  
+
   // Role checks
   hasRole: (role: 'admin' | 'user') => boolean;
   isAdmin: boolean;
-  
+
   // Error handling
   error: AuthError | null;
   clearError: () => void;
-  
+
   // Enhanced error info
   lastErrorContext: any;
   errorRecoveryAvailable: boolean;
@@ -80,23 +87,23 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [role, setRole] = useState<'admin' | 'user' | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialDataReady, setInitialDataReady] = useState(false); // Signals data queries can start
-  
+
   // Update refs when state changes
   useEffect(() => { userRef.current = user; }, [user]);
   useEffect(() => { sessionRef.current = session; }, [session]);
   useEffect(() => { profileRef.current = profile; }, [profile]);
   useEffect(() => { roleRef.current = role; }, [role]);
-  
+
   // Error handling
   const { error, setError, clearError, setLoading: setErrorLoading, handleError } = useAuthErrors();
   const { toast } = useToast();
   const initializationRef = useRef(false);
   const sessionValidatedRef = useRef(false); // Track if session has been validated with server
-  
+
   // DEDUPLICATION: Track recent SIGNED_IN events to prevent duplicate processing
   const lastSignedInUserRef = useRef<string | null>(null);
   const lastSignedInTimeRef = useRef<number>(0);
-  
+
   // Refs for logging without causing re-renders
   const userRef = useRef<User | null>(null);
   const sessionRef = useRef<Session | null>(null);
@@ -104,7 +111,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const roleRef = useRef<'admin' | 'user' | null>(null);
   const [lastErrorContext, setLastErrorContext] = useState<any>(null);
   const [errorRecoveryAvailable, setErrorRecoveryAvailable] = useState(false);
-  
+
   // Initialize enhanced error handling services
   useEffect(() => {
     ErrorLoggingService.initialize({
@@ -112,10 +119,10 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       enableLocalStorage: true,
       logLevels: ['info', 'warn', 'error', 'critical']
     });
-    
+
     // Setup auto backup
     const cleanupBackup = AuthStateRecoveryService.setupAutoBackup();
-    
+
     return cleanupBackup;
   }, []);
 
@@ -135,76 +142,34 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setRole(roleResult.role);
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error('🔐 AUTH: Error loading user data:', error);
     }
   }, []);
 
   // Clear user data - stabilized with no state dependencies
   const clearUserData = useCallback(() => {
-    console.log('🔴 DEBUG: clearUserData called');
-    
-    // SESSION DEBUG: Log session state before clearing using refs
-    console.log('🔍 SESSION DEBUG (Clear User Data): Session state before clearing user data', {
-      hadUser: !!userRef.current,
-      hadSession: !!sessionRef.current,
-      userId: userRef.current?.id,
-      userEmail: userRef.current?.email,
-      sessionExpiry: sessionRef.current?.expires_at,
-      hadProfile: !!profileRef.current,
-      hadRole: !!roleRef.current,
-      clearingReason: 'User data being cleared - session will be nullified',
-      timestamp: new Date().toISOString()
-    });
-    
     setUser(null);
     setSession(null);
     setProfile(null);
     setRole(null);
-    
-    // SESSION DEBUG: Confirm session cleared
-    console.log('🔍 SESSION DEBUG (Clear User Data): Session state after clearing user data', {
-      userCleared: true,
-      sessionCleared: true,
-      profileCleared: true,
-      roleCleared: true,
-      authStateReset: 'All authentication state has been reset to null',
-      timestamp: new Date().toISOString()
-    });
-    
-    console.log('🔴 DEBUG: clearUserData completed - all state cleared');
   }, []); // Empty dependency array - no state dependencies
 
   // Initialize auth state with aggressive startup validation
   const initializeAuth = useCallback(async () => {
-    console.log('🚀 INIT DEBUG: initializeAuth called', {
-      alreadyInitialized: initializationRef.current,
-      timestamp: new Date().toISOString()
-    });
-    
     if (initializationRef.current) {
-      console.log('⚠️ INIT DEBUG: Already initialized, skipping');
       return;
     }
-    
+
     initializationRef.current = true;
-    console.log('🔄 INIT DEBUG: Starting auth initialization');
+    console.log('🔐 AUTH: Initializing...');
 
     try {
       // AGGRESSIVE VALIDATION: Validate cached tokens BEFORE processing any auth state
-      // This prevents stale localStorage tokens from causing authenticated UI with invalid sessions
-      console.log('🔐 INIT DEBUG: Running aggressive startup validation...');
       const validationResult = await startupSessionValidator.validateOnStartup();
-      
-      console.log('🔐 INIT DEBUG: Startup validation complete', {
-        isValid: validationResult.isValid,
-        wasCleared: validationResult.wasCleared,
-        reason: validationResult.reason
-      });
 
       // If tokens were cleared due to staleness, show notification and exit early
       if (validationResult.wasCleared) {
-        console.log('🔐 INIT DEBUG: Stale tokens were cleared, user needs to re-authenticate');
-
+        console.log('🔐 AUTH: ✗ Session expired');
         toast({
           title: 'Session Expired',
           description: 'Your previous session has expired. Please sign in again.',
@@ -217,58 +182,39 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // OPTIMIZATION: If externally validated (via TOKEN_REFRESHED/SIGNED_IN),
-      // skip the redundant getCurrentSession call - the auth state handler already set everything up
+      // skip the redundant getCurrentSession call
       if (validationResult.reason?.includes('externally validated')) {
-        console.log('🔐 INIT DEBUG: Session externally validated, skipping redundant getCurrentSession call');
         sessionValidatedRef.current = true;
         return;
       }
 
       // Now proceed with normal session check (tokens are validated)
       const { session, error } = await AuthService.getCurrentSession('initialization');
-      
-      console.log('📡 INIT DEBUG: Got session from AuthService', {
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        error: error?.message,
-        userId: session?.user?.id
-      });
-      
+
       // CRITICAL FIX: Mark session as validated IMMEDIATELY after server check
-      // This prevents race conditions where UI updates before validation completes
       sessionValidatedRef.current = true;
-      console.log('✅ INIT DEBUG: Session validation flag set - UI updates now safe');
-      
+
       if (error) {
         const isTimeoutError = error.message?.includes('timeout');
         const isStaleTokenError = error.message?.includes('Stale token detected');
-        console.error('❌ INIT DEBUG: Error getting session:', error);
-        
+
         if (isStaleTokenError) {
-          console.log('🔄 INIT DEBUG: Stale token detected, clearing session and showing login');
-          
-          // Clear any cached session data
           sessionCache.clearCache();
-          
-          // Show user-friendly stale token message
           toast({
             title: 'Session Expired',
             description: 'Your session has expired. Please sign in again.',
             variant: 'destructive'
           });
-          
           clearUserData();
           return;
         }
-        
+
         if (isTimeoutError) {
-          console.log('⏳ INIT DEBUG: Timeout detected, attempting recovery...');
-          
           // Try to recover from local storage or use guest mode
           try {
             const recoveryResult = await AuthStateRecoveryService.recoverAuthState();
             if (recoveryResult.success && recoveryResult.newState?.session) {
-              console.log('✅ INIT DEBUG: Session recovered from backup');
+              console.log('🔐 AUTH: ✓ Session recovered from backup');
               setSession(recoveryResult.newState.session);
               setUser(recoveryResult.newState.user);
               setProfile(recoveryResult.newState.profile);
@@ -276,130 +222,94 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               return;
             }
           } catch (recoveryError) {
-            console.error('❌ INIT DEBUG: Recovery failed:', recoveryError);
+            console.error('🔐 AUTH: Recovery failed:', recoveryError);
           }
-          
-          // Show user-friendly timeout message
+
           toast({
             title: 'Connection Timeout',
             description: 'Having trouble connecting. You can continue in offline mode or try refreshing.',
             variant: 'destructive'
           });
         }
-        
+
         clearUserData();
         return;
       }
-      
+
       if (session?.user) {
-        console.log('✅ INIT DEBUG: Valid session found, setting user state AFTER validation');
+        console.log('🔐 AUTH: ✓ Session validated');
         setSession(session);
         setUser(session.user);
-        
+
         // Load user data after session is established
         setTimeout(() => {
-          console.log('📊 INIT DEBUG: Loading user data for:', session.user.id);
           loadUserData(session.user.id);
         }, 0);
       } else {
-        console.log('🚫 INIT DEBUG: No valid session, clearing user data');
         clearUserData();
       }
     } catch (error) {
-      console.error('💥 INIT DEBUG: Auth initialization error:', error);
-      
+      console.error('🔐 AUTH: ✗ Initialization error:', error);
+
       // Mark as validated even on error to prevent hanging UI
       sessionValidatedRef.current = true;
-      
-      // Enhanced error handling for timeout scenarios
+
       const isTimeoutError = error instanceof Error && error.message?.includes('timeout');
       if (isTimeoutError) {
-        console.log('⏳ INIT DEBUG: Initialization timeout, showing user notification');
         toast({
           title: 'Slow Connection Detected',
           description: 'Authentication is taking longer than usual. Please check your internet connection.',
           variant: 'destructive'
         });
       }
-      
+
       clearUserData();
     } finally {
-      console.log('🏁 INIT DEBUG: Setting loading to false and initialDataReady to true');
       setLoading(false);
       setInitialDataReady(true); // Signal that data queries can now start
+      console.log('🔐 AUTH: ✓ Ready');
     }
   }, [loadUserData, toast, clearUserData]);
 
   // Auth state change handler with enhanced race condition protection
   useEffect(() => {
-    console.log('🔍 AUTH DEBUG: Setting up auth state change handler');
-    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("[AUTH EVENT]", event, session?.user?.id);
-        console.log('🔴 AUTH STATE CHANGE:', {
-          event,
-          userId: session?.user?.id,
-          hasSession: !!session,
-          timestamp: new Date().toISOString(),
-          sessionValidated: sessionValidatedRef.current,
-          initializationComplete: initializationRef.current
-        });
-        
         // ENHANCED RACE CONDITION PROTECTION
         // Block ALL auth state changes until initialization completes server validation
         if (!sessionValidatedRef.current) {
           // Only allow critical auth events that bypass initialization
           const isCriticalEvent = ['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'TOKEN_REFRESHED'].includes(event);
-          
+
           if (!isCriticalEvent) {
-            console.log('🛡️ AUTH DEBUG: Blocking auth state change - server validation incomplete', {
-              event,
-              reason: 'Preventing race condition - waiting for server validation',
-              timestamp: new Date().toISOString()
-            });
             return;
           }
-          
+
           // For critical events, mark as validated to allow processing
-          console.log('🚨 AUTH DEBUG: Critical auth event bypassing validation check', {
-            event,
-            timestamp: new Date().toISOString()
-          });
           sessionValidatedRef.current = true;
         }
-        
+
         // Additional protection: Ensure initialization has started
         if (!initializationRef.current && event === 'INITIAL_SESSION') {
-          console.log('⚠️ AUTH DEBUG: INITIAL_SESSION before initialization - deferring');
           return;
         }
-        
-        // SESSION DEBUG: Log detailed session state during auth changes
-        console.log('🔍 SESSION DEBUG (Auth State Change): Processing validated session change', {
-          event,
-          previousUser: user?.id,
-          newUser: session?.user?.id,
-          timestamp: new Date().toISOString()
-        });
-        
+
         // ATOMIC STATE UPDATE: Update all auth state together to prevent partial updates
         const updateAuthState = () => {
           setSession(session);
           setUser(session?.user ?? null);
-          
+
           // Only update loading state if not during initialization
           if (initializationRef.current) {
             setLoading(false);
           }
         };
-        
+
         // Handle specific auth events with proper sequencing
         switch (event) {
         case 'SIGNED_IN':
             if (session?.user) {
               // CRITICAL FIX: Always mark as validated for ANY SIGNED_IN event
-              // This prevents the startup validator from clearing tokens if it times out
               startupSessionValidator.markAsValidated();
 
               // OPTIMIZATION: Pre-populate session cache to avoid redundant getSession() calls
@@ -409,28 +319,17 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               const timeSinceLastSignIn = now - lastSignedInTimeRef.current;
 
               // EXTENDED DEDUPLICATION: Check if this is the same user within 60 seconds
-              // Supabase can fire SIGNED_IN events for token refreshes at various intervals
               const isSameUserRecently =
                 lastSignedInUserRef.current === session.user.id &&
                 timeSinceLastSignIn < 60000; // Within 60 seconds
 
               // CRITICAL FIX: Also check if we're already authenticated with this user
-              // Use both ref AND sessionRef for redundancy since refs may be stale
               const isAlreadyAuthenticated =
                 userRef.current?.id === session.user.id ||
                 sessionRef.current?.user?.id === session.user.id;
 
               // If same user recently signed in OR already authenticated, treat as token refresh
               if (isSameUserRecently || (isAlreadyAuthenticated && initialDataReady)) {
-                console.log('🔄 AUTH DEBUG: SIGNED_IN for already-authenticated user - treating as silent token refresh', {
-                  userId: session.user.id,
-                  timeSinceLastSignIn,
-                  isAlreadyAuthenticated,
-                  isSameUserRecently,
-                  reason: isSameUserRecently ? 'Same user signed in within 60s' : 'User already authenticated',
-                  timestamp: new Date().toISOString()
-                });
-
                 // Just update the session/user state without full re-initialization
                 setSession(session);
                 setUser(session.user);
@@ -444,7 +343,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               lastSignedInUserRef.current = session.user.id;
               lastSignedInTimeRef.current = now;
 
-              console.log('✅ AUTH DEBUG: SIGNED_IN event - genuine new sign-in, updating state and loading user data');
+              console.log('🔐 AUTH: ✓ Signed in');
               updateAuthState();
               setInitialDataReady(true); // Allow data queries to start
 
@@ -454,35 +353,28 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               }, 0);
             }
             break;
-            
+
           case 'SIGNED_OUT':
-            console.log('🚪 AUTH DEBUG: SIGNED_OUT event - clearing all user data');
+            console.log('🔐 AUTH: Signed out');
             clearUserData();
             setLoading(false);
             setInitialDataReady(true); // Allow UI to reset properly
             break;
-            
+
           case 'TOKEN_REFRESHED':
             if (session) {
               // CRITICAL: Mark startup validator as externally validated
-              // This prevents the validator from clearing tokens if it times out after this refresh
               startupSessionValidator.markAsValidated();
 
-              // OPTIMIZATION: Pre-populate session cache to avoid redundant getSession() calls
+              // OPTIMIZATION: Pre-populate session cache
               sessionCache.setSessionFromAuthContext(session);
 
-              console.log('🔍 SESSION DEBUG (Token Refresh): Session refreshed', {
-                userId: session.user?.id,
-                newTokenExpiry: session.expires_at,
-                timestamp: new Date().toISOString()
-              });
               updateAuthState();
               setInitialDataReady(true); // Allow data queries to start
             }
             break;
-            
+
           case 'USER_UPDATED':
-            console.log('👤 AUTH DEBUG: USER_UPDATED event - refreshing user data');
             updateAuthState();
             if (session?.user) {
               setTimeout(() => {
@@ -490,7 +382,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               }, 0);
             }
             break;
-            
+
           default:
             // For other events, just update state if we have a session
             if (session) {
@@ -500,24 +392,13 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               setLoading(false);
             }
         }
-        
-        console.log('🔄 AUTH DEBUG: Auth state change processing complete', {
-          event,
-          finalState: {
-            hasUser: !!session?.user,
-            hasSession: !!session,
-            loading: false
-          }
-        });
       }
     );
 
     // Initialize auth state - this performs server-side validation
-    console.log('🚀 AUTH DEBUG: Calling initializeAuth');
     initializeAuth();
 
     return () => {
-      console.log('🧹 AUTH DEBUG: Cleaning up auth subscription');
       subscription.unsubscribe();
     };
   }, [initializeAuth, loadUserData, clearUserData]);
@@ -534,22 +415,22 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       const result = await AuthRetryService.signUpWithRetry(data);
-      
+
       if (!result.success || result.error) {
         const errorResult = ErrorHandlingService.handleError(result.error!, {
           operation: 'signUp',
           component: 'NewAuthContext',
           additionalData: { email: data.email, attempts: result.attempts }
         });
-        
+
         setLastErrorContext(errorResult);
         handleError(result.error as AuthError);
-        
+
         ErrorLoggingService.logAuthEvent('signUp_failed', 'error', {
           operation: 'signUp',
           component: 'NewAuthContext'
         }, { attempts: result.attempts, totalTime: result.totalTime });
-        
+
         return false;
       }
 
@@ -558,12 +439,12 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           title: 'Account Created',
           description: 'Please check your email to verify your account.',
         });
-        
+
         ErrorLoggingService.logAuthEvent('signUp_success', 'info', {
           operation: 'signUp',
           component: 'NewAuthContext'
         }, { attempts: result.attempts, totalTime: result.totalTime });
-        
+
         return true;
       }
 
@@ -573,7 +454,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         operation: 'signUp',
         component: 'NewAuthContext'
       });
-      
+
       setLastErrorContext(errorResult);
       handleError(error as AuthError);
       return false;
@@ -583,11 +464,6 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [setErrorLoading, clearError, handleError, toast]);
 
   const signIn = useCallback(async (data: SignInData): Promise<boolean> => {
-    console.log('🔑 SIGNIN DEBUG: signIn called', {
-      email: data.email,
-      timestamp: new Date().toISOString()
-    });
-    
     setErrorLoading(true);
     clearError();
 
@@ -597,120 +473,82 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         component: 'NewAuthContext'
       });
 
-      console.log('📡 SIGNIN DEBUG: Calling AuthRetryService.signInWithRetry');
       const result = await AuthRetryService.signInWithRetry(data);
-      
-      console.log('📡 SIGNIN DEBUG: AuthRetryService result', {
-        success: result.success,
-        hasError: !!result.error,
-        hasUser: !!result.data?.user,
-        hasSession: !!result.data?.session,
-        attempts: result.attempts
-      });
-      
+
       if (!result.success || result.error) {
-        console.log('❌ SIGNIN DEBUG: Sign in failed', {
-          error: result.error?.message,
-          attempts: result.attempts
-        });
-        
         const errorResult = ErrorHandlingService.handleError(result.error!, {
           operation: 'signIn',
           component: 'NewAuthContext',
           additionalData: { email: data.email, attempts: result.attempts }
         });
-        
+
         setLastErrorContext(errorResult);
         setErrorRecoveryAvailable(errorResult.shouldRetry);
         handleError(result.error as AuthError);
-        
+
         ErrorLoggingService.logAuthEvent('signIn_failed', 'error', {
           operation: 'signIn',
           component: 'NewAuthContext'
         }, { attempts: result.attempts, totalTime: result.totalTime });
-        
+
         return false;
       }
 
       if (result.data?.user && result.data?.session) {
-        console.log('✅ SIGNIN DEBUG: Sign in successful', {
-          userId: result.data.user.id,
-          sessionId: result.data.session.access_token.substring(0, 10) + '...'
-        });
-        
         toast({
           title: 'Welcome back!',
           description: 'Successfully signed in.',
         });
-        
+
         ErrorLoggingService.logAuthEvent('signIn_success', 'info', {
           operation: 'signIn',
           component: 'NewAuthContext'
         }, { attempts: result.attempts, totalTime: result.totalTime });
-        
+
         return true;
       }
 
-      console.log('⚠️ SIGNIN DEBUG: Sign in returned success but no user/session data');
       return false;
     } catch (error) {
-      console.log('💥 SIGNIN DEBUG: Sign in threw exception', error);
-      
       const errorResult = ErrorHandlingService.handleError(error as AuthError, {
         operation: 'signIn',
         component: 'NewAuthContext'
       });
-      
+
       setLastErrorContext(errorResult);
       handleError(error as AuthError);
       return false;
     } finally {
-      console.log('🏁 SIGNIN DEBUG: Setting error loading to false');
       setErrorLoading(false);
     }
   }, [setErrorLoading, clearError, handleError, toast]);
 
   const signOut = useCallback(async (): Promise<void> => {
-    console.log('🔴 DEBUG: signOut called');
-    
-    // SESSION DEBUG: Log session state before sign out using refs to avoid stale closures
-    console.log('🔍 SESSION DEBUG (Sign Out Start): Session state before sign out process', {
-      hasUser: !!userRef.current,
-      hasSession: !!sessionRef.current,
-      userId: userRef.current?.id,
-      userEmail: userRef.current?.email,
-      sessionExpiry: sessionRef.current?.expires_at,
-      hasProfile: !!profileRef.current,
-      hasRole: !!roleRef.current,
-      signOutInitiated: true,
-      timestamp: new Date().toISOString()
-    });
-    
     try {
       setErrorLoading(true);
       clearError();
-      
+
       const { error } = await AuthService.signOut();
-      
+
       if (error) {
-        console.error('🔴 DEBUG: SignOut error:', error);
+        console.error('🔐 AUTH: SignOut error:', error);
         handleError(error, 'Failed to sign out. Please try again.');
         return;
       }
-      
+
       // Clear user data and cache
       clearUserData();
       sessionCache.clearCache();
-      
+
       toast({
         title: 'Signed Out',
         description: 'You have been successfully signed out.',
       });
-      
+
     } catch (error) {
-      console.error('🔴 DEBUG: SignOut exception:', error);
+      console.error('🔐 AUTH: SignOut exception:', error);
       handleError(error as AuthError);
-      
+
       // Even if signOut fails, clear local state and navigate
       clearUserData();
       sessionCache.clearCache();
@@ -725,7 +563,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     try {
       const { error } = await AuthService.resendConfirmation(email);
-      
+
       if (error) {
         handleError(error);
         return false;
@@ -750,7 +588,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     try {
       const { error } = await AuthService.resetPassword(email);
-      
+
       if (error) {
         handleError(error);
         return false;
@@ -775,7 +613,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     try {
       const { error } = await AuthService.updatePassword(password);
-      
+
       if (error) {
         handleError(error);
         return false;
@@ -802,7 +640,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     try {
       const { profile: updatedProfile, error } = await UserService.updateProfile(user.id, updates);
-      
+
       if (error) {
         handleError(error as AuthError, 'Failed to update profile');
         return false;
@@ -839,7 +677,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const refreshSession = useCallback(async (): Promise<void> => {
     try {
       const { session: newSession, error } = await SessionService.refreshSession();
-      
+
       if (error) {
         console.error('Session refresh error:', error);
         return;
@@ -863,7 +701,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       const result = await AuthStateRecoveryService.recoverAuthState();
-      
+
       if (result.success && result.newState) {
         if (result.newState.user && result.newState.session) {
           setUser(result.newState.user);
@@ -871,12 +709,12 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setProfile(result.newState.profile);
           setRole(result.newState.role);
         }
-        
+
         toast({
           title: 'Session Recovered',
           description: result.fallbackUsed ? 'Using guest mode' : 'Your session has been restored.',
         });
-        
+
         ErrorLoggingService.logAuthEvent('recovery_success', 'info', {
           operation: 'recoverAuthState',
           component: 'NewAuthContext'
@@ -884,22 +722,22 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           method: result.recoveryMethod,
           fallbackUsed: result.fallbackUsed
         });
-        
+
         return true;
       }
-      
+
       ErrorLoggingService.logAuthEvent('recovery_failed', 'warn', {
         operation: 'recoverAuthState',
         component: 'NewAuthContext'
       }, { error: result.error?.message });
-      
+
       return false;
     } catch (error) {
       ErrorLoggingService.logError(error as Error, {
         operation: 'recoverAuthState',
         component: 'NewAuthContext'
       });
-      
+
       return false;
     }
   }, [toast]);
@@ -922,12 +760,12 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     role,
     loading,
     initialDataReady,
-    
+
     // Auth states
     isAuthenticated,
     isEmailVerified,
     isOnboardingComplete,
-    
+
     // Auth actions
     signUp,
     signIn,
@@ -935,21 +773,21 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     resendConfirmation,
     resetPassword,
     updatePassword,
-    
+
     // Profile actions
     updateProfile,
     refreshProfile,
-    
+
     // Session actions
     refreshSession,
-    
+
     // Recovery actions
     recoverAuthState,
-    
+
     // Role checks
     hasRole,
     isAdmin,
-    
+
     // Error handling
     error,
     clearError,

@@ -122,7 +122,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         (payload: any) => {
           // Refresh tracks when sync completes
           if (payload.new?.status === 'completed') {
-            console.log('🔄 TracksTable: Sync completed, refreshing tracks...');
             fetchTracks();
             fetchFilterOptions();
           }
@@ -229,8 +228,6 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const fetchFilterOptions = async () => {
     if (!user) return;
 
-    console.log('🎵 TracksTable: Fetching filter options...');
-    
     const userId = user.id;
     
     // Get unique artists with timeout protection
