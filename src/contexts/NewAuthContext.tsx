@@ -15,6 +15,7 @@ import { useAuthErrors } from '@/hooks/useAuthErrors';
 import { useToast } from '@/hooks/use-toast';
 import { useVisibilityTokenRefresh } from '@/hooks/useVisibilityTokenRefresh';
 import { logger } from '@/utils/logger';
+import { featureFlags } from '@/utils/featureFlags';
 
 export interface AuthContextType {
   // Core state
@@ -164,27 +165,32 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     try {
       // AGGRESSIVE VALIDATION: Validate cached tokens BEFORE processing any auth state
-      const validationResult = await startupSessionValidator.validateOnStartup();
+      // Feature flag allows disabling this for testing if it's over-engineered
+      if (featureFlags.isStartupValidatorEnabled()) {
+        const validationResult = await startupSessionValidator.validateOnStartup();
 
-      // If tokens were cleared due to staleness, show notification and exit early
-      if (validationResult.wasCleared) {
-        logger.auth('Session expired');
-        toast({
-          title: 'Session Expired',
-          description: 'Your previous session has expired. Please sign in again.',
-          variant: 'destructive'
-        });
+        // If tokens were cleared due to staleness, show notification and exit early
+        if (validationResult.wasCleared) {
+          logger.auth('Session expired');
+          toast({
+            title: 'Session Expired',
+            description: 'Your previous session has expired. Please sign in again.',
+            variant: 'destructive'
+          });
 
-        clearUserData();
-        sessionValidatedRef.current = true; // Mark as validated (no valid session)
-        return;
-      }
+          clearUserData();
+          sessionValidatedRef.current = true; // Mark as validated (no valid session)
+          return;
+        }
 
-      // OPTIMIZATION: If externally validated (via TOKEN_REFRESHED/SIGNED_IN),
-      // skip the redundant getCurrentSession call
-      if (validationResult.reason?.includes('externally validated')) {
-        sessionValidatedRef.current = true;
-        return;
+        // OPTIMIZATION: If externally validated (via TOKEN_REFRESHED/SIGNED_IN),
+        // skip the redundant getCurrentSession call
+        if (validationResult.reason?.includes('externally validated')) {
+          sessionValidatedRef.current = true;
+          return;
+        }
+      } else {
+        logger.auth('Startup validator disabled via feature flag');
       }
 
       // Now proceed with normal session check (tokens are validated)
@@ -309,7 +315,9 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         case 'SIGNED_IN':
             if (session?.user) {
               // CRITICAL FIX: Always mark as validated for ANY SIGNED_IN event
-              startupSessionValidator.markAsValidated();
+              if (featureFlags.isStartupValidatorEnabled()) {
+                startupSessionValidator.markAsValidated();
+              }
 
               // OPTIMIZATION: Pre-populate session cache to avoid redundant getSession() calls
               sessionCache.setSessionFromAuthContext(session);
@@ -348,10 +356,14 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               // Wait for token persistence before allowing queries
               // This prevents the race condition where queries start before
               // the token is actually persisted to localStorage
-              tokenPersistenceGateway.waitForTokenPersistence(session, 300)
-                .finally(() => {
-                  setInitialDataReady(true); // Allow data queries to start
-                });
+              if (featureFlags.isTokenPersistenceGatewayEnabled()) {
+                tokenPersistenceGateway.waitForTokenPersistence(session, 300)
+                  .finally(() => {
+                    setInitialDataReady(true); // Allow data queries to start
+                  });
+              } else {
+                setInitialDataReady(true); // Allow data queries immediately
+              }
 
               // Defer data loading to prevent deadlocks
               setTimeout(() => {
@@ -363,7 +375,9 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           case 'SIGNED_OUT':
             logger.auth('Signed out');
             clearUserData();
-            tokenPersistenceGateway.reset(); // Reset gateway state for next sign-in
+            if (featureFlags.isTokenPersistenceGatewayEnabled()) {
+              tokenPersistenceGateway.reset(); // Reset gateway state for next sign-in
+            }
             setLoading(false);
             setInitialDataReady(true); // Allow UI to reset properly
             break;
@@ -371,7 +385,9 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           case 'TOKEN_REFRESHED':
             if (session) {
               // CRITICAL: Mark startup validator as externally validated
-              startupSessionValidator.markAsValidated();
+              if (featureFlags.isStartupValidatorEnabled()) {
+                startupSessionValidator.markAsValidated();
+              }
 
               // OPTIMIZATION: Pre-populate session cache
               sessionCache.setSessionFromAuthContext(session);
@@ -381,10 +397,14 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               // Wait for token persistence before allowing queries
               // This prevents the race condition where queries start before
               // the token is actually persisted to localStorage
-              tokenPersistenceGateway.waitForTokenPersistence(session, 300)
-                .finally(() => {
-                  setInitialDataReady(true); // Allow data queries to start
-                });
+              if (featureFlags.isTokenPersistenceGatewayEnabled()) {
+                tokenPersistenceGateway.waitForTokenPersistence(session, 300)
+                  .finally(() => {
+                    setInitialDataReady(true); // Allow data queries to start
+                  });
+              } else {
+                setInitialDataReady(true); // Allow data queries immediately
+              }
             }
             break;
 
@@ -553,7 +573,9 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Clear user data and cache
       clearUserData();
       sessionCache.clearCache();
-      tokenPersistenceGateway.reset();
+      if (featureFlags.isTokenPersistenceGatewayEnabled()) {
+        tokenPersistenceGateway.reset();
+      }
 
       toast({
         title: 'Signed Out',
@@ -567,7 +589,9 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Even if signOut fails, clear local state and navigate
       clearUserData();
       sessionCache.clearCache();
-      tokenPersistenceGateway.reset();
+      if (featureFlags.isTokenPersistenceGatewayEnabled()) {
+        tokenPersistenceGateway.reset();
+      }
     } finally {
       setErrorLoading(false);
     }
