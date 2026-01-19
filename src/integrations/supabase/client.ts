@@ -27,6 +27,31 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error('Supabase configuration is incomplete');
 }
 
+// Custom fetch with timeout to prevent indefinite hangs
+const fetchWithTimeout = (url: RequestInfo | URL, options?: RequestInit): Promise<Response> => {
+  const timeout = 30000; // 30 second timeout for all requests
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    console.warn('🚨 SUPABASE CLIENT: Request timeout, aborting:', url);
+    controller.abort();
+  }, timeout);
+
+  return fetch(url, {
+    ...options,
+    signal: controller.signal
+  }).finally(() => clearTimeout(timeoutId));
+};
+
+// No-op lock function to prevent deadlocks caused by Web Locks API issues
+// See: https://github.com/supabase/supabase-js/issues/1594
+const noOpLock = async <T>(
+  _name: string,
+  _acquireTimeout: number,
+  fn: () => Promise<T>
+): Promise<T> => {
+  return await fn();
+};
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
@@ -36,12 +61,18 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    // Increase timeout for auth operations
-    flowType: 'pkce'
+    flowType: 'pkce',
+    // CRITICAL: Use no-op lock to prevent deadlocks
+    // This fixes the issue where GoTrueClient hangs on lock acquisition
+    lock: noOpLock
   },
   db: {
     // Database connection settings
     schema: 'public'
+  },
+  global: {
+    // Use custom fetch with timeout
+    fetch: fetchWithTimeout
   },
   realtime: {
     // Realtime connection settings for better stability
