@@ -10,8 +10,10 @@ import { ErrorHandlingService } from '@/services/errorHandling.service';
 import { ErrorLoggingService } from '@/services/errorLogging.service';
 import { sessionCache } from '@/services/sessionCache.service';
 import { startupSessionValidator } from '@/services/startupSessionValidator.service';
+import { tokenPersistenceGateway } from '@/services/tokenPersistenceGateway.service';
 import { useAuthErrors } from '@/hooks/useAuthErrors';
 import { useToast } from '@/hooks/use-toast';
+import { useVisibilityTokenRefresh } from '@/hooks/useVisibilityTokenRefresh';
 
 /**
  * Auth Context
@@ -98,6 +100,9 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { error, setError, clearError, setLoading: setErrorLoading, handleError } = useAuthErrors();
   const { toast } = useToast();
   const initializationRef = useRef(false);
+
+  // Proactively refresh tokens when tab becomes visible after idle
+  useVisibilityTokenRefresh();
   const sessionValidatedRef = useRef(false); // Track if session has been validated with server
 
   // DEDUPLICATION: Track recent SIGNED_IN events to prevent duplicate processing
@@ -357,6 +362,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           case 'SIGNED_OUT':
             console.log('🔐 AUTH: Signed out');
             clearUserData();
+            tokenPersistenceGateway.reset(); // Reset gateway state for next sign-in
             setLoading(false);
             setInitialDataReady(true); // Allow UI to reset properly
             break;
@@ -370,7 +376,14 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               sessionCache.setSessionFromAuthContext(session);
 
               updateAuthState();
-              setInitialDataReady(true); // Allow data queries to start
+
+              // Wait for token persistence before allowing queries
+              // This prevents the race condition where queries start before
+              // the token is actually persisted to localStorage
+              tokenPersistenceGateway.waitForTokenPersistence(session, 300)
+                .finally(() => {
+                  setInitialDataReady(true); // Allow data queries to start
+                });
             }
             break;
 
@@ -539,6 +552,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Clear user data and cache
       clearUserData();
       sessionCache.clearCache();
+      tokenPersistenceGateway.reset();
 
       toast({
         title: 'Signed Out',
@@ -552,6 +566,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Even if signOut fails, clear local state and navigate
       clearUserData();
       sessionCache.clearCache();
+      tokenPersistenceGateway.reset();
     } finally {
       setErrorLoading(false);
     }
