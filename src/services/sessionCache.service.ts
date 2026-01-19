@@ -1,10 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { withTimeout } from '@/utils/promiseUtils';
+import { logger } from '@/utils/logger';
 
 /**
  * Session Cache Service
- * 
+ *
  * Prevents multiple concurrent getSession() calls that cause timeouts
  * by caching the session and deduplicating requests.
  */
@@ -21,19 +22,19 @@ class SessionCacheService {
   private cache: CachedSession | null = null;
   private pendingRequest: Promise<{ session: Session | null; error: any }> | null = null;
   private readonly CACHE_DURATION = 30000; // 30 seconds
-  private readonly REQUEST_TIMEOUT = 30000; // 30 seconds - removed aggressive timeout for critical flows
+  private readonly REQUEST_TIMEOUT = 30000; // 30 seconds
 
   // Enhanced request tracking to prevent race conditions
   private requestContexts: Map<string, Promise<{ session: Session | null; error: any }>> = new Map();
   private initializationRequest: Promise<{ session: Session | null; error: any }> | null = null;
-  private requestSequence = 0; // Track request order for debugging
+  private requestSequence = 0;
 
   // CIRCUIT BREAKER: Prevent too many concurrent validations
   private concurrentValidations = 0;
   private readonly MAX_CONCURRENT_VALIDATIONS = 2;
   private validationInProgress = false;
 
-  // Pre-populated session from auth context (avoids redundant getSession calls)
+  // Pre-populated session from auth context
   private prePopulatedSession: Session | null = null;
   private prePopulatedTimestamp: number = 0;
 
@@ -46,19 +47,16 @@ class SessionCacheService {
 
   /**
    * Pre-populate session from auth context to avoid redundant getSession calls
-   * Call this when the auth context has a validated session
    */
   setSessionFromAuthContext(session: Session | null): void {
     if (session) {
-      console.log('✅ SESSION CACHE: Pre-populated with session from auth context', {
+      logger.session('Pre-populated with session from auth context', {
         userId: session.user?.id,
-        expiresAt: session.expires_at,
-        timestamp: new Date().toISOString()
+        expiresAt: session.expires_at
       });
       this.prePopulatedSession = session;
       this.prePopulatedTimestamp = Date.now();
 
-      // Also update the main cache
       this.cache = {
         session,
         error: null,
@@ -79,9 +77,6 @@ class SessionCacheService {
 
   /**
    * Get session with enhanced race condition protection
-   * @param force - Force fresh session fetch
-   * @param context - Request context to prevent cross-contamination between auth flows
-   * @param priority - Request priority (initialization gets highest priority)
    */
   async getSession(
     force: boolean = false,
@@ -91,22 +86,19 @@ class SessionCacheService {
     const now = Date.now();
     const requestId = ++this.requestSequence;
 
-    console.log('🔍 SESSION CACHE: Session request started', {
+    logger.session('Session request started', {
       requestId,
       context: context || 'default',
       priority,
-      force,
-      timestamp: new Date().toISOString()
+      force
     });
 
-    // OPTIMIZATION: Use pre-populated session from auth context if available
-    // This avoids redundant getSession() calls that can hang
+    // Use pre-populated session from auth context if available
     if (!force && this.hasValidPrePopulatedSession()) {
-      console.log('🔍 SESSION CACHE: Using pre-populated session from auth context', {
+      logger.session('Using pre-populated session from auth context', {
         requestId,
         age: now - this.prePopulatedTimestamp,
-        hasSession: !!this.prePopulatedSession,
-        userId: this.prePopulatedSession?.user?.id
+        hasSession: !!this.prePopulatedSession
       });
       return {
         session: this.prePopulatedSession,
@@ -114,13 +106,12 @@ class SessionCacheService {
       };
     }
 
-    // Return cached session if valid and not forced (except for initialization)
+    // Return cached session if valid and not forced
     if (!force && priority !== 'initialization' && this.cache && this.cache.isValid && (now - this.cache.timestamp) < this.CACHE_DURATION) {
-      console.log('🔍 SESSION CACHE: Using cached session', {
+      logger.session('Using cached session', {
         requestId,
         age: now - this.cache.timestamp,
-        hasSession: !!this.cache.session,
-        cached: true
+        hasSession: !!this.cache.session
       });
       return {
         session: this.cache.session,
@@ -128,17 +119,17 @@ class SessionCacheService {
       };
     }
 
-    // CRITICAL: Initialization requests get dedicated handling to prevent race conditions
+    // Initialization requests get dedicated handling
     if (priority === 'initialization') {
       if (this.initializationRequest && !force) {
-        console.log('🔍 SESSION CACHE: Returning existing initialization request', { requestId });
+        logger.session('Returning existing initialization request', { requestId });
         return this.initializationRequest;
       }
-      
-      console.log('🔍 SESSION CACHE: Starting new initialization request', { requestId });
+
+      logger.session('Starting new initialization request', { requestId });
       const initRequest = this.fetchSessionDirect(requestId, 'initialization');
       this.initializationRequest = initRequest;
-      
+
       try {
         const result = await initRequest;
         this.cacheResult(result, now, requestId);
@@ -148,38 +139,36 @@ class SessionCacheService {
       }
     }
 
-    // Handle context-specific requests to prevent cross-contamination
+    // Handle context-specific requests
     if (context) {
       const existingContextRequest = this.requestContexts.get(context);
       if (existingContextRequest && !force) {
-        console.log(`🔍 SESSION CACHE: Returning existing request for context: ${context}`, { requestId });
+        logger.session(`Returning existing request for context: ${context}`, { requestId });
         return existingContextRequest;
       }
     }
 
-    // Return existing pending request if one is in progress (only for non-critical contexts)
+    // Return existing pending request if one is in progress
     if (this.pendingRequest && !force && !context && priority === 'background') {
-      console.log('🔍 SESSION CACHE: Returning existing pending request', { requestId });
+      logger.session('Returning existing pending request', { requestId });
       return this.pendingRequest;
     }
 
-    console.log('🔍 SESSION CACHE: Starting new session fetch', {
+    logger.session('Starting new session fetch', {
       requestId,
       context: context || 'default',
       priority,
       forced: force
     });
 
-    // Create new request with request tracking
     const sessionRequest = this.fetchSessionDirect(requestId, context || 'default');
-    
-    // Store request by context if provided
+
     if (context) {
       this.requestContexts.set(context, sessionRequest);
     } else {
       this.pendingRequest = sessionRequest;
     }
-    
+
     try {
       const result = await sessionRequest;
       this.cacheResult(result, now, requestId);
@@ -197,13 +186,11 @@ class SessionCacheService {
    * Cache session result with validation
    */
   private cacheResult(result: { session: Session | null; error: any }, timestamp: number, requestId: number): void {
-    // Validate session integrity before caching
     const isValidSession = result.session &&
                          result.session.user &&
                          result.session.access_token &&
                          !result.error;
-    
-    // Only cache valid sessions or clear errors
+
     if (isValidSession || !result.error) {
       this.cache = {
         session: result.session,
@@ -213,95 +200,85 @@ class SessionCacheService {
       };
     }
 
-    console.log('✅ SESSION CACHE: Session fetch completed', {
+    logger.session('Session fetch completed', {
       requestId,
       hasSession: !!result.session,
       hasError: !!result.error,
       cached: true,
-      sessionValid: isValidSession,
-      timestamp: new Date().toISOString()
+      sessionValid: isValidSession
     });
   }
 
   /**
-   * Direct session fetch with server validation - prevents stale token issues
+   * Direct session fetch with server validation
    */
   private async fetchSessionDirect(requestId: number, context: string): Promise<{ session: Session | null; error: any }> {
     try {
-      console.log('🔍 SESSION CACHE: Fetching session from Supabase', { requestId, context });
+      logger.session('Fetching session from Supabase', { requestId, context });
       const { data: { session }, error } = await supabase.auth.getSession();
-      
+
       if (error) {
-        console.log('❌ SESSION CACHE: Session fetch error', { requestId, error: error.message });
+        logger.session('Session fetch error', { requestId, error: error.message }, 'error');
         return { session: null, error };
       }
-      
+
       if (!session) {
-        console.log('🔍 SESSION CACHE: No session found', { requestId });
+        logger.session('No session found', { requestId });
         return { session: null, error: null };
       }
-      
-      // CIRCUIT BREAKER: Limit concurrent validations to prevent hanging
+
+      // CIRCUIT BREAKER: Limit concurrent validations
       if (this.concurrentValidations >= this.MAX_CONCURRENT_VALIDATIONS) {
-        console.log('⚠️ SESSION CACHE: Too many concurrent validations, returning session without validation', {
+        logger.session('Too many concurrent validations, returning session without validation', {
           requestId,
           context,
           concurrentValidations: this.concurrentValidations
-        });
+        }, 'warn');
         return { session, error: null };
       }
-      
-      // Validate session with server to prevent stale token issues
-      console.log('🔍 SESSION CACHE: Validating session with server...', { requestId, context });
+
+      logger.session('Validating session with server', { requestId, context });
       const validationStart = Date.now();
       this.concurrentValidations++;
       this.validationInProgress = true;
-      
+
       try {
-        // Use withTimeout utility to prevent hanging validation
         const { data: { user }, error: userError } = await withTimeout(
           supabase.auth.getUser(),
           10000,
           'Session validation timeout'
         );
-        
+
         const validationTime = Date.now() - validationStart;
-        
+
         if (userError || !user) {
-          // Check if this is a network/timeout error vs actual auth error
           const isNetworkError = userError?.message?.includes('timeout') ||
                                 userError?.message?.includes('network') ||
                                 userError?.message?.includes('fetch');
-          
+
           if (isNetworkError) {
-            console.log(`⚠️ SESSION CACHE: Session validation failed due to network issue after ${validationTime}ms`, {
+            logger.session(`Session validation failed due to network issue after ${validationTime}ms`, {
               error: userError?.message,
               networkIssue: true,
-              sessionPreserved: 'Session preserved due to network error'
-            });
-            
-            // For network errors, return the session without validation
-            // Better to have a potentially stale session than to sign out the user
+              sessionPreserved: true
+            }, 'warn');
             return { session, error: null };
           }
-          
-          console.log(`❌ SESSION CACHE: Session validation failed after ${validationTime}ms`, {
+
+          logger.session(`Session validation failed after ${validationTime}ms`, {
             error: userError?.message,
             hasUser: !!user,
-            sessionExpiry: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
             staleTokenDetected: true
-          });
-          
-          // Only sign out for actual auth errors, not network issues
+          }, 'error');
+
           await withTimeout(supabase.auth.signOut({ scope: 'local' }), 5000);
           return { session: null, error: userError || new Error('Stale token detected') };
         }
-        
-        console.log(`✅ SESSION CACHE: Session validated successfully after ${validationTime}ms`, {
-          userId: user.id,
-          sessionExpiry: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null
+
+        logger.session(`Session validated successfully after ${validationTime}ms`, {
+          userId: user.id
         });
-        
+
         return { session, error: null };
       } catch (validationError: any) {
         const validationTime = Date.now() - validationStart;
@@ -309,22 +286,16 @@ class SessionCacheService {
         const isNetworkError = validationError.message?.includes('network') ||
                               validationError.message?.includes('fetch') ||
                               validationError.name === 'AbortError';
-        
+
         if (isTimeoutError || isNetworkError) {
-          console.log(`⚠️ SESSION CACHE: Session validation timeout/network error after ${validationTime}ms`, {
+          logger.session(`Session validation timeout/network error after ${validationTime}ms`, {
             error: validationError.message,
-            timeoutError: isTimeoutError,
-            networkError: isNetworkError,
-            sessionPreserved: 'Session preserved due to validation timeout/network error'
-          });
-          
-          // For timeout/network errors, return the session without validation
+            sessionPreserved: true
+          }, 'warn');
           return { session, error: null };
         }
-        
-        console.error(`❌ SESSION CACHE: Session validation error after ${validationTime}ms:`, validationError.message);
-        
-        // Only sign out for actual auth errors, not network/timeout issues
+
+        logger.session(`Session validation error after ${validationTime}ms`, { error: validationError.message }, 'error');
         await withTimeout(supabase.auth.signOut({ scope: 'local' }), 5000);
         return { session: null, error: validationError };
       } finally {
@@ -332,21 +303,19 @@ class SessionCacheService {
         this.validationInProgress = false;
       }
     } catch (error: any) {
-      console.error('❌ SESSION CACHE: Session fetch error:', error.message);
+      logger.session('Session fetch error', { error: error.message }, 'error');
       return { session: null, error };
     }
   }
 
   /**
-   * Clear the cache (useful for sign out)
+   * Clear the cache
    */
   clearCache(): void {
-    console.log('🧹 SESSION CACHE: Clearing cache');
+    logger.session('Clearing cache');
     this.cache = null;
     this.pendingRequest = null;
     this.requestContexts.clear();
-    
-    // Also clear browser storage to prevent stale data
     this.clearBrowserCache();
   }
 
@@ -355,7 +324,6 @@ class SessionCacheService {
    */
   private clearBrowserCache(): void {
     try {
-      // Clear auth-related localStorage items
       const authKeys = Object.keys(localStorage).filter(key =>
         key.includes('auth') ||
         key.includes('token') ||
@@ -363,41 +331,33 @@ class SessionCacheService {
         key.includes('supabase') ||
         key.includes('sb-')
       );
-      
+
       authKeys.forEach(key => {
         localStorage.removeItem(key);
-        console.log('🧹 SESSION CACHE: Cleared localStorage key:', key);
       });
-      
-      // Clear sessionStorage
+
       sessionStorage.clear();
-      
-      // Clear any auth-related caches
+
       if ('caches' in window) {
         caches.keys().then(cacheNames => {
           cacheNames.forEach(cacheName => {
             if (cacheName.includes('auth') || cacheName.includes('session')) {
               caches.delete(cacheName);
-              console.log('🧹 SESSION CACHE: Cleared cache:', cacheName);
             }
           });
         });
       }
     } catch (error) {
-      console.warn('⚠️ SESSION CACHE: Failed to clear browser cache:', error);
+      logger.session('Failed to clear browser cache', { error }, 'warn');
     }
   }
 
   /**
-   * Force refresh session by clearing all caches and fetching fresh
+   * Force refresh session
    */
   async forceRefresh(): Promise<{ session: Session | null; error: any }> {
-    console.log('🔄 SESSION CACHE: Force refreshing session...');
-    
-    // Clear all caches first
+    logger.session('Force refreshing session');
     this.clearCache();
-    
-    // Force a fresh fetch
     return this.getSession(true, 'force-refresh');
   }
 
@@ -426,7 +386,7 @@ class SessionCacheService {
   }
 
   /**
-   * Check if auth state is stable (no pending validations)
+   * Check if auth state is stable
    */
   isAuthStable(): boolean {
     return !this.validationInProgress && this.concurrentValidations === 0;

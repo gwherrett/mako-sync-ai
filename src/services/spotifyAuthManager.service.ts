@@ -1,16 +1,12 @@
 import { supabase } from '@/integrations/supabase/client';
 import { sessionCache } from '@/services/sessionCache.service';
+import { logger } from '@/utils/logger';
 import type { SpotifyConnection } from '@/types/spotify';
 
 /**
  * Unified Spotify Authentication Manager
- * 
- * Consolidates all Spotify authentication operations into a single service:
- * - Connection management
- * - Token handling and refresh
- * - Health monitoring
- * - Security validation
- * - Error handling
+ *
+ * Consolidates all Spotify authentication operations into a single service.
  */
 
 export interface SpotifyAuthState {
@@ -50,14 +46,12 @@ export class SpotifyAuthManager {
   private listeners: Set<(state: SpotifyAuthState) => void> = new Set();
   private healthMonitor: any = null;
   private checkPromise: Promise<SpotifyOperationResult> | null = null;
-  
-  // Sync deduplication properties
+
   private syncInProgress: boolean = false;
   private syncPromise: Promise<SpotifyOperationResult> | null = null;
-  
-  // Connection check cooldown to prevent excessive API calls
-  private static readonly CONNECTION_CHECK_COOLDOWN = 5000; // 5 seconds
-  
+
+  private static readonly CONNECTION_CHECK_COOLDOWN = 5000;
+
   private constructor(config: Partial<SpotifyAuthConfig> = {}) {
     this.config = {
       autoRefresh: true,
@@ -69,7 +63,7 @@ export class SpotifyAuthManager {
       },
       ...config,
     };
-    
+
     this.state = {
       isConnected: false,
       isLoading: false,
@@ -78,16 +72,12 @@ export class SpotifyAuthManager {
       lastCheck: 0,
       healthStatus: 'unknown',
     };
-    
-    // Initialize health monitoring if enabled
+
     if (this.config.healthMonitoring) {
       this.initializeHealthMonitoring();
     }
   }
 
-  /**
-   * Get singleton instance of SpotifyAuthManager
-   */
   static getInstance(config?: Partial<SpotifyAuthConfig>): SpotifyAuthManager {
     if (!this.instance) {
       this.instance = new SpotifyAuthManager(config);
@@ -95,36 +85,23 @@ export class SpotifyAuthManager {
     return this.instance;
   }
 
-  /**
-   * Subscribe to authentication state changes
-   */
   subscribe(listener: (state: SpotifyAuthState) => void): () => void {
     this.listeners.add(listener);
-    
-    // Immediately notify with current state
     listener(this.state);
-    
     return () => {
       this.listeners.delete(listener);
     };
   }
 
-  /**
-   * Get current authentication state
-   */
   getState(): SpotifyAuthState {
     return { ...this.state };
   }
 
-  /**
-   * Check Spotify connection status with caching and error handling
-   */
   async checkConnection(force: boolean = false): Promise<SpotifyOperationResult<SpotifyConnection>> {
     const now = Date.now();
-    
-    // Return cached result if within cooldown period and not forced
+
     if (!force && (now - this.state.lastCheck) < SpotifyAuthManager.CONNECTION_CHECK_COOLDOWN) {
-      console.log('🔍 SPOTIFY AUTH MANAGER: Using cached connection status');
+      logger.spotify('Using cached connection status');
       return {
         success: this.state.isConnected,
         data: this.state.connection,
@@ -133,27 +110,23 @@ export class SpotifyAuthManager {
       };
     }
 
-    // Prevent multiple simultaneous checks
     if (this.checkPromise && !force) {
-      console.log('🔍 SPOTIFY AUTH MANAGER: Returning existing check promise');
+      logger.spotify('Returning existing check promise');
       return this.checkPromise;
     }
 
-    console.log('🔍 SPOTIFY AUTH MANAGER: Starting connection check...');
-    
+    logger.spotify('Starting connection check');
+
     this.checkPromise = this.performConnectionCheck();
     const result = await this.checkPromise;
     this.checkPromise = null;
-    
+
     return result;
   }
 
-  /**
-   * Internal connection check implementation
-   */
   private async performConnectionCheck(): Promise<SpotifyOperationResult<SpotifyConnection>> {
     const startTime = Date.now();
-    
+
     this.updateState({
       isLoading: true,
       error: null,
@@ -161,34 +134,25 @@ export class SpotifyAuthManager {
     });
 
     try {
-      // Get current user from session using cache service with isolated context
-      console.log('🔍 SPOTIFY AUTH MANAGER: Starting session fetch via cache...');
+      logger.spotify('Starting session fetch via cache');
       const sessionStartTime = Date.now();
-      
+
       const { session, error: sessionError } = await sessionCache.getSession(false, 'spotify-auth');
-      
+
       const sessionElapsed = Date.now() - sessionStartTime;
-      console.log(`✅ SPOTIFY AUTH MANAGER: Session fetch completed in ${sessionElapsed}ms via cache`, {
+      logger.spotify(`Session fetch completed in ${sessionElapsed}ms`, {
         hasSession: !!session,
-        hasUser: !!session?.user,
-        cacheStatus: sessionCache.getCacheStatus()
+        hasUser: !!session?.user
       });
 
       if (sessionError || !session?.user) {
         const error = 'User not authenticated';
-        
-        // SESSION DEBUG: Log session state during authentication failure
-        console.log('🔍 SESSION DEBUG (SpotifyAuthManager - No Auth): Session state during authentication failure', {
-          sessionError: sessionError?.message,
+
+        logger.spotify('Authentication failure during connection check', {
           hasSession: !!session,
-          hasUser: !!session?.user,
-          userId: session?.user?.id,
-          sessionExpiry: session?.expires_at,
-          authenticationLost: 'User session appears to be lost or invalid',
-          spotifyConnectionImpact: 'Cannot check Spotify connection without valid user session',
-          timestamp: new Date().toISOString()
-        });
-        
+          hasUser: !!session?.user
+        }, 'warn');
+
         this.updateState({
           isConnected: false,
           connection: null,
@@ -201,12 +165,11 @@ export class SpotifyAuthManager {
 
       const user = session.user;
 
-      // Get Spotify connection with timeout cancellation
-      console.log('🔍 SPOTIFY AUTH MANAGER: Starting connection query...');
+      logger.spotify('Starting connection query');
       const connectionStartTime = Date.now();
       let timeoutId: ReturnType<typeof setTimeout> | null = null;
       let queryCompleted = false;
-      
+
       const { data: connection, error: connectionError } = await Promise.race([
         (async () => {
           try {
@@ -215,36 +178,33 @@ export class SpotifyAuthManager {
               .select('*')
               .eq('user_id', user.id)
               .maybeSingle();
-            
-            // Mark query as completed and cancel timeout
+
             queryCompleted = true;
             if (timeoutId) {
               clearTimeout(timeoutId);
               timeoutId = null;
             }
-            
+
             const elapsed = Date.now() - connectionStartTime;
-            console.log(`✅ SPOTIFY AUTH MANAGER: Connection query completed in ${elapsed}ms`);
+            logger.spotify(`Connection query completed in ${elapsed}ms`);
             return result;
           } catch (error) {
-            // Mark query as completed even on error
             queryCompleted = true;
             if (timeoutId) {
               clearTimeout(timeoutId);
               timeoutId = null;
             }
-            
+
             const elapsed = Date.now() - connectionStartTime;
-            console.error(`❌ SPOTIFY AUTH MANAGER: Connection query failed after ${elapsed}ms:`, error);
+            logger.spotify(`Connection query failed after ${elapsed}ms`, { error }, 'error');
             throw error;
           }
         })(),
         new Promise<any>((resolve) => {
           timeoutId = setTimeout(() => {
-            // Only resolve timeout if query hasn't completed
             if (!queryCompleted) {
               const elapsed = Date.now() - connectionStartTime;
-              console.warn(`⚠️ SPOTIFY AUTH MANAGER: Connection query timeout after ${elapsed}ms - using last known state`);
+              logger.spotify(`Connection query timeout after ${elapsed}ms`, undefined, 'warn');
               resolve({ data: null, error: { message: 'Connection query timeout' } });
             }
           }, 5000);
@@ -253,17 +213,11 @@ export class SpotifyAuthManager {
 
       if (connectionError) {
         const error = `Database error: ${connectionError.message}`;
-        
-        // SESSION DEBUG: Log session state during database error
-        console.log('🔍 SESSION DEBUG (SpotifyAuthManager - DB Error): Session state during database error', {
-          hasUser: !!user,
-          userId: user?.id,
-          databaseError: connectionError.message,
-          sessionStillValid: 'User session should still be valid despite database error',
-          spotifyConnectionStatus: 'Cannot determine Spotify connection due to database error',
-          timestamp: new Date().toISOString()
-        });
-        
+
+        logger.spotify('Database error during connection check', {
+          error: connectionError.message
+        }, 'error');
+
         this.updateState({
           isConnected: false,
           connection: null,
@@ -277,17 +231,15 @@ export class SpotifyAuthManager {
       const duration = Date.now() - startTime;
 
       if (connection) {
-        // Validate token health if security validation is enabled
         let healthStatus: SpotifyAuthState['healthStatus'] = 'healthy';
-        
-        // Simple token validation - check if tokens exist
+
         if (this.config.securityValidation) {
           try {
             if (!connection.access_token || !connection.refresh_token) {
               healthStatus = 'error';
             }
           } catch (error) {
-            console.warn('Token health validation failed:', error);
+            logger.spotify('Token health validation failed', { error }, 'warn');
             healthStatus = 'warning';
           }
         }
@@ -300,7 +252,7 @@ export class SpotifyAuthManager {
           healthStatus,
         });
 
-        console.log('✅ SPOTIFY AUTH MANAGER: Connection found and validated');
+        logger.spotify('Connection found and validated');
         return {
           success: true,
           data: connection as SpotifyConnection,
@@ -315,7 +267,7 @@ export class SpotifyAuthManager {
           healthStatus: 'unknown',
         });
 
-        console.log('ℹ️ SPOTIFY AUTH MANAGER: No connection found');
+        logger.spotify('No connection found');
         return {
           success: false,
           error: 'No Spotify connection found',
@@ -325,24 +277,11 @@ export class SpotifyAuthManager {
     } catch (error: any) {
       const errorMessage = error.message || 'Connection check failed';
       const duration = Date.now() - startTime;
-      
-      console.error(`❌ SPOTIFY AUTH MANAGER: Connection check failed after ${duration}ms:`, {
-        error: errorMessage,
-        stack: error.stack,
-        type: error.constructor.name
-      });
-      
-      // SESSION DEBUG: Log session state during connection check error
-      console.log('🔍 SESSION DEBUG (SpotifyAuthManager - Check Error): Session state during connection check error', {
-        connectionCheckError: errorMessage,
-        errorType: error.constructor.name,
-        duration,
-        sessionCacheStatus: 'Session cache may have been accessed but connection check failed',
-        userAuthenticationImpact: 'User session should not be affected by Spotify connection check failure',
-        spotifyConnectionStatus: 'Cannot determine Spotify connection due to check error',
-        timestamp: new Date().toISOString()
-      });
-      
+
+      logger.spotify(`Connection check failed after ${duration}ms`, {
+        error: errorMessage
+      }, 'error');
+
       this.updateState({
         isConnected: false,
         connection: null,
@@ -350,14 +289,7 @@ export class SpotifyAuthManager {
         isLoading: false,
         healthStatus: 'error',
       });
-      
-      // Log error for debugging
-      console.error('❌ SPOTIFY AUTH MANAGER: Connection check error:', {
-        error: errorMessage,
-        duration,
-        timeout: '5000ms'
-      });
-      
+
       return {
         success: false,
         error: errorMessage,
@@ -366,41 +298,28 @@ export class SpotifyAuthManager {
     }
   }
 
-  /**
-   * Connect to Spotify using OAuth flow
-   */
   async connectSpotify(): Promise<SpotifyOperationResult> {
-    console.log('🔵 SPOTIFY AUTH MANAGER: Starting connection process...');
-    
+    logger.spotify('Starting connection process');
+
     try {
       const { session } = await sessionCache.getSession(false, 'spotify-connect');
-      
+
       if (!session?.user) {
         const error = 'Please log in to connect Spotify';
-        
-        // SESSION DEBUG: Log session state during Spotify connect attempt without auth
-        console.log('🔍 SESSION DEBUG (SpotifyAuthManager - Connect No Auth): Session state during Spotify connect without authentication', {
-          hasSession: !!session,
-          hasUser: !!session?.user,
-          userId: session?.user?.id,
-          connectAttempt: 'User attempted to connect Spotify without valid session',
-          authenticationRequired: 'Valid user session required for Spotify connection',
-          timestamp: new Date().toISOString()
-        });
-        
+
+        logger.spotify('Connection attempt without authentication', {
+          hasSession: !!session
+        }, 'warn');
+
         this.updateState({ error });
         return { success: false, error };
       }
-      
-      const user = session.user;
 
-      // Generate secure state parameter
       const state = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-      
-      // Store state in multiple locations for validation
+
       localStorage.setItem('spotify_auth_state', state);
       sessionStorage.setItem('spotify_auth_state_backup', state);
-      
+
       const scopes = [
         'user-read-private',
         'user-read-email',
@@ -410,18 +329,16 @@ export class SpotifyAuthManager {
         'user-top-read'
       ].join(' ');
 
-      // Get configuration
-      const redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || 
+      const redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI ||
                          `${window.location.origin}/spotify-callback`;
       const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-      
+
       if (!clientId) {
         const error = 'Spotify client ID not configured';
         this.updateState({ error });
         return { success: false, error };
       }
 
-      // Construct authorization URL
       const authUrl = new URL('https://accounts.spotify.com/authorize');
       authUrl.searchParams.append('client_id', clientId);
       authUrl.searchParams.append('response_type', 'code');
@@ -430,48 +347,34 @@ export class SpotifyAuthManager {
       authUrl.searchParams.append('state', state);
       authUrl.searchParams.append('t', Date.now().toString());
 
-      console.log('🔵 SPOTIFY AUTH MANAGER: Redirecting to Spotify authorization');
-      
-      // Redirect to Spotify
+      logger.spotify('Redirecting to Spotify authorization');
+
       window.location.href = authUrl.toString();
-      
+
       return { success: true };
     } catch (error: any) {
       const errorMessage = `Spotify auth failed: ${error.message}`;
       this.updateState({ error: errorMessage });
-      
-      console.error('❌ SPOTIFY AUTH MANAGER: Connect error:', error);
-      
+
+      logger.spotify('Connect error', { error: error.message }, 'error');
+
       return { success: false, error: errorMessage };
     }
   }
 
-  /**
-   * Disconnect from Spotify
-   */
   async disconnectSpotify(): Promise<SpotifyOperationResult> {
-    console.log('🔴 SPOTIFY AUTH MANAGER: Disconnecting from Spotify...');
-    
+    logger.spotify('Disconnecting from Spotify');
+
     try {
       const { session } = await sessionCache.getSession(false, 'spotify-disconnect');
-      
+
       if (!session?.user) {
-        // SESSION DEBUG: Log session state during Spotify disconnect attempt without auth
-        console.log('🔍 SESSION DEBUG (SpotifyAuthManager - Disconnect No Auth): Session state during Spotify disconnect without authentication', {
-          hasSession: !!session,
-          hasUser: !!session?.user,
-          userId: session?.user?.id,
-          disconnectAttempt: 'User attempted to disconnect Spotify without valid session',
-          sessionStatus: 'No valid user session found for disconnect operation',
-          timestamp: new Date().toISOString()
-        });
-        
+        logger.spotify('Disconnect attempt without authentication', undefined, 'warn');
         return { success: false, error: 'No user found' };
       }
-      
+
       const user = session.user;
 
-      // Delete connection from database
       const { error } = await supabase
         .from('spotify_connections')
         .delete()
@@ -481,11 +384,9 @@ export class SpotifyAuthManager {
         throw error;
       }
 
-      // Clear stored state
       localStorage.removeItem('spotify_auth_state');
       sessionStorage.removeItem('spotify_auth_state_backup');
-      
-      // Update state
+
       this.updateState({
         isConnected: false,
         connection: null,
@@ -494,40 +395,27 @@ export class SpotifyAuthManager {
         healthStatus: 'unknown',
       });
 
-      console.log('✅ SPOTIFY AUTH MANAGER: Successfully disconnected');
+      logger.spotify('Successfully disconnected');
       return { success: true };
     } catch (error: any) {
       const errorMessage = `Disconnect failed: ${error.message}`;
-      
-      // SESSION DEBUG: Log session state during disconnect error
-      console.log('🔍 SESSION DEBUG (SpotifyAuthManager - Disconnect Error): Session state during Spotify disconnect error', {
-        disconnectError: error.message,
-        errorType: error.constructor.name,
-        userSessionImpact: 'User session should not be affected by Spotify disconnect error',
-        spotifyConnectionStatus: 'Spotify connection status unclear due to disconnect error',
-        timestamp: new Date().toISOString()
-      });
-      
+
+      logger.spotify('Disconnect error', { error: error.message }, 'error');
+
       this.updateState({ error: errorMessage });
-      
-      console.error('❌ SPOTIFY AUTH MANAGER: Disconnect error:', error);
-      
+
       return { success: false, error: errorMessage };
     }
   }
 
-  /**
-   * Refresh Spotify tokens
-   */
   async refreshTokens(): Promise<SpotifyOperationResult> {
-    console.log('🔄 SPOTIFY AUTH MANAGER: Refreshing tokens...');
-    
+    logger.spotify('Refreshing tokens');
+
     if (!this.state.connection) {
       return { success: false, error: 'No connection available for token refresh' };
     }
 
     try {
-      // Simple token refresh - call edge function
       const { session } = await sessionCache.getSession(false, 'spotify-refresh');
       if (!session) {
         throw new Error('No session available for token refresh');
@@ -548,47 +436,33 @@ export class SpotifyAuthManager {
       };
 
       if (result.success) {
-        // Update connection state after successful refresh
         await this.checkConnection(true);
-        console.log('✅ SPOTIFY AUTH MANAGER: Tokens refreshed successfully');
+        logger.spotify('Tokens refreshed successfully');
       }
 
       return result;
     } catch (error: any) {
       const errorMessage = `Token refresh failed: ${error.message}`;
-      
-      // SESSION DEBUG: Log session state during token refresh error
-      console.log('🔍 SESSION DEBUG (SpotifyAuthManager - Token Refresh Error): Session state during Spotify token refresh error', {
-        tokenRefreshError: error.message,
-        errorType: error.constructor.name,
-        userSessionImpact: 'User session should not be affected by Spotify token refresh error',
-        spotifyTokenStatus: 'Spotify tokens may be expired or invalid',
-        timestamp: new Date().toISOString()
-      });
-      
+
+      logger.spotify('Token refresh error', { error: error.message }, 'error');
+
       this.updateState({ error: errorMessage });
-      
-      console.error('❌ SPOTIFY AUTH MANAGER: Token refresh error:', error);
-      
+
       return { success: false, error: errorMessage };
     }
   }
 
-  /**
-   * Sync liked songs from Spotify
-   */
   async syncLikedSongs(forceFullSync: boolean = false): Promise<SpotifyOperationResult> {
-    // Prevent multiple simultaneous syncs
     if (this.syncInProgress) {
-      console.log('⏳ SPOTIFY AUTH MANAGER: Sync already in progress, returning existing promise');
+      logger.spotify('Sync already in progress, returning existing promise');
       return this.syncPromise || { success: false, error: 'Sync already in progress' };
     }
-    
-    console.log('🎵 SPOTIFY AUTH MANAGER: Starting liked songs sync...');
+
+    logger.spotify('Starting liked songs sync');
     this.syncInProgress = true;
-    
+
     this.syncPromise = this.performSync(forceFullSync);
-    
+
     try {
       const result = await this.syncPromise;
       return result;
@@ -601,7 +475,7 @@ export class SpotifyAuthManager {
   private async performSync(forceFullSync: boolean): Promise<SpotifyOperationResult> {
     try {
       const { session } = await sessionCache.getSession(false, 'spotify-sync');
-      
+
       if (!session) {
         return { success: false, error: 'Please log in to sync liked songs' };
       }
@@ -619,36 +493,33 @@ export class SpotifyAuthManager {
         throw new Error(response.error.message);
       }
 
-      console.log('✅ SPOTIFY AUTH MANAGER: Sync completed successfully');
+      logger.spotify('Sync completed successfully');
       return {
         success: true,
         data: response.data,
         metadata: {
-          duration: Date.now() - Date.now() // Will be calculated properly in real implementation
+          duration: Date.now() - Date.now()
         }
       };
     } catch (error: any) {
       const errorMessage = `Sync failed: ${error.message}`;
-      
-      console.error('❌ SPOTIFY AUTH MANAGER: Sync error:', error);
-      
+
+      logger.spotify('Sync error', { error: error.message }, 'error');
+
       return { success: false, error: errorMessage };
     }
   }
 
-  /**
-   * Perform health check
-   */
   async performHealthCheck(): Promise<SpotifyOperationResult> {
-    console.log('🏥 SPOTIFY AUTH MANAGER: Performing health check...');
-    
+    logger.spotify('Performing health check');
+
     if (!this.state.connection) {
       return { success: false, error: 'No connection available for health check' };
     }
 
     try {
       const { session } = await sessionCache.getSession(false, 'spotify-health');
-      
+
       if (!session) {
         return { success: false, error: 'No session available' };
       }
@@ -667,37 +538,33 @@ export class SpotifyAuthManager {
       }
 
       this.updateState({ healthStatus: 'healthy' });
-      
-      console.log('✅ SPOTIFY AUTH MANAGER: Health check passed');
+
+      logger.spotify('Health check passed');
       return { success: true, data: response.data };
     } catch (error: any) {
       this.updateState({ healthStatus: 'error' });
-      
+
       const errorMessage = `Health check failed: ${error.message}`;
-      console.error('❌ SPOTIFY AUTH MANAGER: Health check error:', error);
-      
+      logger.spotify('Health check error', { error: error.message }, 'error');
+
       return { success: false, error: errorMessage };
     }
   }
 
-  /**
-   * Validate security
-   */
   async validateSecurity(): Promise<SpotifyOperationResult> {
-    console.log('🔐 SPOTIFY AUTH MANAGER: Validating security...');
-    
+    logger.spotify('Validating security');
+
     if (!this.state.connection) {
       return { success: false, error: 'No connection available for security validation' };
     }
 
     try {
-      // Simple security validation - check if connection exists and has tokens
       const isValid = !!(this.state.connection?.access_token && this.state.connection?.refresh_token);
       const healthStatus: SpotifyAuthState['healthStatus'] = isValid ? 'healthy' : 'error';
 
       this.updateState({ healthStatus });
 
-      console.log('✅ SPOTIFY AUTH MANAGER: Security validation completed');
+      logger.spotify('Security validation completed');
       return {
         success: isValid,
         data: { isValid },
@@ -705,60 +572,47 @@ export class SpotifyAuthManager {
       };
     } catch (error: any) {
       this.updateState({ healthStatus: 'error' });
-      
+
       const errorMessage = `Security validation failed: ${error.message}`;
-      console.error('❌ SPOTIFY AUTH MANAGER: Security validation error:', error);
-      
+      logger.spotify('Security validation error', { error: error.message }, 'error');
+
       return { success: false, error: errorMessage };
     }
   }
 
-  /**
-   * Initialize health monitoring
-   */
   private initializeHealthMonitoring(): void {
     if (this.healthMonitor) {
-      return; // Already initialized
+      return;
     }
 
     try {
-      // Simple health monitoring - just log that it's initialized
       this.healthMonitor = {
         initialized: true,
-        stopMonitoring: () => console.log('Health monitoring stopped')
+        stopMonitoring: () => logger.spotify('Health monitoring stopped')
       };
 
-      console.log('✅ SPOTIFY AUTH MANAGER: Health monitoring initialized');
+      logger.spotify('Health monitoring initialized');
     } catch (error) {
-      console.warn('⚠️ SPOTIFY AUTH MANAGER: Failed to initialize health monitoring:', error);
+      logger.spotify('Failed to initialize health monitoring', { error }, 'warn');
     }
   }
 
-  /**
-   * Update internal state and notify listeners
-   */
   private updateState(updates: Partial<SpotifyAuthState>): void {
     this.state = { ...this.state, ...updates };
 
-    // Notify all listeners
     this.listeners.forEach(listener => {
       try {
         listener(this.state);
       } catch (error) {
-        console.error('Error in state listener:', error);
+        logger.spotify('Error in state listener', { error }, 'error');
       }
     });
   }
 
-  /**
-   * Optimistically mark as connected after successful OAuth flow
-   * Called when we know the edge function succeeded but don't want to wait for DB query
-   */
   setConnectedOptimistically(spotifyUserId: string, displayName?: string): void {
-    console.log('✅ SPOTIFY AUTH MANAGER: Optimistically setting connected state', {
+    logger.spotify('Optimistically setting connected state', {
       spotifyUserId,
-      displayName,
-      timestamp: new Date().toISOString()
+      displayName
     });
 
     this.updateState({
@@ -767,30 +621,25 @@ export class SpotifyAuthManager {
       error: null,
       healthStatus: 'healthy',
       lastCheck: Date.now(),
-      // Create a minimal connection object - full details will be loaded on next check
       connection: {
         spotify_user_id: spotifyUserId,
         display_name: displayName || null,
-        // These will be populated on next full check
         user_id: '',
         access_token: '***ENCRYPTED_IN_VAULT***',
         refresh_token: '***ENCRYPTED_IN_VAULT***',
-        expires_at: new Date(Date.now() + 3600000).toISOString(), // Assume 1 hour
+        expires_at: new Date(Date.now() + 3600000).toISOString(),
         scope: '',
         token_type: 'Bearer',
       } as SpotifyConnection,
     });
   }
 
-  /**
-   * Cleanup resources
-   */
   destroy(): void {
     if (this.healthMonitor) {
       this.healthMonitor.stopMonitoring();
       this.healthMonitor = null;
     }
-    
+
     this.listeners.clear();
     SpotifyAuthManager.instance = null;
   }

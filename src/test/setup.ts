@@ -1,5 +1,16 @@
 import { vi, beforeEach } from 'vitest';
 
+// Mock window.location
+vi.stubGlobal('window', {
+  location: {
+    origin: 'http://localhost:8080',
+    href: 'http://localhost:8080/',
+    hostname: 'localhost',
+    protocol: 'http:',
+    pathname: '/',
+  }
+});
+
 // Mock Supabase client
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
@@ -13,6 +24,8 @@ vi.mock('@/integrations/supabase/client', () => ({
       updateUser: vi.fn(),
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
       refreshSession: vi.fn(),
+      resend: vi.fn(),
+      setSession: vi.fn(),
     },
     from: vi.fn(() => ({
       select: vi.fn(() => ({

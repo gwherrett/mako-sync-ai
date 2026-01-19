@@ -14,13 +14,7 @@ import { tokenPersistenceGateway } from '@/services/tokenPersistenceGateway.serv
 import { useAuthErrors } from '@/hooks/useAuthErrors';
 import { useToast } from '@/hooks/use-toast';
 import { useVisibilityTokenRefresh } from '@/hooks/useVisibilityTokenRefresh';
-
-/**
- * Auth Context
- *
- * Console log prefixes:
- *   🔐 AUTH: Supabase authentication flow
- */
+import { logger } from '@/utils/logger';
 
 export interface AuthContextType {
   // Core state
@@ -147,7 +141,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setRole(roleResult.role);
       }
     } catch (error) {
-      console.error('🔐 AUTH: Error loading user data:', error);
+      logger.auth('Error loading user data', { error }, 'error');
     }
   }, []);
 
@@ -166,7 +160,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     initializationRef.current = true;
-    console.log('🔐 AUTH: Initializing...');
+    logger.auth('Initializing');
 
     try {
       // AGGRESSIVE VALIDATION: Validate cached tokens BEFORE processing any auth state
@@ -174,7 +168,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // If tokens were cleared due to staleness, show notification and exit early
       if (validationResult.wasCleared) {
-        console.log('🔐 AUTH: ✗ Session expired');
+        logger.auth('Session expired');
         toast({
           title: 'Session Expired',
           description: 'Your previous session has expired. Please sign in again.',
@@ -219,7 +213,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           try {
             const recoveryResult = await AuthStateRecoveryService.recoverAuthState();
             if (recoveryResult.success && recoveryResult.newState?.session) {
-              console.log('🔐 AUTH: ✓ Session recovered from backup');
+              logger.auth('Session recovered from backup');
               setSession(recoveryResult.newState.session);
               setUser(recoveryResult.newState.user);
               setProfile(recoveryResult.newState.profile);
@@ -227,7 +221,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               return;
             }
           } catch (recoveryError) {
-            console.error('🔐 AUTH: Recovery failed:', recoveryError);
+            logger.auth('Recovery failed', { error: recoveryError }, 'error');
           }
 
           toast({
@@ -242,7 +236,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       if (session?.user) {
-        console.log('🔐 AUTH: ✓ Session validated');
+        logger.auth('Session validated');
         setSession(session);
         setUser(session.user);
 
@@ -254,7 +248,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         clearUserData();
       }
     } catch (error) {
-      console.error('🔐 AUTH: ✗ Initialization error:', error);
+      logger.auth('Initialization error', { error }, 'error');
 
       // Mark as validated even on error to prevent hanging UI
       sessionValidatedRef.current = true;
@@ -272,7 +266,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setLoading(false);
       setInitialDataReady(true); // Signal that data queries can now start
-      console.log('🔐 AUTH: ✓ Ready');
+      logger.auth('Ready');
     }
   }, [loadUserData, toast, clearUserData]);
 
@@ -348,7 +342,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               lastSignedInUserRef.current = session.user.id;
               lastSignedInTimeRef.current = now;
 
-              console.log('🔐 AUTH: ✓ Signed in');
+              logger.auth('Signed in');
               updateAuthState();
 
               // Wait for token persistence before allowing queries
@@ -367,7 +361,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             break;
 
           case 'SIGNED_OUT':
-            console.log('🔐 AUTH: Signed out');
+            logger.auth('Signed out');
             clearUserData();
             tokenPersistenceGateway.reset(); // Reset gateway state for next sign-in
             setLoading(false);
@@ -551,7 +545,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { error } = await AuthService.signOut();
 
       if (error) {
-        console.error('🔐 AUTH: SignOut error:', error);
+        logger.auth('SignOut error', { error }, 'error');
         handleError(error, 'Failed to sign out. Please try again.');
         return;
       }
@@ -567,7 +561,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
     } catch (error) {
-      console.error('🔐 AUTH: SignOut exception:', error);
+      logger.auth('SignOut exception', { error }, 'error');
       handleError(error as AuthError);
 
       // Even if signOut fails, clear local state and navigate
@@ -692,7 +686,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setTimeout(() => { loadUserData(user.id); }, 0);
     } catch (error) {
-      console.error('Error refreshing profile:', error);
+      logger.auth('Error refreshing profile', { error }, 'error');
     }
   }, [user, loadUserData]);
 
@@ -701,7 +695,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { session: newSession, error } = await SessionService.refreshSession();
 
       if (error) {
-        console.error('Session refresh error:', error);
+        logger.auth('Session refresh error', { error }, 'error');
         return;
       }
 
@@ -710,7 +704,7 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(newSession.user);
       }
     } catch (error) {
-      console.error('Session refresh error:', error);
+      logger.auth('Session refresh error', { error }, 'error');
     }
   }, []);
 

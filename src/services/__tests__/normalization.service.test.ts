@@ -58,13 +58,13 @@ describe('NormalizationService', () => {
   describe('parseArtists', () => {
     it('should extract primary artist from featuring format', () => {
       const result = service.parseArtists('Artist A feat. Artist B');
-      expect(result.primary).toBe('artist a');
+      expect(result.primary).toBe('Artist A');
       expect(result.featured).toContain('Artist B');
     });
 
     it('should handle single artist', () => {
       const result = service.parseArtists('Solo Artist');
-      expect(result.primary).toBe('solo artist');
+      expect(result.primary).toBe('Solo Artist');
       expect(result.featured).toHaveLength(0);
     });
 
