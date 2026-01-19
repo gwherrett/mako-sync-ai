@@ -350,7 +350,14 @@ export const NewAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
               console.log('🔐 AUTH: ✓ Signed in');
               updateAuthState();
-              setInitialDataReady(true); // Allow data queries to start
+
+              // Wait for token persistence before allowing queries
+              // This prevents the race condition where queries start before
+              // the token is actually persisted to localStorage
+              tokenPersistenceGateway.waitForTokenPersistence(session, 300)
+                .finally(() => {
+                  setInitialDataReady(true); // Allow data queries to start
+                });
 
               // Defer data loading to prevent deadlocks
               setTimeout(() => {
