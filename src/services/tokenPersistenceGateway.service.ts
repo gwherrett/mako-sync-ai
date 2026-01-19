@@ -39,27 +39,44 @@ class TokenPersistenceGatewayService {
     const startTime = Date.now();
     const accessToken = session.access_token;
 
+    console.log('🔐 TOKEN GATEWAY: Starting token persistence check...', {
+      maxWaitMs,
+      tokenPrefix: accessToken.substring(0, 20) + '...'
+    });
+
     // Quick check - token might already be persisted
-    if (this.isTokenPersisted(accessToken)) {
+    const alreadyPersisted = this.isTokenPersisted(accessToken);
+    console.log('🔐 TOKEN GATEWAY: Token in localStorage:', alreadyPersisted);
+
+    if (alreadyPersisted) {
       // Also verify Supabase client is ready by setting the session
+      // Use a timeout to prevent hanging
       try {
-        await supabase.auth.setSession({
+        const setSessionPromise = supabase.auth.setSession({
           access_token: session.access_token,
           refresh_token: session.refresh_token
         });
+
+        // Race against a 200ms timeout
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('setSession timeout')), 200);
+        });
+
+        await Promise.race([setSessionPromise, timeoutPromise]);
         const elapsed = Date.now() - startTime;
         console.log(`🔐 TOKEN GATEWAY: Token verified and client ready (${elapsed}ms)`);
         this.markTokenReady();
         return true;
       } catch (error) {
-        console.warn('🔐 TOKEN GATEWAY: setSession failed, will poll:', error);
+        const elapsed = Date.now() - startTime;
+        console.warn(`🔐 TOKEN GATEWAY: setSession failed/timeout after ${elapsed}ms, proceeding anyway:`, error);
+        // Still proceed - token is in localStorage, client might work
+        this.markTokenReady();
+        return true;
       }
     }
 
-    console.log('🔐 TOKEN GATEWAY: Waiting for token persistence...', {
-      maxWaitMs,
-      tokenPrefix: accessToken.substring(0, 20) + '...'
-    });
+    console.log('🔐 TOKEN GATEWAY: Polling for token persistence...');
 
     return new Promise<boolean>((resolve) => {
       const checkInterval = setInterval(async () => {
@@ -67,18 +84,7 @@ class TokenPersistenceGatewayService {
 
         if (this.isTokenPersisted(accessToken)) {
           clearInterval(checkInterval);
-
-          // Verify Supabase client is ready
-          try {
-            await supabase.auth.setSession({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token
-            });
-            console.log(`🔐 TOKEN GATEWAY: Token persisted and client ready (${elapsed}ms)`);
-          } catch (error) {
-            console.warn(`🔐 TOKEN GATEWAY: setSession failed after ${elapsed}ms:`, error);
-          }
-
+          console.log(`🔐 TOKEN GATEWAY: Token persisted (${elapsed}ms)`);
           this.markTokenReady();
           resolve(true);
           return;
