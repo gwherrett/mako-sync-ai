@@ -34,7 +34,8 @@ class ReloadDebuggerService {
     console.log('🔄 RELOAD DEBUGGER: Initializing...');
 
     // Check if this is a reload or fresh load
-    const wasReload = performance.getEntriesByType('navigation')[0]?.type === 'reload';
+    const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    const wasReload = navEntry?.type === 'reload';
     const sessionId = sessionStorage.getItem(this.SESSION_KEY);
 
     if (wasReload && sessionId) {
@@ -162,7 +163,14 @@ class ReloadDebuggerService {
   /**
    * Capture current auth state snapshot
    */
-  static captureAuthSnapshot(label: string): void {
+  static captureAuthSnapshot(label: string): {
+    label: string;
+    timestamp: number;
+    localStorage: { hasAuthTokens: boolean; authKeys: string[] };
+    sessionStorage: { hasAuthTokens: boolean; authKeys: string[] };
+    supabaseState: any;
+    performance: { timeOrigin: number; timing: any; navigation: any };
+  } {
     const snapshot = {
       label,
       timestamp: Date.now(),
@@ -177,7 +185,7 @@ class ReloadDebuggerService {
       supabaseState: this.getSupabaseState(),
       performance: {
         timeOrigin: performance.timeOrigin,
-        timing: performance.timing?.toJSON?.() || {},
+        timing: (performance as any).timing?.toJSON?.() || {},
         navigation: performance.getEntriesByType('navigation')[0] || {}
       }
     };
