@@ -376,7 +376,6 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
     setGenres(allGenres);
     setArtists(allArtists);
   };
-  };
 
   const handleSort = (field: 'year' | 'artist' | 'last_modified' | 'title' | 'album' | 'genre' | 'bitrate' | 'file_size') => {
     if (sortField === field) {
