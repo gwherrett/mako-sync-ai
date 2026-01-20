@@ -5,8 +5,9 @@ import { scanDirectoryForLocalFiles } from '@/services/fileScanner';
 import { extractMetadataBatch } from '@/services/metadataExtractor';
 import { withTimeout } from '@/utils/promiseUtils';
 
-const DB_UPSERT_TIMEOUT_MS = 60000; // 60 seconds per batch for database operations
+const DB_UPSERT_TIMEOUT_MS = 120000; // 120 seconds per batch for database operations
 const BATCH_SIZE = 50; // Process and insert 50 files at a time
+const MAX_RETRIES = 1; // Retry failed batch once
 
 export const useLocalScanner = (onScanComplete?: () => void) => {
   const [isScanning, setIsScanning] = useState(false);
@@ -98,23 +99,46 @@ export const useLocalScanner = (onScanComplete?: () => void) => {
 
         console.log(`💾 Batch ${batchNumber}/${totalBatches}: Inserting ${uniqueTracks.length} tracks...`);
 
-        // Insert this batch into database
-        const upsertPromise = supabase
-          .from('local_mp3s')
-          .upsert(uniqueTracks, {
-            onConflict: 'hash',
-            ignoreDuplicates: false
-          });
+        // Insert this batch into database with retry logic
+        let lastError: any = null;
+        let success = false;
 
-        const result = await withTimeout(
-          Promise.resolve(upsertPromise),
-          DB_UPSERT_TIMEOUT_MS,
-          `Database upsert batch ${batchNumber} timed out after ${DB_UPSERT_TIMEOUT_MS / 1000}s`
-        );
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            if (attempt > 0) {
+              console.log(`🔄 Retry attempt ${attempt} for batch ${batchNumber}...`);
+              // Wait a bit before retrying
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
 
-        if (result.error) {
-          console.error(`❌ Database insertion error (batch ${batchNumber}):`, result.error);
-          throw result.error;
+            const upsertPromise = supabase
+              .from('local_mp3s')
+              .upsert(uniqueTracks, {
+                onConflict: 'hash',
+                ignoreDuplicates: false
+              });
+
+            const result = await withTimeout(
+              Promise.resolve(upsertPromise),
+              DB_UPSERT_TIMEOUT_MS,
+              `Database upsert batch ${batchNumber} timed out after ${DB_UPSERT_TIMEOUT_MS / 1000}s`
+            );
+
+            if (result.error) {
+              throw result.error;
+            }
+
+            success = true;
+            break;
+          } catch (err) {
+            lastError = err;
+            console.warn(`⚠️ Batch ${batchNumber} attempt ${attempt + 1} failed:`, err);
+          }
+        }
+
+        if (!success) {
+          console.error(`❌ Database insertion error (batch ${batchNumber}) after ${MAX_RETRIES + 1} attempts:`, lastError);
+          throw lastError;
         }
 
         insertedCount += uniqueTracks.length;
