@@ -8,6 +8,7 @@ import { withTimeout } from '@/utils/promiseUtils';
 const DB_UPSERT_TIMEOUT_MS = 120000; // 120 seconds per batch for database operations
 const BATCH_SIZE = 50; // Process and insert 50 files at a time
 const MAX_RETRIES = 1; // Retry failed batch once
+const WARMUP_TIMEOUT_MS = 30000; // 30 seconds for warmup query
 
 export const useLocalScanner = (onScanComplete?: () => void) => {
   const [isScanning, setIsScanning] = useState(false);
@@ -47,6 +48,25 @@ export const useLocalScanner = (onScanComplete?: () => void) => {
       });
 
       setScanProgress({ current: 0, total: localFiles.length });
+
+      // Warmup database connection before starting batches
+      console.log('🔥 Warming up database connection...');
+      const warmupStart = Date.now();
+      try {
+        const warmupResult = await withTimeout(
+          Promise.resolve(supabase.from('local_mp3s').select('hash').limit(1)),
+          WARMUP_TIMEOUT_MS,
+          'Database warmup query timed out'
+        );
+        const warmupTime = Date.now() - warmupStart;
+        if (warmupResult.error) {
+          console.warn('⚠️ Warmup query returned error:', warmupResult.error);
+        } else {
+          console.log(`✅ Database connection warmed up in ${warmupTime}ms`);
+        }
+      } catch (warmupErr) {
+        console.warn('⚠️ Warmup failed, proceeding anyway:', warmupErr);
+      }
 
       // Import normalization service once
       const { NormalizationService } = await import('@/services/normalization.service');
