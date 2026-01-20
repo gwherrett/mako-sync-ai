@@ -14,7 +14,7 @@ npm run dev              # Start Vite dev server on port 8080
 npm run build            # Production build
 npm run lint             # ESLint
 
-# Testing
+# Testing (tests in src/services/__tests__/)
 npx vitest run           # Run all tests
 npx vitest run --coverage # Run with coverage
 npx vitest <pattern>     # Run specific test file
@@ -77,7 +77,7 @@ import { supabase } from '@/integrations/supabase/client';
 ```
 
 ### Query Timeouts
-Use `withTimeout` or `withQueryTimeout` for database operations to prevent hangs:
+Use `withTimeout` for database operations to prevent hangs (45+ seconds for edge functions with cold starts):
 ```typescript
 import { withTimeout } from '@/utils/promiseUtils';
 const result = await withTimeout(promise, 60000, 'Operation timed out');
@@ -108,3 +108,12 @@ Track matching relies on normalized metadata. The `NormalizationService` handles
 - `/no-genre-tracks` - AI-assisted genre classification
 - `/spotify-callback` - OAuth callback handler
 - `/security` - Security settings
+
+## Critical Patterns
+
+See [AGENTS.md](AGENTS.md) for additional critical non-obvious patterns including:
+- File System API browser limitations
+- Buffer global requirement for MP3 parsing
+- Supabase 1000-row pagination limits
+- SpotifyAuthManager singleton usage
+- Session cache direct access requirements

@@ -5,8 +5,8 @@ import { scanDirectoryForLocalFiles } from '@/services/fileScanner';
 import { extractMetadataBatch } from '@/services/metadataExtractor';
 import { withTimeout } from '@/utils/promiseUtils';
 
-const DB_UPSERT_TIMEOUT_MS = 120000; // 120 seconds per batch for database operations
-const DB_BATCH_SIZE = 50; // Insert 50 tracks at a time to avoid timeouts
+const DB_UPSERT_TIMEOUT_MS = 60000; // 60 seconds per batch for database operations
+const BATCH_SIZE = 50; // Process and insert 50 files at a time
 
 export const useLocalScanner = (onScanComplete?: () => void) => {
   const [isScanning, setIsScanning] = useState(false);
@@ -21,7 +21,7 @@ export const useLocalScanner = (onScanComplete?: () => void) => {
 
   const scanLocalFiles = async () => {
     console.log('🎯 SCAN STARTED: scanLocalFiles function called');
-    
+
     if (!user) {
       console.log('❌ No user found, aborting scan');
       toast({
@@ -35,73 +35,73 @@ export const useLocalScanner = (onScanComplete?: () => void) => {
     console.log('✅ All checks passed, proceeding with scan');
     setIsScanning(true);
     setScanProgress({ current: 0, total: 0 });
-    
+
     try {
       // Scan directory for local files
       const localFiles = await scanDirectoryForLocalFiles();
-      
+
       toast({
         title: "Scan Started",
-        description: `Found ${localFiles.length} local files. Extracting metadata...`,
+        description: `Found ${localFiles.length} local files. Processing in batches...`,
       });
 
       setScanProgress({ current: 0, total: localFiles.length });
 
-      // Extract metadata from all files
-      const scannedTracks = await extractMetadataBatch(
-        localFiles,
-        (current, total) => setScanProgress({ current, total })
-      );
-
-      console.log(`💾 Inserting ${scannedTracks.length} tracks into database...`);
-      
-      // Import normalization
+      // Import normalization service once
       const { NormalizationService } = await import('@/services/normalization.service');
       const normalizer = new NormalizationService();
-      
-      // Add user_id and normalize each track before inserting
-      const tracksWithUserId = scannedTracks.map(track => {
-        const normalized = normalizer.processMetadata(track.title, track.artist);
-        return {
-          ...track,
-          user_id: user.id,
-          normalized_title: normalized.normalizedTitle,
-          normalized_artist: normalized.normalizedArtist,
-          core_title: normalized.coreTitle,
-          primary_artist: normalized.primaryArtist,
-          featured_artists: normalized.featuredArtists,
-          mix: normalized.mix,
-        };
-      });
-      
-      console.log('🔄 Tracks normalized during scan');
-      
-      // Deduplicate by hash to avoid "ON CONFLICT DO UPDATE command cannot affect row a second time" error
-      const uniqueTracks = tracksWithUserId.reduce((acc, track) => {
-        if (track.hash && !acc.some(existing => existing.hash === track.hash)) {
-          acc.push(track);
-        } else if (!track.hash) {
-          // Keep tracks without hash (they'll be handled by database constraints)
-          acc.push(track);
-        }
-        return acc;
-      }, [] as typeof tracksWithUserId);
-      
-      console.log(`💾 Inserting ${uniqueTracks.length} unique tracks (${scannedTracks.length - uniqueTracks.length} duplicates removed)...`);
 
-      // Insert tracks in batches to avoid timeout on large collections
-      const totalBatches = Math.ceil(uniqueTracks.length / DB_BATCH_SIZE);
+      const totalBatches = Math.ceil(localFiles.length / BATCH_SIZE);
+      let processedCount = 0;
       let insertedCount = 0;
 
-      for (let i = 0; i < uniqueTracks.length; i += DB_BATCH_SIZE) {
-        const batch = uniqueTracks.slice(i, i + DB_BATCH_SIZE);
-        const batchNumber = Math.floor(i / DB_BATCH_SIZE) + 1;
+      console.log(`📊 Processing ${localFiles.length} files in ${totalBatches} batches of ${BATCH_SIZE}`);
 
-        console.log(`📦 Inserting batch ${batchNumber}/${totalBatches} (${batch.length} tracks)...`);
+      // Process files in batches: extract metadata then insert immediately
+      for (let i = 0; i < localFiles.length; i += BATCH_SIZE) {
+        const fileBatch = localFiles.slice(i, i + BATCH_SIZE);
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
 
+        console.log(`📦 Batch ${batchNumber}/${totalBatches}: Extracting metadata for ${fileBatch.length} files...`);
+
+        // Extract metadata for this batch
+        const scannedTracks = await extractMetadataBatch(
+          fileBatch,
+          (current, _total) => {
+            // Update progress relative to overall file count
+            setScanProgress({ current: i + current, total: localFiles.length });
+          }
+        );
+
+        processedCount += scannedTracks.length;
+
+        // Normalize and add user_id
+        const tracksWithUserId = scannedTracks.map(track => {
+          const normalized = normalizer.processMetadata(track.title, track.artist);
+          return {
+            ...track,
+            user_id: user.id,
+            normalized_title: normalized.normalizedTitle,
+            normalized_artist: normalized.normalizedArtist,
+            core_title: normalized.coreTitle,
+            primary_artist: normalized.primaryArtist,
+            featured_artists: normalized.featuredArtists,
+            mix: normalized.mix,
+          };
+        });
+
+        // Deduplicate by hash within this batch
+        const uniqueTracks = tracksWithUserId.filter((track, index, self) => {
+          if (!track.hash) return true;
+          return self.findIndex(t => t.hash === track.hash) === index;
+        });
+
+        console.log(`💾 Batch ${batchNumber}/${totalBatches}: Inserting ${uniqueTracks.length} tracks...`);
+
+        // Insert this batch into database
         const upsertPromise = supabase
           .from('local_mp3s')
-          .upsert(batch, {
+          .upsert(uniqueTracks, {
             onConflict: 'hash',
             ignoreDuplicates: false
           });
@@ -117,14 +117,19 @@ export const useLocalScanner = (onScanComplete?: () => void) => {
           throw result.error;
         }
 
-        insertedCount += batch.length;
-        console.log(`✅ Batch ${batchNumber}/${totalBatches} complete (${insertedCount}/${uniqueTracks.length} total)`);
+        insertedCount += uniqueTracks.length;
+        console.log(`✅ Batch ${batchNumber}/${totalBatches} complete (${insertedCount} tracks inserted so far)`);
+
+        // Small delay between batches
+        if (i + BATCH_SIZE < localFiles.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
 
-      console.log('✅ All database insertions successful');
+      console.log(`✅ All batches complete: ${processedCount} files processed, ${insertedCount} tracks inserted`);
       toast({
         title: "Scan Complete",
-        description: `Successfully scanned ${scannedTracks.length} local files.`,
+        description: `Successfully scanned ${processedCount} local files.`,
       });
 
       // Trigger refresh callback
