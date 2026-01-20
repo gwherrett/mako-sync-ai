@@ -6,9 +6,10 @@ import { extractMetadataBatch } from '@/services/metadataExtractor';
 import { withTimeout } from '@/utils/promiseUtils';
 
 const DB_UPSERT_TIMEOUT_MS = 120000; // 120 seconds per batch for database operations
-const BATCH_SIZE = 50; // Process and insert 50 files at a time
+const BATCH_SIZE = 25; // Smaller batches to avoid rate limits
 const MAX_RETRIES = 1; // Retry failed batch once
 const WARMUP_TIMEOUT_MS = 30000; // 30 seconds for warmup query
+const BATCH_DELAY_MS = 1000; // 1 second delay between batches to avoid rate limits
 
 export const useLocalScanner = (onScanComplete?: () => void) => {
   const [isScanning, setIsScanning] = useState(false);
@@ -164,9 +165,10 @@ export const useLocalScanner = (onScanComplete?: () => void) => {
         insertedCount += uniqueTracks.length;
         console.log(`✅ Batch ${batchNumber}/${totalBatches} complete (${insertedCount} tracks inserted so far)`);
 
-        // Small delay between batches
+        // Delay between batches to avoid rate limits
         if (i + BATCH_SIZE < localFiles.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          console.log(`⏳ Waiting ${BATCH_DELAY_MS}ms before next batch...`);
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
         }
       }
 
