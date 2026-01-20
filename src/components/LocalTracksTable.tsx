@@ -80,18 +80,18 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
   const [selectedArtist, setSelectedArtist] = useState<string>('');
   const [selectedAlbum, setSelectedAlbum] = useState<string>('');
   const [selectedGenre, setSelectedGenre] = useState<string>('');
-  const [fileFormat, setFileFormat] = useState<string>('');
-  const [fileSizeFilter, setFileSizeFilter] = useState<string>('');
+  const [bitrateFilter, setBitrateFilter] = useState<string>('');
   const [missingMetadata, setMissingMetadata] = useState<string>('');
   const [filtersOpen, setFiltersOpen] = useState(false);
-  
+
   // Filter options - cascading
   const [allArtists, setAllArtists] = useState<string[]>([]); // All artists for reset
   const [allGenres, setAllGenres] = useState<string[]>([]); // All genres for reset
   const [artists, setArtists] = useState<string[]>([]); // Filtered by supergenre + genre
   const [genres, setGenres] = useState<string[]>([]); // Filtered by supergenre
   const [albums, setAlbums] = useState<string[]>([]);
-  const [fileFormats, setFileFormats] = useState<string[]>([]);
+  // Supergenre to genre mapping for cascading filter
+  const [superGenreToGenres, setSuperGenreToGenres] = useState<Map<string, string[]>>(new Map());
   
   // Query deduplication ref
   const fetchInProgress = useRef(false);
@@ -127,7 +127,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [authLoading, initialDataReady, isActive, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedSuperGenre, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger, searchQuery, yearFrom, yearTo]);
+  }, [authLoading, initialDataReady, isActive, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedSuperGenre, selectedArtist, selectedAlbum, selectedGenre, bitrateFilter, missingMetadata, refreshTrigger, searchQuery, yearFrom, yearTo]);
 
   // Filter options fetch - only once when tab becomes active
   useEffect(() => {
@@ -145,11 +145,55 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
   }, [refreshTrigger]);
 
   // Cascade: Supergenre → Genre filtering
-  // Note: Local tracks don't have super_genre column, so this filters genres that 
-  // are conceptually related to the supergenre (for future use when mapping is added)
-  // For now, supergenre filter is a no-op on actual data but prepares the UI
-  
-  // Cascade: Genre → Artist filtering  
+  // Uses the genre mapping table to filter local genres based on selected supergenre
+  useEffect(() => {
+    if (!user || !isAuthenticated || !initialDataReady) return;
+
+    const filterGenresBySupergenre = async () => {
+      if (!selectedSuperGenre) {
+        // Reset to all genres when no supergenre is selected
+        setGenres(allGenres);
+        return;
+      }
+
+      try {
+        // Get genres that map to this supergenre from the mapping tables
+        const { data: mappings } = await supabase
+          .from('spotify_genre_map_base')
+          .select('spotify_genre')
+          .eq('super_genre', selectedSuperGenre);
+
+        const { data: overrides } = await supabase
+          .from('spotify_genre_map_overrides')
+          .select('spotify_genre')
+          .eq('user_id', user.id)
+          .eq('super_genre', selectedSuperGenre);
+
+        // Combine mapped genres
+        const mappedGenres = new Set<string>();
+        mappings?.forEach(m => mappedGenres.add(m.spotify_genre.toLowerCase()));
+        overrides?.forEach(o => mappedGenres.add(o.spotify_genre.toLowerCase()));
+
+        // Filter local genres that match any mapped genre (case-insensitive partial match)
+        const filteredGenres = allGenres.filter(localGenre => {
+          const localLower = localGenre.toLowerCase();
+          // Check if local genre matches or is contained in any mapped genre
+          return Array.from(mappedGenres).some(mapped =>
+            localLower.includes(mapped) || mapped.includes(localLower) || localLower === mapped
+          );
+        });
+
+        setGenres(filteredGenres.length > 0 ? filteredGenres : allGenres);
+      } catch (error) {
+        console.error('Error filtering genres by supergenre:', error);
+        setGenres(allGenres);
+      }
+    };
+
+    filterGenresBySupergenre();
+  }, [selectedSuperGenre, allGenres, user?.id, isAuthenticated, initialDataReady]);
+
+  // Cascade: Genre → Artist filtering
   useEffect(() => {
     if (!user || !isAuthenticated || !initialDataReady) return;
 
@@ -211,10 +255,9 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
       if (selectedArtist) query = query.eq('artist', selectedArtist);
       if (selectedAlbum) query = query.eq('album', selectedAlbum);
       if (selectedGenre) query = query.eq('genre', selectedGenre);
-      if (fileFormat) query = query.like('file_path', `%.${fileFormat}`);
-      if (fileSizeFilter === 'small') query = query.lt('file_size', 5 * 1024 * 1024);
-      else if (fileSizeFilter === 'medium') query = query.gte('file_size', 5 * 1024 * 1024).lt('file_size', 20 * 1024 * 1024);
-      else if (fileSizeFilter === 'large') query = query.gte('file_size', 20 * 1024 * 1024);
+      if (bitrateFilter === 'low') query = query.lt('bitrate', 192);
+      else if (bitrateFilter === 'medium') query = query.gte('bitrate', 192).lt('bitrate', 320);
+      else if (bitrateFilter === 'high') query = query.gte('bitrate', 320);
       if (missingMetadata === 'title') query = query.is('title', null);
       else if (missingMetadata === 'artist') query = query.is('artist', null);
       else if (missingMetadata === 'album') query = query.is('album', null);
@@ -312,34 +355,20 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
       const uniqueGenres = (genresResult.data || []).map((row: any) => row.genre).filter(Boolean).sort();
       const uniqueArtists = (artistsResult.data || []).map((row: any) => row.artist).filter(Boolean).sort();
       const uniqueAlbums = (albumsResult.data || []).map((row: any) => row.album).filter(Boolean).sort();
-      
-      // Get file formats from a limited query
-      const { data: formatsData } = await supabase
-        .from('local_mp3s')
-        .select('file_path')
-        .eq('user_id', user.id)
-        .limit(1000);
-        
-      const uniqueFormats = [...new Set((formatsData || []).map(item => {
-        const ext = item.file_path.split('.').pop()?.toLowerCase();
-        return ext;
-      }).filter(Boolean))].sort();
-      
+
       console.log('🗂️ Filter options loaded:', {
         artists: uniqueArtists.length,
         albums: uniqueAlbums.length,
-        genres: uniqueGenres.length,
-        formats: uniqueFormats.length
+        genres: uniqueGenres.length
       });
-      
+
       console.log('🎵 Unique genres found:', uniqueGenres);
-      
+
       setAllArtists(uniqueArtists); // Store all artists for reset
       setAllGenres(uniqueGenres); // Store all genres for reset
       setArtists(uniqueArtists); // Initially show all artists
       setAlbums(uniqueAlbums);
       setGenres(uniqueGenres); // Initially show all genres
-      setFileFormats(uniqueFormats);
     } catch (error) {
       console.error('💥 Error fetching filter options:', error);
     }
@@ -349,10 +378,6 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
     if (!bytes) return 'Unknown';
     const mb = bytes / (1024 * 1024);
     return `${mb.toFixed(1)} MB`;
-  };
-
-  const getFileFormat = (filePath: string) => {
-    return filePath.split('.').pop()?.toUpperCase() || 'Unknown';
   };
 
   const getMissingMetadataCount = (track: LocalTrack) => {
@@ -368,8 +393,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
     setSelectedArtist('');
     setSelectedAlbum('');
     setSelectedGenre('');
-    setFileFormat('');
-    setFileSizeFilter('');
+    setBitrateFilter('');
     setMissingMetadata('');
     setCurrentPage(1);
     // Reset cascading filters
@@ -525,13 +549,12 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
                 {filtersOpen ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
               </Button>
             </CollapsibleTrigger>
-            {(yearFrom || yearTo || selectedAlbum || fileFormat || fileSizeFilter || missingMetadata) && (
+            {(yearFrom || yearTo || selectedAlbum || bitrateFilter || missingMetadata) && (
               <Button variant="ghost" size="sm" onClick={() => {
                 setYearFrom('');
                 setYearTo('');
                 setSelectedAlbum('');
-                setFileFormat('');
-                setFileSizeFilter('');
+                setBitrateFilter('');
                 setMissingMetadata('');
                 setCurrentPage(1);
               }}>
@@ -539,7 +562,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
                 Clear Advanced
               </Button>
             )}
-            {(searchQuery || yearFrom || yearTo || selectedArtist || selectedAlbum || selectedGenre || fileFormat || fileSizeFilter || missingMetadata) && (
+            {(searchQuery || yearFrom || yearTo || selectedArtist || selectedAlbum || selectedGenre || bitrateFilter || missingMetadata) && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="h-4 w-4 mr-1" />
                 Clear All
@@ -590,41 +613,23 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
                   </SelectContent>
                 </Select>
               </div>
-              
-              {/* File Format Filter */}
+
+              {/* Bitrate Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">File Format</label>
-                <Select value={fileFormat || 'all'} onValueChange={(value) => setFileFormat(value === 'all' ? '' : value)}>
+                <label className="text-sm font-medium">Bitrate</label>
+                <Select value={bitrateFilter || 'all'} onValueChange={(value) => setBitrateFilter(value === 'all' ? '' : value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="All formats" />
+                    <SelectValue placeholder="All bitrates" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All formats</SelectItem>
-                    {fileFormats.map((format) => (
-                      <SelectItem key={format} value={format}>
-                        .{format.toUpperCase()}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="all">All bitrates</SelectItem>
+                    <SelectItem value="low">Low (&lt; 192 kbps)</SelectItem>
+                    <SelectItem value="medium">Medium (192-320 kbps)</SelectItem>
+                    <SelectItem value="high">High (320+ kbps)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
-              {/* File Size Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">File Size</label>
-                <Select value={fileSizeFilter || 'all'} onValueChange={(value) => setFileSizeFilter(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All sizes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All sizes</SelectItem>
-                    <SelectItem value="small">Small (&lt; 5MB)</SelectItem>
-                    <SelectItem value="medium">Medium (5-20MB)</SelectItem>
-                    <SelectItem value="large">Large (&gt; 20MB)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
+
               {/* Missing Metadata Filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Missing Metadata</label>
@@ -714,7 +719,6 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
                   </div>
                 </TableHead>
                 <TableHead>BPM</TableHead>
-                <TableHead>Format</TableHead>
                 <TableHead
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => handleSort('bitrate')}
@@ -789,11 +793,6 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
                      ) : (
                        <span className="text-muted-foreground">—</span>
                      )}
-                   </TableCell>
-                   <TableCell>
-                     <Badge variant="outline">
-                       {getFileFormat(track.file_path)}
-                     </Badge>
                    </TableCell>
                    <TableCell>
                       {track.bitrate ? (
