@@ -5,10 +5,19 @@ import { Filter } from 'lucide-react';
 import MissingTracksAnalyzer from '@/components/MissingTracksAnalyzer';
 import { TrackMatchingService } from '@/services/trackMatching.service';
 import { supabase } from '@/integrations/supabase/client';
-const SyncAnalysis = () => {
+
+interface SyncAnalysisProps {
+  sharedSearchQuery?: string;
+  sharedSuperGenre?: string;
+}
+
+const SyncAnalysis = ({ sharedSearchQuery = '', sharedSuperGenre = '' }: SyncAnalysisProps) => {
   const [user, setUser] = useState<any>(null);
   const [superGenres, setSuperGenres] = useState<string[]>([]);
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
+
+  // Use shared supergenre if set, otherwise use local selection
+  const effectiveGenre = sharedSuperGenre || selectedGenre;
 
   // Get user and load super genres on mount
   useEffect(() => {
@@ -30,9 +39,15 @@ const SyncAnalysis = () => {
     };
     loadData();
   }, []);
+
   return <div className="space-y-6">
       {/* Missing Tracks Analyzer as main content */}
-      <MissingTracksAnalyzer selectedGenre={selectedGenre} setSelectedGenre={setSelectedGenre} superGenres={superGenres} />
+      <MissingTracksAnalyzer
+        selectedGenre={effectiveGenre}
+        setSelectedGenre={setSelectedGenre}
+        superGenres={superGenres}
+        sharedSearchQuery={sharedSearchQuery}
+      />
     </div>;
 };
 export default SyncAnalysis;

@@ -12,6 +12,7 @@ interface MissingTracksAnalyzerProps {
   selectedGenre: string;
   setSelectedGenre: (genre: string) => void;
   superGenres: string[];
+  sharedSearchQuery?: string;
 }
 
 interface MissingTrack {
@@ -32,16 +33,42 @@ interface ArtistGroup {
   genres: string[];
 }
 
-const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({ 
-  selectedGenre, 
-  setSelectedGenre, 
-  superGenres 
+const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
+  selectedGenre,
+  setSelectedGenre,
+  superGenres,
+  sharedSearchQuery = ''
 }) => {
   const [missingTracks, setMissingTracks] = useState<MissingTrack[]>([]);
   const [artistGroups, setArtistGroups] = useState<ArtistGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
   const { toast } = useToast();
+
+  // Filter artist groups based on shared search query
+  const filteredArtistGroups = sharedSearchQuery
+    ? artistGroups.filter(group => {
+        const searchLower = sharedSearchQuery.toLowerCase();
+        // Check if artist name matches
+        if (group.artist.toLowerCase().includes(searchLower)) return true;
+        // Check if any track title or album matches
+        return group.tracks.some(track =>
+          track.spotifyTrack.title.toLowerCase().includes(searchLower) ||
+          (track.spotifyTrack.album?.toLowerCase().includes(searchLower))
+        );
+      })
+    : artistGroups;
+
+  const filteredMissingTracks = sharedSearchQuery
+    ? missingTracks.filter(track => {
+        const searchLower = sharedSearchQuery.toLowerCase();
+        return (
+          track.spotifyTrack.title.toLowerCase().includes(searchLower) ||
+          track.spotifyTrack.artist.toLowerCase().includes(searchLower) ||
+          (track.spotifyTrack.album?.toLowerCase().includes(searchLower))
+        );
+      })
+    : missingTracks;
 
   // Get user on mount
   useEffect(() => {
@@ -123,7 +150,7 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
     if (artistGroups.length === 0) return;
 
     const rows: string[] = [
-      ['Artist', 'Track Count', 'Track Title', 'Album', 'Spotify Genre', 'Common Genre'].join(',')
+      ['Artist', 'Track Count', 'Track Title', 'Album', 'Spotify Genre', 'Supergenre'].join(',')
     ];
 
     // Export grouped by artist
@@ -181,14 +208,14 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Filter by Common Genre:</span>
+              <span className="text-sm font-medium">Filter by Supergenre:</span>
             </div>
             <Select value={selectedGenre} onValueChange={setSelectedGenre}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Select genre" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Common Genres</SelectItem>
+                <SelectItem value="all">All Supergenres</SelectItem>
                 {superGenres.map((genre) => (
                   <SelectItem key={genre} value={genre}>
                     {genre}
@@ -238,8 +265,8 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Missing Tracks</p>
-                    <p className="text-2xl font-bold text-primary">{missingTracks.length}</p>
+                    <p className="text-sm text-muted-foreground">Missing Tracks{sharedSearchQuery && ' (filtered)'}</p>
+                    <p className="text-2xl font-bold text-primary">{filteredMissingTracks.length}</p>
                   </div>
                   <Music className="h-8 w-8 text-muted-foreground" />
                 </div>
@@ -250,8 +277,8 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Artists</p>
-                    <p className="text-2xl font-bold text-primary">{artistGroups.length}</p>
+                    <p className="text-sm text-muted-foreground">Artists{sharedSearchQuery && ' (filtered)'}</p>
+                    <p className="text-2xl font-bold text-primary">{filteredArtistGroups.length}</p>
                   </div>
                   <Users className="h-8 w-8 text-muted-foreground" />
                 </div>
@@ -264,10 +291,10 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
                   <div>
                     <p className="text-sm text-muted-foreground">Top Artist</p>
                     <p className="text-lg font-semibold text-primary truncate">
-                      {artistGroups[0]?.artist || 'N/A'}
+                      {filteredArtistGroups[0]?.artist || 'N/A'}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {artistGroups[0]?.tracks.length || 0} tracks
+                      {filteredArtistGroups[0]?.tracks.length || 0} tracks
                     </p>
                   </div>
                 </div>
@@ -281,11 +308,12 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
               <CardTitle>Missing Tracks by Artist</CardTitle>
               <CardDescription>
                 Artists with tracks missing from your local collection
+                {sharedSearchQuery && ` (filtered by "${sharedSearchQuery}")`}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4 max-h-96 overflow-y-auto">
-                {artistGroups.map((group) => (
+                {filteredArtistGroups.map((group) => (
                   <div 
                     key={group.artist} 
                     className="border rounded-lg p-4 hover:bg-accent/50 transition-colors"

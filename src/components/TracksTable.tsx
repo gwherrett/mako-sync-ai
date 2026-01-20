@@ -50,14 +50,16 @@ interface SpotifyTrack {
 interface TracksTableProps {
   onTrackSelect: (track: SpotifyTrack) => void;
   selectedTrack: SpotifyTrack | null;
+  sharedSearchQuery?: string;
+  sharedSuperGenre?: string;
 }
 
-const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
+const TracksTable = ({ onTrackSelect, selectedTrack, sharedSearchQuery = '', sharedSuperGenre = '' }: TracksTableProps) => {
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalTracks, setTotalTracks] = useState(0);
-  const [sortField, setSortField] = useState<'added_at' | 'year' | 'artist'>('added_at');
+  const [sortField, setSortField] = useState<'added_at' | 'year' | 'artist' | 'title' | 'album' | 'super_genre' | 'genre'>('added_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Filter states
@@ -80,6 +82,15 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
   const { isInitialCheckComplete: spotifyCheckComplete } = useUnifiedSpotifyAuth();
   const { hasOverride } = useGenreMappingOverrides();
 
+  // Compute effective filters (shared takes precedence, local adds to it)
+  const effectiveSearchQuery = sharedSearchQuery || searchQuery;
+  const effectiveSuperGenre = sharedSuperGenre || selectedSuperGenre;
+
+  // Reset to page 1 when shared filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sharedSearchQuery, sharedSuperGenre]);
+
   // Consolidated fetch effect - debounces search, immediate for other filters
   // Wait for initialDataReady AND Spotify connection check to prevent concurrent request deadlock
   useEffect(() => {
@@ -94,16 +105,16 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     // Debounce only for search query changes
     const timeoutId = setTimeout(() => {
       fetchTracks();
-    }, searchQuery ? 300 : 0);
+    }, effectiveSearchQuery ? 300 : 0);
 
     return () => clearTimeout(timeoutId);
-  }, [authLoading, initialDataReady, spotifyCheckComplete, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedGenre, selectedSuperGenre, dateFilter, noSuperGenre, noGenre, searchQuery]);
+  }, [authLoading, initialDataReady, spotifyCheckComplete, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedGenre, effectiveSuperGenre, dateFilter, noSuperGenre, noGenre, effectiveSearchQuery]);
 
   // Separate useEffect for filter options that updates when genre changes
   useEffect(() => {
     if (authLoading || !initialDataReady || !spotifyCheckComplete || !isAuthenticated || !user) return;
     fetchFilterOptions();
-  }, [authLoading, initialDataReady, spotifyCheckComplete, isAuthenticated, user?.id, selectedGenre, selectedSuperGenre]);
+  }, [authLoading, initialDataReady, spotifyCheckComplete, isAuthenticated, user?.id, selectedGenre, effectiveSuperGenre]);
 
   // Subscribe to sync_progress to refresh when sync completes
   useEffect(() => {
@@ -141,15 +152,15 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     
     setLoading(true);
     
-    // Build filter function for reuse
+    // Build filter function for reuse (uses effective filters that combine shared + local)
     const applyFilters = (query: any) => {
-      if (searchQuery.trim()) {
-        query = query.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`);
+      if (effectiveSearchQuery.trim()) {
+        query = query.or(`title.ilike.%${effectiveSearchQuery}%,artist.ilike.%${effectiveSearchQuery}%`);
       }
       if (selectedGenre) query = query.eq('genre', selectedGenre);
       if (noGenre) query = query.is('genre', null);
       if (noSuperGenre) query = query.is('super_genre', null);
-      if (selectedSuperGenre) query = query.eq('super_genre', selectedSuperGenre as any);
+      if (effectiveSuperGenre) query = query.eq('super_genre', effectiveSuperGenre as any);
       if (selectedArtist) query = query.eq('artist', selectedArtist);
       if (dateFilter === 'week') {
         const weekAgo = new Date();
@@ -245,10 +256,10 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
         
         if (noSuperGenre) {
           query = query.is('super_genre', null);
-        } else if (selectedSuperGenre) {
-          query = query.eq('super_genre', selectedSuperGenre as any);
+        } else if (effectiveSuperGenre) {
+          query = query.eq('super_genre', effectiveSuperGenre as any);
         }
-        
+
         return query.abortSignal(signal);
       },
       10000,
@@ -271,10 +282,10 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
 
         if (noSuperGenre) {
           query = query.is('super_genre', null);
-        } else if (selectedSuperGenre) {
-          query = query.eq('super_genre', selectedSuperGenre as any);
+        } else if (effectiveSuperGenre) {
+          query = query.eq('super_genre', effectiveSuperGenre as any);
         }
-        
+
         return query.abortSignal(signal);
       },
       10000,
@@ -317,7 +328,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
     setCurrentPage(1);
   };
 
-  const handleSort = (field: 'added_at' | 'year' | 'artist') => {
+  const handleSort = (field: 'added_at' | 'year' | 'artist' | 'title' | 'album' | 'super_genre' | 'genre') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -438,8 +449,18 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[300px]">Track</TableHead>
-                  <TableHead 
+                  <TableHead
+                    className="w-[300px] cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('title')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Track
+                      {sortField === 'title' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead
                     className="cursor-pointer hover:bg-muted/50 select-none"
                     onClick={() => handleSort('artist')}
                   >
@@ -451,10 +472,40 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                     </div>
                   </TableHead>
                   <TableHead>Mix</TableHead>
-                  <TableHead>Album</TableHead>
-                  <TableHead>Common Genre</TableHead>
-                  <TableHead>Spotify Genre</TableHead>
-                  <TableHead 
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('album')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Album
+                      {sortField === 'album' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('super_genre')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Supergenre
+                      {sortField === 'super_genre' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('genre')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Spotify Genre
+                      {sortField === 'genre' && (
+                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead
                     className="cursor-pointer hover:bg-muted/50 select-none"
                     onClick={() => handleSort('year')}
                   >
@@ -465,7 +516,7 @@ const TracksTable = ({ onTrackSelect, selectedTrack }: TracksTableProps) => {
                       )}
                     </div>
                   </TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-muted/50 select-none"
                     onClick={() => handleSort('added_at')}
                   >

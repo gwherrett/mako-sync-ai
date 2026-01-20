@@ -143,10 +143,10 @@ export const TrackFilters: React.FC<TrackFiltersProps> = ({
           }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={config.superGenreLabel || "All common genres"} />
+                  <SelectValue placeholder={config.superGenreLabel || "All Supergenres"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{config.superGenreLabel || "All common genres"}</SelectItem>
+                  <SelectItem value="all">{config.superGenreLabel || "All Supergenres"}</SelectItem>
                   <SelectItem value="no-super-genre">Unmapped</SelectItem>
                   {options.superGenres.map((superGenre) => (
                     <SelectItem key={superGenre} value={superGenre}>

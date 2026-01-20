@@ -60,14 +60,16 @@ interface LocalTracksTableProps {
   selectedTrack: LocalTrack | null;
   refreshTrigger?: number;
   isActive?: boolean; // For lazy loading - only fetch when tab is active
+  sharedSearchQuery?: string;
+  sharedSuperGenre?: string;
 }
 
-const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActive = true }: LocalTracksTableProps) => {
+const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActive = true, sharedSearchQuery = '', sharedSuperGenre = '' }: LocalTracksTableProps) => {
   const [tracks, setTracks] = useState<LocalTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalTracks, setTotalTracks] = useState(0);
-  const [sortField, setSortField] = useState<'last_modified' | 'year' | 'artist'>('last_modified');
+  const [sortField, setSortField] = useState<'last_modified' | 'year' | 'artist' | 'title' | 'album' | 'genre' | 'bitrate' | 'file_size'>('last_modified');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set());
   
@@ -98,33 +100,43 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
   const { toast } = useToast();
   const { user, isAuthenticated, loading: authLoading, initialDataReady } = useAuth();
 
+  // Compute effective search query (shared takes precedence)
+  const effectiveSearchQuery = sharedSearchQuery || searchQuery;
+  // Note: sharedSuperGenre is accepted for future compatibility but not used yet
+  // since local tracks don't have super_genre mapping
+
+  // Reset to page 1 when shared filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sharedSearchQuery, sharedSuperGenre]);
+
   // Main data fetching effect - consolidated with debounce for text inputs
   useEffect(() => {
     // Guard: Wait for auth to be ready AND tab to be active
     if (authLoading || !initialDataReady || !isActive) return;
-    
+
     if (!isAuthenticated || !user) {
       setTracks([]);
       setTotalTracks(0);
       setLoading(false);
       return;
     }
-    
+
     // For text-based filters, use debounce
-    const needsDebounce = searchQuery || yearFrom || yearTo;
-    const timeoutId = needsDebounce 
+    const needsDebounce = effectiveSearchQuery || yearFrom || yearTo;
+    const timeoutId = needsDebounce
       ? setTimeout(() => fetchTracks(user.id), 300)
       : null;
-    
+
     // For non-text filters, fetch immediately
     if (!needsDebounce) {
       fetchTracks(user.id);
     }
-    
+
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [authLoading, initialDataReady, isActive, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger, searchQuery, yearFrom, yearTo]);
+  }, [authLoading, initialDataReady, isActive, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger, effectiveSearchQuery, yearFrom, yearTo]);
 
   // Filter options fetch - only once when tab becomes active
   useEffect(() => {
@@ -187,10 +199,10 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
     fetchInProgress.current = true;
     setLoading(true);
 
-    // Build filter function for reuse
+    // Build filter function for reuse (uses effective filters that combine shared + local)
     const applyFilters = (query: any) => {
-      if (searchQuery.trim()) {
-        query = query.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%,album.ilike.%${searchQuery}%,file_path.ilike.%${searchQuery}%`);
+      if (effectiveSearchQuery.trim()) {
+        query = query.or(`title.ilike.%${effectiveSearchQuery}%,artist.ilike.%${effectiveSearchQuery}%,album.ilike.%${effectiveSearchQuery}%,file_path.ilike.%${effectiveSearchQuery}%`);
       }
       if (yearFrom) query = query.gte('year', parseInt(yearFrom));
       if (yearTo) query = query.lte('year', parseInt(yearTo));
@@ -358,7 +370,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
     setCurrentPage(1);
   };
 
-  const handleSort = (field: 'year' | 'artist' | 'last_modified') => {
+  const handleSort = (field: 'year' | 'artist' | 'last_modified' | 'title' | 'album' | 'genre' | 'bitrate' | 'file_size') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -452,7 +464,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
             dateFilters: false,
             genre: true,
             artist: true,
-            genreLabel: "All Common genres"
+            genreLabel: "All Genres"
           }}
           state={{
             searchQuery,
@@ -626,8 +638,18 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
-                <TableHead className="w-[250px]">Track</TableHead>
-                <TableHead 
+                <TableHead
+                  className="w-[250px] cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('title')}
+                >
+                  <div className="flex items-center gap-1">
+                    Track
+                    {sortField === 'title' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => handleSort('artist')}
                 >
@@ -639,9 +661,29 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
                   </div>
                 </TableHead>
                 <TableHead>Mix</TableHead>
-                <TableHead>Album</TableHead>
-                <TableHead>Genre</TableHead>
-                <TableHead 
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('album')}
+                >
+                  <div className="flex items-center gap-1">
+                    Album
+                    {sortField === 'album' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('genre')}
+                >
+                  <div className="flex items-center gap-1">
+                    Genre
+                    {sortField === 'genre' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => handleSort('year')}
                 >
@@ -652,10 +694,30 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
                     )}
                   </div>
                 </TableHead>
-                 <TableHead>BPM</TableHead>
+                <TableHead>BPM</TableHead>
                 <TableHead>Format</TableHead>
-                <TableHead>Bitrate</TableHead>
-                <TableHead>Size</TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('bitrate')}
+                >
+                  <div className="flex items-center gap-1">
+                    Bitrate
+                    {sortField === 'bitrate' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('file_size')}
+                >
+                  <div className="flex items-center gap-1">
+                    Size
+                    {sortField === 'file_size' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
