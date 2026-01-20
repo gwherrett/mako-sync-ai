@@ -64,7 +64,7 @@ const NewAuth = () => {
   const [showPasswordStrength, setShowPasswordStrength] = useState(false);
 
   // STRIPPED VERSION: No validation, just basic state
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('gwherrett@gmail.com');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
 

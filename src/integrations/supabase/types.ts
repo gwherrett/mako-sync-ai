@@ -429,39 +429,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_preferences: {
-        Row: {
-          id: string
-          user_id: string
-          slskd_api_endpoint: string | null
-          slskd_api_key: string | null
-          slskd_last_connection_test: string | null
-          slskd_connection_status: boolean | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          slskd_api_endpoint?: string | null
-          slskd_api_key?: string | null
-          slskd_last_connection_test?: string | null
-          slskd_connection_status?: boolean | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          slskd_api_endpoint?: string | null
-          slskd_api_key?: string | null
-          slskd_last_connection_test?: string | null
-          slskd_connection_status?: boolean | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       track_matches: {
         Row: {
           id: string
