@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MoreHorizontal, ChevronUp, ChevronDown, Filter, X, Edit, Trash2, FileCheck, AlertCircle } from 'lucide-react';
 import { TrackFilters, FilterConfig, FilterState, FilterOptions, FilterCallbacks } from '@/components/common/TrackFilters';
+import { SUPER_GENRES } from '@/types/genreMapping';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -60,11 +61,9 @@ interface LocalTracksTableProps {
   selectedTrack: LocalTrack | null;
   refreshTrigger?: number;
   isActive?: boolean; // For lazy loading - only fetch when tab is active
-  sharedSearchQuery?: string;
-  sharedSuperGenre?: string;
 }
 
-const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActive = true, sharedSearchQuery = '', sharedSuperGenre = '' }: LocalTracksTableProps) => {
+const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActive = true }: LocalTracksTableProps) => {
   const [tracks, setTracks] = useState<LocalTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -77,6 +76,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
   const [searchQuery, setSearchQuery] = useState('');
   const [yearFrom, setYearFrom] = useState<string>('');
   const [yearTo, setYearTo] = useState<string>('');
+  const [selectedSuperGenre, setSelectedSuperGenre] = useState<string>('');
   const [selectedArtist, setSelectedArtist] = useState<string>('');
   const [selectedAlbum, setSelectedAlbum] = useState<string>('');
   const [selectedGenre, setSelectedGenre] = useState<string>('');
@@ -85,11 +85,12 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
   const [missingMetadata, setMissingMetadata] = useState<string>('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   
-  // Filter options
-  const [artists, setArtists] = useState<string[]>([]);
-  const [allArtists, setAllArtists] = useState<string[]>([]); // Store all artists
+  // Filter options - cascading
+  const [allArtists, setAllArtists] = useState<string[]>([]); // All artists for reset
+  const [allGenres, setAllGenres] = useState<string[]>([]); // All genres for reset
+  const [artists, setArtists] = useState<string[]>([]); // Filtered by supergenre + genre
+  const [genres, setGenres] = useState<string[]>([]); // Filtered by supergenre
   const [albums, setAlbums] = useState<string[]>([]);
-  const [genres, setGenres] = useState<string[]>([]);
   const [fileFormats, setFileFormats] = useState<string[]>([]);
   
   // Query deduplication ref
@@ -99,16 +100,6 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
   const tracksPerPage = 100;
   const { toast } = useToast();
   const { user, isAuthenticated, loading: authLoading, initialDataReady } = useAuth();
-
-  // Compute effective search query (shared takes precedence)
-  const effectiveSearchQuery = sharedSearchQuery || searchQuery;
-  // Note: sharedSuperGenre is accepted for future compatibility but not used yet
-  // since local tracks don't have super_genre mapping
-
-  // Reset to page 1 when shared filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [sharedSearchQuery, sharedSuperGenre]);
 
   // Main data fetching effect - consolidated with debounce for text inputs
   useEffect(() => {
@@ -123,7 +114,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
     }
 
     // For text-based filters, use debounce
-    const needsDebounce = effectiveSearchQuery || yearFrom || yearTo;
+    const needsDebounce = searchQuery || yearFrom || yearTo;
     const timeoutId = needsDebounce
       ? setTimeout(() => fetchTracks(user.id), 300)
       : null;
@@ -136,7 +127,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [authLoading, initialDataReady, isActive, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger, effectiveSearchQuery, yearFrom, yearTo]);
+  }, [authLoading, initialDataReady, isActive, isAuthenticated, user?.id, currentPage, sortField, sortDirection, selectedSuperGenre, selectedArtist, selectedAlbum, selectedGenre, fileFormat, fileSizeFilter, missingMetadata, refreshTrigger, searchQuery, yearFrom, yearTo]);
 
   // Filter options fetch - only once when tab becomes active
   useEffect(() => {
@@ -153,31 +144,42 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
     fetchFilterOptions(user.id);
   }, [refreshTrigger]);
 
-  // Filter artists based on selected genre
+  // Cascade: Supergenre → Genre filtering
+  // Note: Local tracks don't have super_genre column, so this filters genres that 
+  // are conceptually related to the supergenre (for future use when mapping is added)
+  // For now, supergenre filter is a no-op on actual data but prepares the UI
+  
+  // Cascade: Genre → Artist filtering  
   useEffect(() => {
     if (!user || !isAuthenticated || !initialDataReady) return;
 
-    if (selectedGenre && allArtists.length > 0) {
-      // Fetch artists for the selected genre
-      const fetchGenreArtists = async () => {
-        try {
-          const { data } = await supabase
-            .from('local_mp3s')
-            .select('artist')
-            .eq('user_id', user.id)
-            .eq('genre', selectedGenre);
+    const fetchFilteredArtists = async () => {
+      try {
+        let query = supabase
+          .from('local_mp3s')
+          .select('artist')
+          .eq('user_id', user.id);
 
-          if (data) {
-            const genreArtists = [...new Set(data.map(item => item.artist).filter(Boolean))].sort();
-            setArtists(genreArtists);
-          }
-        } catch (error) {
-          console.error('Error fetching genre artists:', error);
+        // Apply genre filter if selected
+        if (selectedGenre) {
+          query = query.eq('genre', selectedGenre);
         }
-      };
-      fetchGenreArtists();
+
+        const { data } = await query;
+
+        if (data) {
+          const filteredArtists = [...new Set(data.map(item => item.artist).filter(Boolean))].sort();
+          setArtists(filteredArtists as string[]);
+        }
+      } catch (error) {
+        console.error('Error fetching filtered artists:', error);
+      }
+    };
+
+    if (selectedGenre) {
+      fetchFilteredArtists();
     } else {
-      // Show all artists when no genre is selected
+      // Reset to all artists when no genre is selected
       setArtists(allArtists);
     }
   }, [selectedGenre, allArtists, user?.id, isAuthenticated, initialDataReady]);
@@ -199,10 +201,10 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
     fetchInProgress.current = true;
     setLoading(true);
 
-    // Build filter function for reuse (uses effective filters that combine shared + local)
+    // Build filter function for reuse
     const applyFilters = (query: any) => {
-      if (effectiveSearchQuery.trim()) {
-        query = query.or(`title.ilike.%${effectiveSearchQuery}%,artist.ilike.%${effectiveSearchQuery}%,album.ilike.%${effectiveSearchQuery}%,file_path.ilike.%${effectiveSearchQuery}%`);
+      if (searchQuery.trim()) {
+        query = query.or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%,album.ilike.%${searchQuery}%,file_path.ilike.%${searchQuery}%`);
       }
       if (yearFrom) query = query.gte('year', parseInt(yearFrom));
       if (yearTo) query = query.lte('year', parseInt(yearTo));
@@ -332,10 +334,11 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
       
       console.log('🎵 Unique genres found:', uniqueGenres);
       
-      setAllArtists(uniqueArtists); // Store all artists
+      setAllArtists(uniqueArtists); // Store all artists for reset
+      setAllGenres(uniqueGenres); // Store all genres for reset
       setArtists(uniqueArtists); // Initially show all artists
       setAlbums(uniqueAlbums);
-      setGenres(uniqueGenres);
+      setGenres(uniqueGenres); // Initially show all genres
       setFileFormats(uniqueFormats);
     } catch (error) {
       console.error('💥 Error fetching filter options:', error);
@@ -361,6 +364,7 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
     setSearchQuery('');
     setYearFrom('');
     setYearTo('');
+    setSelectedSuperGenre('');
     setSelectedArtist('');
     setSelectedAlbum('');
     setSelectedGenre('');
@@ -368,6 +372,10 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
     setFileSizeFilter('');
     setMissingMetadata('');
     setCurrentPage(1);
+    // Reset cascading filters
+    setGenres(allGenres);
+    setArtists(allArtists);
+  };
   };
 
   const handleSort = (field: 'year' | 'artist' | 'last_modified' | 'title' | 'album' | 'genre' | 'bitrate' | 'file_size') => {
@@ -462,34 +470,46 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
           config={{
             search: true,
             dateFilters: false,
+            superGenre: true,
             genre: true,
             artist: true,
+            superGenreLabel: "All Supergenres",
             genreLabel: "All Genres"
           }}
           state={{
             searchQuery,
             selectedGenre,
-            selectedSuperGenre: '', // Not used for local tracks
+            selectedSuperGenre,
             selectedArtist,
             dateFilter: '',
             noSuperGenre: false
           }}
           options={{
             genres,
-            superGenres: [], // Not used for local tracks
+            superGenres: [...SUPER_GENRES].sort(),
             artists
           }}
           callbacks={{
             onSearchChange: setSearchQuery,
-            onGenreChange: setSelectedGenre,
-            onSuperGenreChange: () => {}, // Not used for local tracks
+            onGenreChange: (value) => {
+              setSelectedGenre(value);
+              setSelectedArtist(''); // Clear artist when genre changes
+            },
+            onSuperGenreChange: (value) => {
+              setSelectedSuperGenre(value);
+              setSelectedGenre(''); // Clear genre when supergenre changes
+              setSelectedArtist(''); // Clear artist when supergenre changes
+            },
             onArtistChange: setSelectedArtist,
-            onDateFilterChange: () => {}, // Not used for local tracks
+            onDateFilterChange: () => {},
             onNoSuperGenreChange: () => {},
             onClearFilters: () => {
               setSearchQuery('');
+              setSelectedSuperGenre('');
               setSelectedGenre('');
               setSelectedArtist('');
+              setGenres(allGenres);
+              setArtists(allArtists);
             },
             onPageChange: setCurrentPage
           }}

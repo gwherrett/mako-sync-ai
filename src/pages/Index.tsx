@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Database, Shuffle, Search, X } from 'lucide-react';
+import { Settings, Database, Shuffle } from 'lucide-react';
 import LibraryHeader from '@/components/LibraryHeader';
 import { StatsOverview } from '@/components/StatsOverview';
 import SetupChecklist from '@/components/SetupChecklist';
@@ -10,10 +10,6 @@ import FileUploadScanner from '@/components/FileUploadScanner';
 import SpotifySyncButton from '@/components/SpotifySyncButton';
 import SyncAnalysis from '@/components/SyncAnalysis';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SUPER_GENRES } from '@/types/genreMapping';
 
 interface SpotifyTrack {
   id: string;
@@ -51,29 +47,12 @@ interface LocalTrack {
   mix: string | null;
 }
 
-// Shared filter state interface
-export interface SharedFilterState {
-  searchQuery: string;
-  selectedSuperGenre: string;
-}
-
 const Index = () => {
   const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
   const [selectedLocalTrack, setSelectedLocalTrack] = useState<LocalTrack | null>(null);
   const [isDashboardCollapsed, setIsDashboardCollapsed] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState('local');
-
-  // Shared filter state - persists across tabs
-  const [sharedSearchQuery, setSharedSearchQuery] = useState('');
-  const [sharedSuperGenre, setSharedSuperGenre] = useState('');
-
-  const hasSharedFilters = sharedSearchQuery || sharedSuperGenre;
-
-  const clearSharedFilters = () => {
-    setSharedSearchQuery('');
-    setSharedSuperGenre('');
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-expos-dark via-expos-dark-elevated to-black">
@@ -99,50 +78,6 @@ const Index = () => {
             </div>
           </div>
         )}
-        
-        {/* Shared Filter Bar */}
-        <div className="mb-6 p-4 bg-expos-dark-elevated/30 rounded-lg border border-expos-blue/20">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            {/* Search Bar */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tracks or artists…"
-                value={sharedSearchQuery}
-                onChange={(e) => setSharedSearchQuery(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-
-            {/* Supergenre Filter */}
-            <div className="flex-1 max-w-xs">
-              <Select
-                value={sharedSuperGenre || 'all'}
-                onValueChange={(value) => setSharedSuperGenre(value === 'all' ? '' : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Supergenres" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Supergenres</SelectItem>
-                  {[...SUPER_GENRES].sort().map((genre) => (
-                    <SelectItem key={genre} value={genre}>
-                      {genre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Clear Filters Button */}
-            {hasSharedFilters && (
-              <Button variant="ghost" size="sm" onClick={clearSharedFilters}>
-                <X className="h-4 w-4 mr-1" />
-                Clear
-              </Button>
-            )}
-          </div>
-        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-8">
@@ -163,10 +98,7 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="sync">
-            <SyncAnalysis
-              sharedSearchQuery={sharedSearchQuery}
-              sharedSuperGenre={sharedSuperGenre}
-            />
+            <SyncAnalysis />
           </TabsContent>
           
           <TabsContent value="spotify" className="space-y-8">
@@ -174,8 +106,6 @@ const Index = () => {
             <TracksTable
               onTrackSelect={setSelectedTrack}
               selectedTrack={selectedTrack}
-              sharedSearchQuery={sharedSearchQuery}
-              sharedSuperGenre={sharedSuperGenre}
             />
             {selectedTrack && (
               <div className="bg-expos-dark-elevated/30 rounded-lg border border-expos-blue/20 p-6">
@@ -255,8 +185,6 @@ const Index = () => {
               selectedTrack={selectedLocalTrack}
               refreshTrigger={refreshTrigger}
               isActive={activeTab === 'local'}
-              sharedSearchQuery={sharedSearchQuery}
-              sharedSuperGenre={sharedSuperGenre}
             />
             {selectedLocalTrack && (
               <div className="bg-expos-dark-elevated/30 rounded-lg border border-expos-blue/20 p-6">
