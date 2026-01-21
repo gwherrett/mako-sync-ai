@@ -89,6 +89,12 @@ export function EditTrackMetadataDialog({
     return filePath.split('/').pop() || filePath;
   };
 
+  const getDirectory = (filePath: string) => {
+    const parts = filePath.split('/');
+    parts.pop(); // Remove filename
+    return parts.join('/');
+  };
+
   if (!track) return null;
 
   return (
@@ -107,8 +113,8 @@ export function EditTrackMetadataDialog({
                   {getFilename(track.file_path)}
                 </span>
               </div>
-              <div className="text-xs text-muted-foreground truncate pl-1" title={track.file_path}>
-                {track.file_path}
+              <div className="text-xs text-muted-foreground truncate pl-1" title={getDirectory(track.file_path)}>
+                {getDirectory(track.file_path)}
               </div>
             </div>
           </DialogDescription>
