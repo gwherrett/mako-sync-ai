@@ -4,6 +4,8 @@ import { TrackFilters, FilterConfig, FilterState, FilterOptions, FilterCallbacks
 import { SUPER_GENRES } from '@/types/genreMapping';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EditTrackMetadataDialog } from '@/components/EditTrackMetadataDialog';
+import { NormalizationService } from '@/services/normalization.service';
 import {
   Table,
   TableBody,
@@ -71,6 +73,8 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
   const [sortField, setSortField] = useState<'last_modified' | 'year' | 'artist' | 'title' | 'album' | 'genre' | 'bitrate' | 'file_size'>('last_modified');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set());
+  const [editingTrack, setEditingTrack] = useState<LocalTrack | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -431,20 +435,20 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
 
   const handleBulkDelete = async () => {
     if (selectedTracks.size === 0) return;
-    
+
     try {
       const { error } = await supabase
         .from('local_mp3s')
         .delete()
         .in('id', Array.from(selectedTracks));
-      
+
       if (error) throw error;
-      
+
       toast({
         title: "Success",
         description: `Deleted ${selectedTracks.size} tracks`,
       });
-      
+
       setSelectedTracks(new Set());
       if (user) {
         fetchTracks(user.id);
@@ -456,6 +460,56 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
         description: "Failed to delete tracks",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleEditMetadata = (track: LocalTrack) => {
+    setEditingTrack(track);
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveMetadata = async (trackId: string, updates: Partial<LocalTrack>) => {
+    try {
+      // Use normalization service to compute derived fields
+      const normService = new NormalizationService();
+      const normalized = normService.processMetadata(
+        updates.title || null,
+        updates.artist || null
+      );
+
+      const updateData = {
+        ...updates,
+        normalized_title: normalized.normalizedTitle || null,
+        normalized_artist: normalized.normalizedArtist || null,
+        core_title: normalized.coreTitle || null,
+        primary_artist: normalized.primaryArtist || null,
+        featured_artists: normalized.featuredArtists.length > 0 ? normalized.featuredArtists : null,
+      };
+
+      const { error } = await supabase
+        .from('local_mp3s')
+        .update(updateData)
+        .eq('id', trackId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Track metadata updated",
+      });
+
+      // Refresh the table
+      if (user) {
+        fetchTracks(user.id);
+      }
+    } catch (error) {
+      console.error('Error updating track metadata:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update track metadata",
+        variant: "destructive",
+      });
+      throw error; // Re-throw so dialog knows save failed
     }
   };
 
@@ -825,7 +879,10 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditMetadata(track);
+                        }}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit Metadata
                         </DropdownMenuItem>
@@ -853,17 +910,17 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious 
+                  <PaginationPrevious
                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                   />
                 </PaginationItem>
-                
+
                 {(() => {
                   const maxVisiblePages = 5;
                   const startPage = Math.max(1, Math.min(currentPage - Math.floor(maxVisiblePages / 2), totalPages - maxVisiblePages + 1));
                   const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-                  
+
                   return Array.from({ length: endPage - startPage + 1 }, (_, i) => {
                     const page = startPage + i;
                     return (
@@ -879,9 +936,9 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
                     );
                   });
                 })()}
-                
+
                 <PaginationItem>
-                  <PaginationNext 
+                  <PaginationNext
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                   />
@@ -890,6 +947,13 @@ const LocalTracksTable = ({ onTrackSelect, selectedTrack, refreshTrigger, isActi
             </Pagination>
           </div>
         )}
+
+        <EditTrackMetadataDialog
+          track={editingTrack}
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          onSave={handleSaveMetadata}
+        />
       </CardContent>
     </Card>
   );
