@@ -1,34 +1,40 @@
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/utils/logger';
 
 /**
- * Hook to proactively refresh auth tokens when the tab becomes visible
+ * Hook to proactively refresh SUPABASE AUTH tokens when the tab becomes visible
  * after being hidden. This helps prevent stale token issues when users
  * return to the app after an idle period.
  *
- * Console log prefix: 🔐 VISIBILITY
+ * NOTE: This refreshes SUPABASE auth tokens, NOT Spotify API tokens.
+ * Spotify tokens are refreshed separately via edge functions.
  */
 
 // Token is considered "expiring soon" if it expires within this time
 const EXPIRY_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+const VISIBILITY_COOLDOWN_MS = 30000; // 30 seconds minimum hidden time
 
 /**
  * Check if a session's token is expiring soon
  */
-function isTokenExpiringSoon(session: { expires_at?: number }): boolean {
+function isTokenExpiringSoon(session: { expires_at?: number }): { expiringSoon: boolean; timeUntilExpiry: number } {
   if (!session.expires_at) {
-    return false;
+    return { expiringSoon: false, timeUntilExpiry: -1 };
   }
 
   const expiresAtMs = session.expires_at * 1000;
   const now = Date.now();
   const timeUntilExpiry = expiresAtMs - now;
 
-  return timeUntilExpiry < EXPIRY_THRESHOLD_MS;
+  return {
+    expiringSoon: timeUntilExpiry < EXPIRY_THRESHOLD_MS,
+    timeUntilExpiry
+  };
 }
 
 /**
- * Hook that listens for tab visibility changes and refreshes the auth token
+ * Hook that listens for tab visibility changes and refreshes the SUPABASE auth token
  * when the tab becomes visible if the token is expiring soon.
  */
 export function useVisibilityTokenRefresh(): void {
@@ -45,40 +51,54 @@ export function useVisibilityTokenRefresh(): void {
 
       // Only check if tab was hidden for at least 30 seconds
       // This prevents unnecessary refreshes for quick tab switches
-      if (timeSinceLastChange < 30000) {
+      if (timeSinceLastChange < VISIBILITY_COOLDOWN_MS) {
         return;
       }
+
+      logger.auth('Tab visible after idle', {
+        hiddenForSeconds: Math.round(timeSinceLastChange / 1000)
+      });
 
       try {
         const { data, error } = await supabase.auth.getSession();
 
         if (error) {
-          console.warn('🔐 VISIBILITY: Error getting session:', error.message);
+          logger.auth('Visibility check: error getting session', { error: error.message }, 'warn');
           return;
         }
 
         if (!data.session) {
-          // No session, nothing to refresh
+          logger.auth('Visibility check: no session to refresh');
           return;
         }
 
-        if (isTokenExpiringSoon(data.session)) {
-          console.log('🔐 VISIBILITY: Token expiring soon, refreshing...', {
+        const { expiringSoon, timeUntilExpiry } = isTokenExpiringSoon(data.session);
+        const minutesUntilExpiry = Math.round(timeUntilExpiry / 60000);
+
+        if (expiringSoon) {
+          logger.auth('SUPABASE token expiring soon, refreshing', {
             expiresAt: data.session.expires_at
               ? new Date(data.session.expires_at * 1000).toISOString()
-              : 'unknown'
+              : 'unknown',
+            minutesUntilExpiry,
+            tokenType: 'SUPABASE_AUTH'
           });
 
           const { error: refreshError } = await supabase.auth.refreshSession();
 
           if (refreshError) {
-            console.warn('🔐 VISIBILITY: Token refresh failed:', refreshError.message);
+            logger.auth('SUPABASE token refresh failed', { error: refreshError.message }, 'warn');
           } else {
-            console.log('🔐 VISIBILITY: Token refreshed successfully');
+            logger.auth('SUPABASE token refreshed successfully', { tokenType: 'SUPABASE_AUTH' });
           }
+        } else {
+          logger.auth('SUPABASE token still valid', {
+            minutesUntilExpiry,
+            tokenType: 'SUPABASE_AUTH'
+          });
         }
       } catch (error) {
-        console.warn('🔐 VISIBILITY: Error in visibility handler:', error);
+        logger.auth('Visibility handler error', { error }, 'warn');
       }
     };
 

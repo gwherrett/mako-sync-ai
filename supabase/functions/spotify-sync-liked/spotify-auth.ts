@@ -2,7 +2,7 @@ import type { SpotifyConnection } from './types.ts'
 import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts"
 
 export async function refreshSpotifyToken(connection: SpotifyConnection, supabaseClient: any, userId: string): Promise<string> {
-  console.log('Token expired, attempting refresh')
+  console.log('🎵 SPOTIFY TOKEN refresh starting', { token_type: 'SPOTIFY_API' })
   
   // Get refresh token from vault using Postgres driver
   if (!connection.refresh_token_secret_id) {
@@ -164,7 +164,7 @@ export async function refreshSpotifyToken(connection: SpotifyConnection, supabas
     throw new Error('Failed to update connection metadata')
   }
 
-  console.log('Token refreshed successfully')
+  console.log('🎵 SPOTIFY TOKEN refreshed successfully')
   return newAccessToken
 }
 
@@ -172,15 +172,22 @@ export async function getValidAccessToken(connection: SpotifyConnection, supabas
   const now = new Date()
   const expiresAt = new Date(connection.expires_at)
   const timeUntilExpiry = expiresAt.getTime() - now.getTime()
-  
-  console.log('Checking token validity', {
-    time_until_expiry_minutes: Math.round(timeUntilExpiry / (1000 * 60)),
-    is_expired: now >= expiresAt
+  const minutesUntilExpiry = Math.round(timeUntilExpiry / (1000 * 60))
+
+  console.log('🎵 SPOTIFY TOKEN validity check', {
+    token_type: 'SPOTIFY_API',
+    time_until_expiry_minutes: minutesUntilExpiry,
+    is_expired: now >= expiresAt,
+    expires_at: expiresAt.toISOString()
   })
-  
+
   // Refresh if token is expired or expires within 5 minutes
   if (now >= expiresAt || timeUntilExpiry < 5 * 60 * 1000) {
-    console.log('Token needs refresh')
+    console.log('🎵 SPOTIFY TOKEN needs refresh', {
+      token_type: 'SPOTIFY_API',
+      reason: now >= expiresAt ? 'expired' : 'expiring_within_5_minutes',
+      minutes_until_expiry: minutesUntilExpiry
+    })
     return await refreshSpotifyToken(connection, supabaseClient, userId)
   }
   
