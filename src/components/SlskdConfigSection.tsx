@@ -3,7 +3,10 @@
  *
  * Configuration UI for connecting to a slskd instance.
  * Allows users to enter their slskd API endpoint and key,
+ * configure downloads folder and search format preferences,
  * test the connection, and save the configuration.
+ *
+ * Configuration is stored in browser localStorage.
  */
 
 import { useState, useEffect } from 'react';
@@ -18,13 +21,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSlskdConfig } from '@/hooks/useSlskdConfig';
-import { Loader2, Server, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, Server, CheckCircle2, XCircle, Info } from 'lucide-react';
 
 export function SlskdConfigSection() {
   const {
     config,
-    isLoading,
     saveConfig,
     isSaving,
     testConnection,
@@ -33,17 +36,21 @@ export function SlskdConfigSection() {
 
   const [apiEndpoint, setApiEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [downloadsFolder, setDownloadsFolder] = useState('');
+  const [searchFormat, setSearchFormat] = useState<'primary' | 'full'>('primary');
 
   // Sync local state with loaded config
   useEffect(() => {
     if (config) {
       setApiEndpoint(config.apiEndpoint || '');
       setApiKey(config.apiKey || '');
+      setDownloadsFolder(config.downloadsFolder || '');
+      setSearchFormat(config.searchFormat || 'primary');
     }
   }, [config]);
 
   const handleSave = () => {
-    saveConfig({ apiEndpoint, apiKey });
+    saveConfig({ apiEndpoint, apiKey, downloadsFolder, searchFormat });
   };
 
   const handleTest = () => {
@@ -52,28 +59,12 @@ export function SlskdConfigSection() {
 
   const hasChanges =
     config &&
-    (apiEndpoint !== config.apiEndpoint || apiKey !== config.apiKey);
+    (apiEndpoint !== config.apiEndpoint ||
+      apiKey !== config.apiKey ||
+      downloadsFolder !== config.downloadsFolder ||
+      searchFormat !== config.searchFormat);
 
   const canSave = apiEndpoint.trim() && apiKey.trim();
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Server className="h-5 w-5" />
-            slskd Integration
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading configuration...
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card>
@@ -106,6 +97,13 @@ export function SlskdConfigSection() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Configuration is stored locally in your browser. It is not synced to the server.
+          </AlertDescription>
+        </Alert>
+
         <div className="space-y-2">
           <Label htmlFor="slskd-endpoint">API Endpoint</Label>
           <Input
@@ -130,8 +128,50 @@ export function SlskdConfigSection() {
             onChange={(e) => setApiKey(e.target.value)}
           />
           <p className="text-sm text-muted-foreground">
-            Found in slskd Settings → Options → Web → API keys. Enable
-            auto-download in slskd for best results.
+            Found in slskd Options → API. Enable the API and copy your key.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="slskd-downloads">Downloads Folder</Label>
+          <Input
+            id="slskd-downloads"
+            type="text"
+            placeholder="D:\Downloads\slskd"
+            value={downloadsFolder}
+            onChange={(e) => setDownloadsFolder(e.target.value)}
+          />
+          <p className="text-sm text-muted-foreground">
+            The folder where slskd saves downloaded files. Used for processing downloads.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Search Query Format</Label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="searchFormat"
+                checked={searchFormat === 'primary'}
+                onChange={() => setSearchFormat('primary')}
+                className="w-4 h-4"
+              />
+              <span className="text-sm">Primary artist only (Recommended)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="searchFormat"
+                checked={searchFormat === 'full'}
+                onChange={() => setSearchFormat('full')}
+                className="w-4 h-4"
+              />
+              <span className="text-sm">Full artist string</span>
+            </label>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            "Primary artist only" strips featured artists for better search results.
           </p>
         </div>
 
@@ -156,7 +196,7 @@ export function SlskdConfigSection() {
             disabled={isSaving || !canSave}
           >
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Configuration
+            Save & Test Connection
           </Button>
         </div>
 

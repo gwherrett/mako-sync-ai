@@ -92,19 +92,34 @@ export class SlskdClientService {
   /**
    * Format search query for slskd
    *
+   * @param artist - Full artist string from Spotify
+   * @param title - Track title
+   * @param format - 'primary' strips featured artists, 'full' uses complete artist string
+   *
    * IMPORTANT:
-   * - Use primary artist only (before comma) - additional artists cause false negatives
+   * - 'primary' mode uses only first artist - additional artists cause false negatives
    * - Don't include "320 MP3" - causes false negatives on slskd
    */
-  static formatSearchQuery(artist: string, title: string): string {
-    // Extract primary artist only - additional artists cause false negatives
-    const primaryArtist = artist.split(',')[0].trim();
+  static formatSearchQuery(
+    artist: string,
+    title: string,
+    format: 'primary' | 'full' = 'primary'
+  ): string {
+    let processedArtist = artist;
+
+    if (format === 'primary') {
+      // Extract primary artist only - additional artists can cause false negatives
+      // Handle comma-separated: "Artist1, Artist2" → "Artist1"
+      processedArtist = artist.split(',')[0].trim();
+      // Also handle "feat." and "ft.": "Artist feat. Other" → "Artist"
+      processedArtist = processedArtist.split(/\s+(?:feat\.?|ft\.?)\s+/i)[0].trim();
+    }
 
     // Remove quotes and sanitize
     const sanitize = (str: string) => str.replace(/["]/g, '').trim();
 
     // Return clean search query without bitrate/format specifiers
-    return `${sanitize(primaryArtist)} - ${sanitize(title)}`;
+    return `${sanitize(processedArtist)} - ${sanitize(title)}`;
   }
 
   /**
