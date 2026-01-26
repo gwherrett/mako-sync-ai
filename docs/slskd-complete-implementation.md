@@ -1,7 +1,7 @@
 # Mako Sync slskd Complete Implementation Guide
 
-**Document Version:** 3.0
-**Last Updated:** January 24, 2026
+**Document Version:** 4.0
+**Last Updated:** January 26, 2026
 **Status:** Ready for Implementation
 
 ---
@@ -9,15 +9,78 @@
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [slskd Installation (Native Windows)](#slskd-installation-native-windows)
-3. [End-to-End Workflow](#end-to-end-workflow)
-4. [Phase 1: slskd Database & Configuration UI](#phase-1-slskd-database--configuration-ui)
-5. [Phase 2: slskd Wishlist Push](#phase-2-slskd-wishlist-push)
-6. [Phase 3: Artist Selection & Sync UI](#phase-3-artist-selection--sync-ui)
-7. [Phase 4: Download Processing Service](#phase-4-download-processing-service)
-8. [Phase 5: Download Processing UI (Missing Tracks Extension)](#phase-5-download-processing-ui-missing-tracks-extension)
-9. [Testing & Validation](#testing--validation)
-10. [Deployment Checklist](#deployment-checklist)
+2. [Branching Strategy](#branching-strategy)
+3. [slskd Installation (Native Windows)](#slskd-installation-native-windows)
+4. [End-to-End Workflow](#end-to-end-workflow)
+5. [Phase 1: Local Configuration & Storage](#phase-1-local-configuration--storage)
+6. [Phase 2: slskd Wishlist Push](#phase-2-slskd-wishlist-push)
+7. [Phase 3: Artist Selection & Sync UI](#phase-3-artist-selection--sync-ui)
+8. [Phase 4: Download Processing Service](#phase-4-download-processing-service)
+9. [Phase 5: Download Processing UI (Missing Tracks Extension)](#phase-5-download-processing-ui-missing-tracks-extension)
+10. [Testing & Validation](#testing--validation)
+11. [Release Checklist](#release-checklist)
+
+---
+
+## Branching Strategy
+
+This feature is developed on a **separate feature branch** and released as a complete feature once stable.
+
+### Branch Structure
+
+```
+main
+ │
+ └── feature/slskd-integration
+      │
+      ├── Phase 1: Configuration UI
+      ├── Phase 2: Wishlist Push
+      ├── Phase 3: Artist Selection
+      ├── Phase 4: Download Processing Service
+      └── Phase 5: Download Processing UI
+```
+
+### Development Workflow
+
+1. **Create feature branch**
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b feature/slskd-integration
+   ```
+
+2. **Commit strategy**
+   - Commit after each phase is complete and tested
+   - Use conventional commits: `feat(slskd): add configuration UI`
+   - Keep commits atomic and reviewable
+
+3. **Sync with main periodically**
+   ```bash
+   git fetch origin main
+   git rebase origin/main
+   ```
+
+4. **Testing before merge**
+   - All phases complete
+   - End-to-end workflow tested
+   - No regressions in existing functionality
+
+5. **Merge to main**
+   ```bash
+   git checkout main
+   git merge feature/slskd-integration --no-ff
+   git push origin main
+   ```
+
+### Phase Commits
+
+| Phase | Commit Message |
+|-------|---------------|
+| 1 | `feat(slskd): add localStorage configuration and connection test` |
+| 2 | `feat(slskd): add wishlist push service with configurable search format` |
+| 3 | `feat(slskd): add artist selection UI to missing tracks page` |
+| 4 | `feat(slskd): add download processing service with genre mapping` |
+| 5 | `feat(slskd): add download processing UI integrated into missing tracks` |
 
 ---
 
@@ -103,6 +166,11 @@ The integration is intentionally simple, resilient, and user-controlled. It avoi
 
 ### Key Architecture Decisions
 
+✅ **Local-only slskd configuration**
+- Configuration stored in browser localStorage (not Supabase)
+- No server-side storage of slskd credentials
+- Simpler implementation, works offline
+
 ✅ **Supercrates are the single source of truth for SuperGenres**
 - Mako Sync scans Supercrate folders directly
 - MediaMonkey handles file organization (not automated)
@@ -130,6 +198,7 @@ The integration is intentionally simple, resilient, and user-controlled. It avoi
 - ❌ Audio fingerprinting or waveform matching
 - ❌ Server-side control of local files
 - ❌ Automated file organization (MediaMonkey handles this)
+- ❌ Server-side storage of slskd credentials
 
 ---
 
@@ -207,66 +276,29 @@ The integration is intentionally simple, resilient, and user-controlled. It avoi
 
 ---
 
-## Phase 1: slskd Database & Configuration UI
+## Phase 1: Local Configuration & Storage
 
 **Priority:** HIGH - Start here
-**Dependencies:** Supabase access
+**Dependencies:** None
+**Branch:** `feature/slskd-integration`
 
 ### Objective
 
-Create database table to store slskd configuration per user and build configuration UI.
+Create localStorage-based configuration for slskd and build configuration UI. No Supabase tables needed.
 
-### Database Migration
+### localStorage Schema
 
-**File:** `supabase/migrations/[timestamp]_create_user_preferences.sql`
+Configuration stored under key `mako-sync:slskd-config`:
 
-```sql
--- Create user_preferences table for slskd configuration
-CREATE TABLE IF NOT EXISTS public.user_preferences (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-
-  -- slskd Configuration
-  slskd_api_endpoint TEXT,
-  slskd_api_key TEXT,
-  slskd_last_connection_test TIMESTAMPTZ,
-  slskd_connection_status BOOLEAN DEFAULT false,
-
-  -- Downloads folder path (for processing downloaded files)
-  slskd_downloads_folder TEXT,
-
-  -- Search format preference: 'primary' (strip featured artists) or 'full' (use complete artist string)
-  slskd_search_format TEXT DEFAULT 'primary' CHECK (slskd_search_format IN ('primary', 'full')),
-
-  -- Timestamps
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-  -- Constraints
-  UNIQUE(user_id)
-);
-
--- Row Level Security
-ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies
-CREATE POLICY "Users can view own preferences"
-  ON public.user_preferences
-  FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own preferences"
-  ON public.user_preferences
-  FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own preferences"
-  ON public.user_preferences
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
--- Index
-CREATE INDEX idx_user_preferences_user_id ON public.user_preferences(user_id);
+```typescript
+interface SlskdLocalConfig {
+  apiEndpoint: string;           // e.g., "http://localhost:5030"
+  apiKey: string;                // slskd API key
+  downloadsFolder: string;       // e.g., "D:\Downloads\slskd"
+  searchFormat: 'primary' | 'full';  // Search query format preference
+  lastConnectionTest?: string;   // ISO timestamp
+  connectionStatus: boolean;     // Last known connection status
+}
 ```
 
 ### TypeScript Types
@@ -277,10 +309,10 @@ CREATE INDEX idx_user_preferences_user_id ON public.user_preferences(user_id);
 export interface SlskdConfig {
   apiEndpoint: string;
   apiKey: string;
+  downloadsFolder: string;
+  searchFormat: 'primary' | 'full';
   lastConnectionTest?: string;
   connectionStatus: boolean;
-  downloadsFolder?: string;
-  searchFormat: 'primary' | 'full'; // 'primary' strips featured artists, 'full' uses complete artist string
 }
 
 export interface SlskdSearchRequest {
@@ -305,70 +337,109 @@ export interface SlskdSyncResult {
 }
 ```
 
+### localStorage Service
+
+**File:** `src/services/slskdStorage.service.ts`
+
+```typescript
+import { SlskdConfig } from '@/types/slskd';
+
+const STORAGE_KEY = 'mako-sync:slskd-config';
+
+const DEFAULT_CONFIG: SlskdConfig = {
+  apiEndpoint: '',
+  apiKey: '',
+  downloadsFolder: '',
+  searchFormat: 'primary',
+  connectionStatus: false,
+};
+
+export class SlskdStorageService {
+  /**
+   * Get slskd configuration from localStorage
+   */
+  static getConfig(): SlskdConfig {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return DEFAULT_CONFIG;
+      return { ...DEFAULT_CONFIG, ...JSON.parse(stored) };
+    } catch {
+      return DEFAULT_CONFIG;
+    }
+  }
+
+  /**
+   * Save slskd configuration to localStorage
+   */
+  static saveConfig(config: Partial<SlskdConfig>): SlskdConfig {
+    const current = this.getConfig();
+    const updated = { ...current, ...config };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    return updated;
+  }
+
+  /**
+   * Clear slskd configuration
+   */
+  static clearConfig(): void {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  /**
+   * Check if slskd is configured
+   */
+  static isConfigured(): boolean {
+    const config = this.getConfig();
+    return Boolean(config.apiEndpoint && config.apiKey);
+  }
+}
+```
+
 ### Configuration Hook
 
 **File:** `src/hooks/useSlskdConfig.ts`
 
 ```typescript
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from 'react';
+import { SlskdStorageService } from '@/services/slskdStorage.service';
 import { SlskdClientService } from '@/services/slskdClient.service';
 import { SlskdConfig } from '@/types/slskd';
 import { useToast } from '@/hooks/use-toast';
 
 export function useSlskdConfig() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const [config, setConfig] = useState<SlskdConfig>(SlskdStorageService.getConfig);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const { data: config, isLoading } = useQuery({
-    queryKey: ['slskd-config'],
-    queryFn: async (): Promise<SlskdConfig | null> => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+  // Reload config if localStorage changes (e.g., another tab)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'mako-sync:slskd-config') {
+        setConfig(SlskdStorageService.getConfig());
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
-      const { data, error } = await supabase
-        .from('user_preferences')
-        .select('slskd_api_endpoint, slskd_api_key, slskd_connection_status, slskd_last_connection_test, slskd_downloads_folder, slskd_search_format')
-        .eq('user_id', user.id)
-        .single();
+  const saveConfig = useCallback(async (
+    newConfig: Omit<SlskdConfig, 'connectionStatus' | 'lastConnectionTest'>
+  ) => {
+    setIsSaving(true);
 
-      if (error || !data) return null;
-
-      return {
-        apiEndpoint: data.slskd_api_endpoint || '',
-        apiKey: data.slskd_api_key || '',
-        connectionStatus: data.slskd_connection_status || false,
-        lastConnectionTest: data.slskd_last_connection_test || undefined,
-        downloadsFolder: data.slskd_downloads_folder || undefined,
-        searchFormat: data.slskd_search_format || 'primary',
-      };
-    },
-  });
-
-  const saveMutation = useMutation({
-    mutationFn: async (newConfig: Omit<SlskdConfig, 'connectionStatus' | 'lastConnectionTest'>) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
+    try {
+      // Test connection before saving
       const testConfig = { ...newConfig, connectionStatus: false };
       const isValid = await SlskdClientService.testConnection(testConfig);
 
-      const { error } = await supabase
-        .from('user_preferences')
-        .upsert({
-          user_id: user.id,
-          slskd_api_endpoint: newConfig.apiEndpoint,
-          slskd_api_key: newConfig.apiKey,
-          slskd_connection_status: isValid,
-          slskd_last_connection_test: new Date().toISOString(),
-          slskd_downloads_folder: newConfig.downloadsFolder,
-          slskd_search_format: newConfig.searchFormat,
-        });
+      const updated = SlskdStorageService.saveConfig({
+        ...newConfig,
+        connectionStatus: isValid,
+        lastConnectionTest: new Date().toISOString(),
+      });
 
-      if (error) throw error;
-      return isValid;
-    },
-    onSuccess: (isValid) => {
+      setConfig(updated);
+
       toast({
         title: isValid ? 'Connection Successful' : 'Connection Failed',
         description: isValid
@@ -376,15 +447,24 @@ export function useSlskdConfig() {
           : 'Could not connect to slskd. Check your endpoint and API key.',
         variant: isValid ? 'default' : 'destructive',
       });
-      queryClient.invalidateQueries({ queryKey: ['slskd-config'] });
-    },
-  });
+
+      return isValid;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [toast]);
+
+  const clearConfig = useCallback(() => {
+    SlskdStorageService.clearConfig();
+    setConfig(SlskdStorageService.getConfig());
+  }, []);
 
   return {
     config,
-    isLoading,
-    saveConfig: saveMutation.mutate,
-    isSaving: saveMutation.isPending,
+    isConfigured: SlskdStorageService.isConfigured(),
+    saveConfig,
+    clearConfig,
+    isSaving,
   };
 }
 ```
@@ -400,11 +480,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSlskdConfig } from '@/hooks/useSlskdConfig';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Info } from 'lucide-react';
 
 export function SlskdConfigSection() {
-  const { config, isLoading, saveConfig, isSaving } = useSlskdConfig();
+  const { config, saveConfig, isSaving } = useSlskdConfig();
 
   const [apiEndpoint, setApiEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -412,21 +493,15 @@ export function SlskdConfigSection() {
   const [searchFormat, setSearchFormat] = useState<'primary' | 'full'>('primary');
 
   useEffect(() => {
-    if (config) {
-      setApiEndpoint(config.apiEndpoint);
-      setApiKey(config.apiKey);
-      setDownloadsFolder(config.downloadsFolder || '');
-      setSearchFormat(config.searchFormat || 'primary');
-    }
+    setApiEndpoint(config.apiEndpoint);
+    setApiKey(config.apiKey);
+    setDownloadsFolder(config.downloadsFolder);
+    setSearchFormat(config.searchFormat);
   }, [config]);
 
   const handleSave = () => {
     saveConfig({ apiEndpoint, apiKey, downloadsFolder, searchFormat });
   };
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <Card>
@@ -435,10 +510,10 @@ export function SlskdConfigSection() {
           <div>
             <CardTitle>slskd Integration</CardTitle>
             <CardDescription>
-              Connect to your slskd instance to push missing tracks to wishlist
+              Connect to your local slskd instance to push missing tracks to wishlist
             </CardDescription>
           </div>
-          {config?.connectionStatus && (
+          {config.connectionStatus && (
             <Badge variant="default" className="bg-green-500">
               Connected
             </Badge>
@@ -446,6 +521,13 @@ export function SlskdConfigSection() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Configuration is stored locally in your browser. It is not synced to the server.
+          </AlertDescription>
+        </Alert>
+
         <div className="space-y-2">
           <Label htmlFor="slskd-endpoint">API Endpoint</Label>
           <Input
@@ -470,7 +552,7 @@ export function SlskdConfigSection() {
             onChange={(e) => setApiKey(e.target.value)}
           />
           <p className="text-sm text-muted-foreground">
-            Found in slskd settings under API. Configure auto-download in slskd for best results.
+            Found in slskd Options → API. Enable the API and copy your key.
           </p>
         </div>
 
@@ -491,28 +573,29 @@ export function SlskdConfigSection() {
         <div className="space-y-2">
           <Label>Search Query Format</Label>
           <div className="flex gap-4">
-            <label className="flex items-center gap-2">
+            <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
                 name="searchFormat"
                 checked={searchFormat === 'primary'}
                 onChange={() => setSearchFormat('primary')}
+                className="w-4 h-4"
               />
-              <span>Primary artist only</span>
+              <span>Primary artist only (Recommended)</span>
             </label>
-            <label className="flex items-center gap-2">
+            <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
                 name="searchFormat"
                 checked={searchFormat === 'full'}
                 onChange={() => setSearchFormat('full')}
+                className="w-4 h-4"
               />
               <span>Full artist string</span>
             </label>
           </div>
           <p className="text-sm text-muted-foreground">
-            "Primary artist only" strips featured artists (recommended).
-            "Full artist string" uses the complete artist field from Spotify.
+            "Primary artist only" strips featured artists for better search results.
           </p>
         </div>
 
@@ -531,13 +614,14 @@ export function SlskdConfigSection() {
 
 ### Phase 1 Completion Checklist
 
-- [ ] Migration file created
-- [ ] Migration applied to database
 - [ ] `src/types/slskd.ts` created
+- [ ] `src/services/slskdStorage.service.ts` created
 - [ ] `src/hooks/useSlskdConfig.ts` created
 - [ ] `src/components/SlskdConfigSection.tsx` created
 - [ ] Component added to Settings/Security page
 - [ ] Test connection with real slskd instance
+- [ ] Verify config persists across browser refresh
+- [ ] Commit: `feat(slskd): add localStorage configuration and connection test`
 
 ---
 
@@ -689,7 +773,7 @@ export class SlskdClientService {
 ```typescript
 import { useMutation } from '@tanstack/react-query';
 import { SlskdClientService } from '@/services/slskdClient.service';
-import { supabase } from '@/integrations/supabase/client';
+import { SlskdStorageService } from '@/services/slskdStorage.service';
 import { SlskdSyncResult } from '@/types/slskd';
 import { useToast } from '@/hooks/use-toast';
 
@@ -705,25 +789,11 @@ export function useSlskdSync() {
 
   const syncMutation = useMutation({
     mutationFn: async (tracks: MissingTrack[]): Promise<SlskdSyncResult> => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const config = SlskdStorageService.getConfig();
 
-      const { data: prefs } = await supabase
-        .from('user_preferences')
-        .select('slskd_api_endpoint, slskd_api_key, slskd_search_format')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!prefs?.slskd_api_endpoint || !prefs?.slskd_api_key) {
-        throw new Error('slskd not configured');
+      if (!config.apiEndpoint || !config.apiKey) {
+        throw new Error('slskd not configured. Go to Settings to configure.');
       }
-
-      const config = {
-        apiEndpoint: prefs.slskd_api_endpoint,
-        apiKey: prefs.slskd_api_key,
-        connectionStatus: true,
-        searchFormat: (prefs.slskd_search_format || 'primary') as 'primary' | 'full',
-      };
 
       const existingSearches = await SlskdClientService.getExistingSearches(config);
 
@@ -751,6 +821,8 @@ export function useSlskdSync() {
         try {
           await SlskdClientService.addToWishlist(config, searchText);
           result.addedCount++;
+          // Add to local list to prevent duplicates within same batch
+          existingSearches.push({ id: '', searchText, state: 'InProgress' });
         } catch (error: any) {
           result.failedCount++;
           result.errors.push({
@@ -792,10 +864,11 @@ export function useSlskdSync() {
 
 - [ ] `src/services/slskdClient.service.ts` created
 - [ ] `src/hooks/useSlskdSync.ts` created
-- [ ] Search query uses primary artist only (no commas)
+- [ ] Search query uses configurable format (primary/full)
 - [ ] Search query does NOT include "320 MP3"
 - [ ] Duplicate detection works
 - [ ] Test push with real slskd instance
+- [ ] Commit: `feat(slskd): add wishlist push service with configurable search format`
 
 ---
 
@@ -831,7 +904,7 @@ import { Download, Loader2 } from 'lucide-react';
 
 // Add state
 const [selectedArtists, setSelectedArtists] = useState<Set<string>>(new Set());
-const { config } = useSlskdConfig();
+const { isConfigured } = useSlskdConfig();
 const { syncToSlskd, isSyncing, syncResult } = useSlskdSync();
 
 // Group tracks by artist
@@ -941,11 +1014,12 @@ export function SlskdSyncProgress({ isOpen, onClose, isSyncing, result }: Props)
 ### Phase 3 Completion Checklist
 
 - [ ] Artist checkboxes added to Missing Tracks page
-- [ ] "Push to slskd" button added
+- [ ] "Push to slskd" button added (disabled if not configured)
 - [ ] `SlskdSyncProgress.tsx` created
 - [ ] Progress modal shows during sync
 - [ ] Results display correctly
 - [ ] Test end-to-end with slskd
+- [ ] Commit: `feat(slskd): add artist selection UI to missing tracks page`
 
 ---
 
@@ -1090,6 +1164,7 @@ export class DownloadProcessorService {
 - [ ] Genre mapping from database works
 - [ ] Handles multi-genre files
 - [ ] Collects unmapped genres
+- [ ] Commit: `feat(slskd): add download processing service with genre mapping`
 
 ---
 
@@ -1104,7 +1179,7 @@ Extend the **Missing Tracks page** with download processing functionality. This 
 
 **Key design decisions:**
 - Download processing is a **section/tab** within Missing Tracks, not a separate page
-- Uses the configurable downloads folder from user preferences
+- Uses the configurable downloads folder from localStorage
 - Inline genre mapping for unknown genres saves to `spotify_genre_map_overrides`
 - **MediaMonkey handles file organization** - Mako Sync only writes the `TXXX:CUSTOM1` tag
 
@@ -1212,7 +1287,7 @@ export function DownloadProcessingSection({ genreMap, onSaveMapping }: Props) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {config?.downloadsFolder && (
+        {config.downloadsFolder && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -1345,7 +1420,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 - [ ] `src/components/DownloadProcessingSection.tsx` created
 - [ ] Integrated into Missing Tracks page as tab/section
-- [ ] Uses configured downloads folder from user preferences
+- [ ] Uses configured downloads folder from localStorage
 - [ ] Folder selection works
 - [ ] Preview table displays files with ID3 genres
 - [ ] Inline SuperGenre selection works
@@ -1353,6 +1428,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 - [ ] Tags written to files (TXXX:CUSTOM1)
 - [ ] Clear messaging that MediaMonkey handles file moves
 - [ ] Test end-to-end workflow
+- [ ] Commit: `feat(slskd): add download processing UI integrated into missing tracks`
 
 ---
 
@@ -1363,33 +1439,68 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { SlskdClientService } from '@/services/slskdClient.service';
+import { SlskdStorageService } from '@/services/slskdStorage.service';
 
 describe('SlskdClientService', () => {
   describe('formatSearchQuery', () => {
-    it('uses primary artist only', () => {
-      expect(SlskdClientService.formatSearchQuery('Artist1, Artist2', 'Title'))
+    it('uses primary artist only when format is primary', () => {
+      expect(SlskdClientService.formatSearchQuery('Artist1, Artist2', 'Title', 'primary'))
         .toBe('Artist1 - Title');
     });
 
+    it('uses full artist when format is full', () => {
+      expect(SlskdClientService.formatSearchQuery('Artist1, Artist2', 'Title', 'full'))
+        .toBe('Artist1, Artist2 - Title');
+    });
+
+    it('strips feat. from primary artist', () => {
+      expect(SlskdClientService.formatSearchQuery('Artist feat. Other', 'Title', 'primary'))
+        .toBe('Artist - Title');
+    });
+
     it('does not include bitrate', () => {
-      expect(SlskdClientService.formatSearchQuery('Artist', 'Title'))
+      expect(SlskdClientService.formatSearchQuery('Artist', 'Title', 'primary'))
         .not.toContain('320');
     });
 
     it('sanitizes quotes', () => {
-      expect(SlskdClientService.formatSearchQuery('Artist', '"Title"'))
+      expect(SlskdClientService.formatSearchQuery('Artist', '"Title"', 'primary'))
         .toBe('Artist - Title');
     });
+  });
+});
+
+describe('SlskdStorageService', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('returns default config when nothing stored', () => {
+    const config = SlskdStorageService.getConfig();
+    expect(config.apiEndpoint).toBe('');
+    expect(config.searchFormat).toBe('primary');
+  });
+
+  it('saves and retrieves config', () => {
+    SlskdStorageService.saveConfig({ apiEndpoint: 'http://test:5030' });
+    const config = SlskdStorageService.getConfig();
+    expect(config.apiEndpoint).toBe('http://test:5030');
+  });
+
+  it('clears config', () => {
+    SlskdStorageService.saveConfig({ apiEndpoint: 'http://test:5030' });
+    SlskdStorageService.clearConfig();
+    expect(SlskdStorageService.isConfigured()).toBe(false);
   });
 });
 ```
 
 ### Integration Testing
 
-- [ ] Configure slskd connection → save works
+- [ ] Configure slskd connection → saves to localStorage
+- [ ] Config persists across browser refresh
 - [ ] Push tracks to wishlist → appears in slskd
-- [ ] No "320 MP3" in search queries
-- [ ] Comma-separated artists handled correctly
+- [ ] Search query format respects preference
 - [ ] Duplicate detection works
 - [ ] Download processing reads genres
 - [ ] Inline mapping saves to database
@@ -1398,31 +1509,30 @@ describe('SlskdClientService', () => {
 
 ---
 
-## Deployment Checklist
+## Release Checklist
 
-### Pre-Deployment
+### Pre-Merge Checklist
 
-- [ ] All phases complete
+- [ ] All 5 phases complete and committed
 - [ ] All tests passing
-- [ ] Database migration tested locally
+- [ ] End-to-end workflow tested with real slskd
+- [ ] No regressions in existing functionality
+- [ ] Code reviewed
 
-### Database Migration
+### Merge to Main
 
-- [ ] Apply user_preferences migration
-- [ ] Verify RLS policies active
+```bash
+git checkout main
+git pull origin main
+git merge feature/slskd-integration --no-ff -m "feat: slskd integration for missing tracks workflow"
+git push origin main
+```
 
-### Frontend Deployment
+### Post-Merge
 
-- [ ] Build production bundle: `npm run build`
-- [ ] Deploy to hosting
-- [ ] Test in production
-
-### Post-Deployment
-
-- [ ] Test slskd config in production
-- [ ] Test wishlist push with real tracks
-- [ ] Verify download processing works
-- [ ] Confirm MediaMonkey compatibility
+- [ ] Deploy to production
+- [ ] Test in production environment
+- [ ] Document any known issues
 
 ---
 
@@ -1434,9 +1544,15 @@ describe('SlskdClientService', () => {
 - GET `/api/v0/searches` - Get wishlist
 - POST `/api/v0/searches` - Add track to wishlist
 
+### localStorage Key
+
+```
+mako-sync:slskd-config
+```
+
 ### Search Query Format
 
-Configurable in user preferences:
+Configurable in settings:
 
 **Primary artist only (default, recommended):**
 ```
@@ -1460,6 +1576,7 @@ Uses complete artist field from Spotify.
 
 | Task | Owner |
 |------|-------|
+| Store slskd config | Browser localStorage |
 | Push missing tracks to slskd | Mako Sync |
 | Download files | slskd (auto-download) |
 | Review downloads | MediaMonkey |
@@ -1474,6 +1591,7 @@ Uses complete artist field from Spotify.
 src/
 ├── types/slskd.ts
 ├── services/
+│   ├── slskdStorage.service.ts
 │   ├── slskdClient.service.ts
 │   └── downloadProcessor.service.ts
 ├── hooks/
