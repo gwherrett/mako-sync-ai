@@ -1,7 +1,7 @@
 # Mako Sync slskd Complete Implementation Guide
 
-**Document Version:** 2.0
-**Last Updated:** January 17, 2026
+**Document Version:** 3.0
+**Last Updated:** January 24, 2026
 **Status:** Ready for Implementation
 
 ---
@@ -9,14 +9,75 @@
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [End-to-End Workflow](#end-to-end-workflow)
-3. [Phase 1: slskd Database & Configuration UI](#phase-1-slskd-database--configuration-ui)
-4. [Phase 2: slskd Wishlist Push](#phase-2-slskd-wishlist-push)
-5. [Phase 3: Sync Progress UI](#phase-3-sync-progress-ui)
-6. [Phase 4: Download Processing Service](#phase-4-download-processing-service)
-7. [Phase 5: Download Processing UI](#phase-5-download-processing-ui)
-8. [Testing & Validation](#testing--validation)
-9. [Deployment Checklist](#deployment-checklist)
+2. [slskd Installation (Native Windows)](#slskd-installation-native-windows)
+3. [End-to-End Workflow](#end-to-end-workflow)
+4. [Phase 1: slskd Database & Configuration UI](#phase-1-slskd-database--configuration-ui)
+5. [Phase 2: slskd Wishlist Push](#phase-2-slskd-wishlist-push)
+6. [Phase 3: Artist Selection & Sync UI](#phase-3-artist-selection--sync-ui)
+7. [Phase 4: Download Processing Service](#phase-4-download-processing-service)
+8. [Phase 5: Download Processing UI (Missing Tracks Extension)](#phase-5-download-processing-ui-missing-tracks-extension)
+9. [Testing & Validation](#testing--validation)
+10. [Deployment Checklist](#deployment-checklist)
+
+---
+
+## slskd Installation (Native Windows)
+
+**Recommended:** Native Windows installation (simpler path handling, no Docker overhead)
+
+### Quick Setup
+
+1. **Download slskd**
+   - Go to [slskd releases](https://github.com/slskd/slskd/releases)
+   - Download the latest `slskd-x.x.x-win-x64.zip`
+
+2. **Extract and Run**
+   ```
+   C:\Tools\slskd\           ← Extract here
+   └── slskd.exe             ← Run this
+   ```
+
+3. **First Run Configuration**
+   - Open browser to `http://localhost:5030`
+   - Login with default credentials: `slskd` / `slskd`
+   - Go to **Options** → Set your Soulseek username/password
+   - Go to **Options** → **Directories** → Set downloads folder (e.g., `D:\Downloads\slskd`)
+   - Go to **Options** → **API** → Enable API and copy your API key
+
+4. **Enable Auto-Download for Wishlist**
+   - Go to **Options** → **Downloads**
+   - Enable "Auto-download wishlist results"
+   - Configure quality preferences (320kbps MP3 recommended)
+
+### Configuration File
+
+After first run, edit `%LOCALAPPDATA%\slskd\slskd.yml`:
+
+```yaml
+soulseek:
+  username: your_username
+  password: your_password
+
+directories:
+  downloads: D:\Downloads\slskd
+
+web:
+  port: 5030
+  api_keys:
+    - name: mako-sync
+      key: your-api-key-here
+```
+
+### Why Native Over Docker?
+
+| Aspect | Native | Docker |
+|--------|--------|--------|
+| **Path access** | Direct Windows paths | Requires volume mounts |
+| **Setup** | Extract and run | Docker Desktop + config |
+| **MediaMonkey** | Sees paths directly | Volume mapping complexity |
+| **Mako Sync** | Same paths work | Mount same volumes |
+
+For this workflow, native installation keeps everything simpler.
 
 ---
 
@@ -171,6 +232,12 @@ CREATE TABLE IF NOT EXISTS public.user_preferences (
   slskd_last_connection_test TIMESTAMPTZ,
   slskd_connection_status BOOLEAN DEFAULT false,
 
+  -- Downloads folder path (for processing downloaded files)
+  slskd_downloads_folder TEXT,
+
+  -- Search format preference: 'primary' (strip featured artists) or 'full' (use complete artist string)
+  slskd_search_format TEXT DEFAULT 'primary' CHECK (slskd_search_format IN ('primary', 'full')),
+
   -- Timestamps
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -212,6 +279,8 @@ export interface SlskdConfig {
   apiKey: string;
   lastConnectionTest?: string;
   connectionStatus: boolean;
+  downloadsFolder?: string;
+  searchFormat: 'primary' | 'full'; // 'primary' strips featured artists, 'full' uses complete artist string
 }
 
 export interface SlskdSearchRequest {
@@ -259,7 +328,7 @@ export function useSlskdConfig() {
 
       const { data, error } = await supabase
         .from('user_preferences')
-        .select('slskd_api_endpoint, slskd_api_key, slskd_connection_status, slskd_last_connection_test')
+        .select('slskd_api_endpoint, slskd_api_key, slskd_connection_status, slskd_last_connection_test, slskd_downloads_folder, slskd_search_format')
         .eq('user_id', user.id)
         .single();
 
@@ -270,6 +339,8 @@ export function useSlskdConfig() {
         apiKey: data.slskd_api_key || '',
         connectionStatus: data.slskd_connection_status || false,
         lastConnectionTest: data.slskd_last_connection_test || undefined,
+        downloadsFolder: data.slskd_downloads_folder || undefined,
+        searchFormat: data.slskd_search_format || 'primary',
       };
     },
   });
@@ -290,6 +361,8 @@ export function useSlskdConfig() {
           slskd_api_key: newConfig.apiKey,
           slskd_connection_status: isValid,
           slskd_last_connection_test: new Date().toISOString(),
+          slskd_downloads_folder: newConfig.downloadsFolder,
+          slskd_search_format: newConfig.searchFormat,
         });
 
       if (error) throw error;
@@ -335,16 +408,20 @@ export function SlskdConfigSection() {
 
   const [apiEndpoint, setApiEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [downloadsFolder, setDownloadsFolder] = useState('');
+  const [searchFormat, setSearchFormat] = useState<'primary' | 'full'>('primary');
 
   useEffect(() => {
     if (config) {
       setApiEndpoint(config.apiEndpoint);
       setApiKey(config.apiKey);
+      setDownloadsFolder(config.downloadsFolder || '');
+      setSearchFormat(config.searchFormat || 'primary');
     }
   }, [config]);
 
   const handleSave = () => {
-    saveConfig({ apiEndpoint, apiKey });
+    saveConfig({ apiEndpoint, apiKey, downloadsFolder, searchFormat });
   };
 
   if (isLoading) {
@@ -394,6 +471,48 @@ export function SlskdConfigSection() {
           />
           <p className="text-sm text-muted-foreground">
             Found in slskd settings under API. Configure auto-download in slskd for best results.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="slskd-downloads">Downloads Folder</Label>
+          <Input
+            id="slskd-downloads"
+            type="text"
+            placeholder="D:\Downloads\slskd"
+            value={downloadsFolder}
+            onChange={(e) => setDownloadsFolder(e.target.value)}
+          />
+          <p className="text-sm text-muted-foreground">
+            The folder where slskd saves downloaded files. Used for processing downloads.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Search Query Format</Label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="searchFormat"
+                checked={searchFormat === 'primary'}
+                onChange={() => setSearchFormat('primary')}
+              />
+              <span>Primary artist only</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="searchFormat"
+                checked={searchFormat === 'full'}
+                onChange={() => setSearchFormat('full')}
+              />
+              <span>Full artist string</span>
+            </label>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            "Primary artist only" strips featured artists (recommended).
+            "Full artist string" uses the complete artist field from Spotify.
           </p>
         </div>
 
@@ -512,17 +631,30 @@ export class SlskdClientService {
 
   /**
    * Format search query for slskd
-   * IMPORTANT: Use primary artist only (before comma) and don't include bitrate
+   * @param artist - Full artist string from Spotify
+   * @param title - Track title
+   * @param format - 'primary' strips featured artists, 'full' uses complete artist string
    */
-  static formatSearchQuery(artist: string, title: string): string {
-    // Extract primary artist only - additional artists cause false negatives
-    const primaryArtist = artist.split(',')[0].trim();
+  static formatSearchQuery(
+    artist: string,
+    title: string,
+    format: 'primary' | 'full' = 'primary'
+  ): string {
+    let processedArtist = artist;
+
+    if (format === 'primary') {
+      // Extract primary artist only - additional artists can cause false negatives
+      // Handle comma-separated: "Artist1, Artist2" → "Artist1"
+      processedArtist = artist.split(',')[0].trim();
+      // Also handle "feat." and "ft.": "Artist feat. Other" → "Artist"
+      processedArtist = processedArtist.split(/\s+(?:feat\.?|ft\.?)\s+/i)[0].trim();
+    }
 
     // Remove quotes and sanitize
     const sanitize = (str: string) => str.replace(/["]/g, '').trim();
 
     // Don't include "320 MP3" - causes false negatives on slskd
-    return `${sanitize(primaryArtist)} - ${sanitize(title)}`;
+    return `${sanitize(processedArtist)} - ${sanitize(title)}`;
   }
 
   /**
@@ -578,7 +710,7 @@ export function useSlskdSync() {
 
       const { data: prefs } = await supabase
         .from('user_preferences')
-        .select('slskd_api_endpoint, slskd_api_key')
+        .select('slskd_api_endpoint, slskd_api_key, slskd_search_format')
         .eq('user_id', user.id)
         .single();
 
@@ -590,6 +722,7 @@ export function useSlskdSync() {
         apiEndpoint: prefs.slskd_api_endpoint,
         apiKey: prefs.slskd_api_key,
         connectionStatus: true,
+        searchFormat: (prefs.slskd_search_format || 'primary') as 'primary' | 'full',
       };
 
       const existingSearches = await SlskdClientService.getExistingSearches(config);
@@ -604,7 +737,11 @@ export function useSlskdSync() {
 
       for (const track of tracks) {
         const artist = track.primary_artist || track.artist;
-        const searchText = SlskdClientService.formatSearchQuery(artist, track.title);
+        const searchText = SlskdClientService.formatSearchQuery(
+          artist,
+          track.title,
+          config.searchFormat
+        );
 
         if (SlskdClientService.isSearchDuplicate(existingSearches, searchText)) {
           result.skippedCount++;
@@ -662,16 +799,24 @@ export function useSlskdSync() {
 
 ---
 
-## Phase 3: Sync Progress UI
+## Phase 3: Artist Selection & Sync UI
 
 **Priority:** HIGH
 **Dependencies:** Phase 2 complete
 
 ### Objective
 
-Add artist selection and progress display to Missing Tracks page.
+Add **artist-level selection** (not individual tracks) and progress display to Missing Tracks page. Users select artists, and all missing tracks for those artists are pushed to slskd.
 
 ### Artist Selection in Missing Tracks
+
+The UI groups missing tracks by artist and allows selecting entire artists (not individual tracks). This keeps the workflow simple and focused.
+
+**Key design decisions:**
+- Users select **artists**, not individual tracks
+- All missing tracks for selected artists are pushed to slskd
+- Artist list shows track count per artist
+- "Select All" / "Deselect All" for convenience
 
 Add to `src/components/MissingTracksAnalyzer.tsx`:
 
@@ -948,22 +1093,30 @@ export class DownloadProcessorService {
 
 ---
 
-## Phase 5: Download Processing UI
+## Phase 5: Download Processing UI (Missing Tracks Extension)
 
 **Priority:** MEDIUM
 **Dependencies:** Phase 4 complete
 
 ### Objective
 
-Build UI for processing downloads with inline genre mapping.
+Extend the **Missing Tracks page** with download processing functionality. This keeps the workflow in one place rather than creating a separate page.
 
-### Processing Page
+**Key design decisions:**
+- Download processing is a **section/tab** within Missing Tracks, not a separate page
+- Uses the configurable downloads folder from user preferences
+- Inline genre mapping for unknown genres saves to `spotify_genre_map_overrides`
+- **MediaMonkey handles file organization** - Mako Sync only writes the `TXXX:CUSTOM1` tag
 
-**File:** `src/pages/Downloads.tsx`
+### Extended Missing Tracks Page
+
+Add a new section/tab to the existing Missing Tracks page.
+
+**File:** `src/components/DownloadProcessingSection.tsx`
 
 ```typescript
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -982,7 +1135,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DownloadProcessorService, ProcessedFile } from '@/services/downloadProcessor.service';
+import { useSlskdConfig } from '@/hooks/useSlskdConfig';
+import { FolderOpen, Tag, AlertCircle } from 'lucide-react';
 
 const SUPER_GENRES = [
   'Bass', 'Blues', 'Country', 'Dance', 'Disco', 'Drum & Bass',
@@ -991,7 +1147,13 @@ const SUPER_GENRES = [
   'Soul-Funk', 'Techno', 'UK Garage', 'Urban', 'World'
 ];
 
-export default function Downloads() {
+interface Props {
+  genreMap: Map<string, string>;
+  onSaveMapping: (genre: string, superGenre: string) => Promise<void>;
+}
+
+export function DownloadProcessingSection({ genreMap, onSaveMapping }: Props) {
+  const { config } = useSlskdConfig();
   const [files, setFiles] = useState<ProcessedFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -1000,9 +1162,6 @@ export default function Downloads() {
     if (!fileList) return;
 
     setIsProcessing(true);
-
-    // TODO: Load genre map from database
-    const genreMap = new Map<string, string>();
 
     const result = await DownloadProcessorService.processFiles(
       Array.from(fileList),
@@ -1013,114 +1172,186 @@ export default function Downloads() {
     setIsProcessing(false);
   };
 
-  const handleSuperGenreChange = (filename: string, superGenre: string) => {
+  const handleSuperGenreChange = async (filename: string, superGenre: string) => {
+    const file = files.find(f => f.filename === filename);
+    if (!file) return;
+
+    // Update local state
     setFiles(prev => prev.map(f =>
       f.filename === filename ? { ...f, superGenre, status: 'mapped' } : f
     ));
-    // TODO: Save new mapping to spotify_genre_map_overrides
+
+    // Save new mapping for each unmapped genre
+    for (const genre of file.genres) {
+      if (!genreMap.has(genre.toLowerCase())) {
+        await onSaveMapping(genre, superGenre);
+      }
+    }
   };
 
   const handleApplyTags = async () => {
-    // TODO: Write TXXX:CUSTOM1 tags to files
-    console.log('Applying tags to', files.filter(f => f.superGenre));
+    const filesToTag = files.filter(f => f.superGenre);
+    // TODO: Write TXXX:CUSTOM1 tags to files using File System Access API
+    // Note: Browser cannot write to arbitrary paths - user must grant permission
+    console.log('Applying tags to', filesToTag.length, 'files');
   };
 
+  const mappedCount = files.filter(f => f.status === 'mapped').length;
+  const unmappedCount = files.filter(f => f.status === 'unmapped').length;
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Process Downloads</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Input
-              type="file"
-              webkitdirectory=""
-              directory=""
-              multiple
-              onChange={handleFolderSelect}
-              disabled={isProcessing}
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              Select your slskd downloads folder
-            </p>
-          </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FolderOpen className="h-5 w-5" />
+          Process Downloads
+        </CardTitle>
+        <CardDescription>
+          Scan downloaded files, map genres to SuperGenre, and write TXXX:CUSTOM1 tags.
+          MediaMonkey will then organize files to Supercrates folders.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {config?.downloadsFolder && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Configured downloads folder: <code>{config.downloadsFolder}</code>
+            </AlertDescription>
+          </Alert>
+        )}
 
-          {files.length > 0 && (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>File</TableHead>
-                    <TableHead>Genre(s)</TableHead>
-                    <TableHead>SuperGenre</TableHead>
-                    <TableHead>Status</TableHead>
+        <div>
+          <Input
+            type="file"
+            webkitdirectory=""
+            directory=""
+            multiple
+            onChange={handleFolderSelect}
+            disabled={isProcessing}
+          />
+          <p className="text-sm text-muted-foreground mt-1">
+            Select your slskd downloads folder to scan for new files
+          </p>
+        </div>
+
+        {files.length > 0 && (
+          <>
+            <div className="flex gap-4 text-sm">
+              <span>Total: {files.length}</span>
+              <span className="text-green-600">Mapped: {mappedCount}</span>
+              <span className="text-yellow-600">Unmapped: {unmappedCount}</span>
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>File</TableHead>
+                  <TableHead>ID3 Genre(s)</TableHead>
+                  <TableHead>SuperGenre</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {files.map(file => (
+                  <TableRow key={file.filename}>
+                    <TableCell className="font-medium">
+                      {file.artist} - {file.title}
+                    </TableCell>
+                    <TableCell>
+                      {file.genres.join(', ') || <span className="text-muted-foreground">No genre tag</span>}
+                    </TableCell>
+                    <TableCell>
+                      {file.status === 'mapped' ? (
+                        <Badge>{file.superGenre}</Badge>
+                      ) : (
+                        <Select
+                          onValueChange={(v) => handleSuperGenreChange(file.filename, v)}
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue placeholder="Select..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SUPER_GENRES.map(sg => (
+                              <SelectItem key={sg} value={sg}>{sg}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={
+                        file.status === 'mapped' ? 'default' :
+                        file.status === 'unmapped' ? 'secondary' : 'destructive'
+                      }>
+                        {file.status}
+                      </Badge>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {files.map(file => (
-                    <TableRow key={file.filename}>
-                      <TableCell className="font-medium">
-                        {file.artist} - {file.title}
-                      </TableCell>
-                      <TableCell>
-                        {file.genres.join(', ') || 'No genre'}
-                      </TableCell>
-                      <TableCell>
-                        {file.status === 'mapped' ? (
-                          <Badge>{file.superGenre}</Badge>
-                        ) : (
-                          <Select
-                            onValueChange={(v) => handleSuperGenreChange(file.filename, v)}
-                          >
-                            <SelectTrigger className="w-40">
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {SUPER_GENRES.map(sg => (
-                                <SelectItem key={sg} value={sg}>{sg}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          file.status === 'mapped' ? 'default' :
-                          file.status === 'unmapped' ? 'secondary' : 'destructive'
-                        }>
-                          {file.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                ))}
+              </TableBody>
+            </Table>
 
+            <div className="flex gap-2">
               <Button
                 onClick={handleApplyTags}
-                disabled={!files.some(f => f.superGenre)}
+                disabled={mappedCount === 0}
               >
-                Apply SuperGenre Tags
+                <Tag className="h-4 w-4 mr-2" />
+                Apply SuperGenre Tags ({mappedCount} files)
               </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              After tagging, use MediaMonkey to move files to your Supercrates/[genre]/ folders,
+              then re-scan in Mako Sync.
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 ```
 
+### Integration with Missing Tracks Page
+
+Add the `DownloadProcessingSection` as a collapsible section or tab within the Missing Tracks page:
+
+```typescript
+// In MissingTracksAnalyzer.tsx or parent page
+import { DownloadProcessingSection } from '@/components/DownloadProcessingSection';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+// In the render:
+<Tabs defaultValue="missing">
+  <TabsList>
+    <TabsTrigger value="missing">Missing Tracks</TabsTrigger>
+    <TabsTrigger value="downloads">Process Downloads</TabsTrigger>
+  </TabsList>
+  <TabsContent value="missing">
+    {/* Existing missing tracks content with artist selection */}
+  </TabsContent>
+  <TabsContent value="downloads">
+    <DownloadProcessingSection
+      genreMap={genreMap}
+      onSaveMapping={handleSaveMapping}
+    />
+  </TabsContent>
+</Tabs>
+```
+
 ### Phase 5 Completion Checklist
 
-- [ ] `src/pages/Downloads.tsx` created
-- [ ] Route added to App.tsx
+- [ ] `src/components/DownloadProcessingSection.tsx` created
+- [ ] Integrated into Missing Tracks page as tab/section
+- [ ] Uses configured downloads folder from user preferences
 - [ ] Folder selection works
-- [ ] Preview table displays files
+- [ ] Preview table displays files with ID3 genres
 - [ ] Inline SuperGenre selection works
-- [ ] New mappings saved to database
+- [ ] New mappings saved to `spotify_genre_map_overrides`
 - [ ] Tags written to files (TXXX:CUSTOM1)
+- [ ] Clear messaging that MediaMonkey handles file moves
 - [ ] Test end-to-end workflow
 
 ---
@@ -1205,16 +1436,37 @@ describe('SlskdClientService', () => {
 
 ### Search Query Format
 
+Configurable in user preferences:
+
+**Primary artist only (default, recommended):**
 ```
 Primary Artist - Title
 ```
-(No commas, no bitrate, no format)
+Strips "feat.", "ft.", and comma-separated artists.
+
+**Full artist string:**
+```
+Artist feat. Other Artist - Title
+```
+Uses complete artist field from Spotify.
 
 ### SuperGenre ID3 Tag
 
 - Frame: `TXXX`
 - Description: `CUSTOM1`
 - MediaMonkey: Custom 1 (Classification tab)
+
+### Responsibility Split
+
+| Task | Owner |
+|------|-------|
+| Push missing tracks to slskd | Mako Sync |
+| Download files | slskd (auto-download) |
+| Review downloads | MediaMonkey |
+| Read ID3 genres, map to SuperGenre | Mako Sync |
+| Write TXXX:CUSTOM1 tag | Mako Sync |
+| Move files to Supercrates/[genre]/ | MediaMonkey |
+| Re-scan library | Mako Sync |
 
 ### File Locations
 
@@ -1227,9 +1479,10 @@ src/
 ├── hooks/
 │   ├── useSlskdConfig.ts
 │   └── useSlskdSync.ts
-├── components/
-│   ├── SlskdConfigSection.tsx
-│   └── SlskdSyncProgress.tsx
-└── pages/
-    └── Downloads.tsx
+└── components/
+    ├── SlskdConfigSection.tsx
+    ├── SlskdSyncProgress.tsx
+    └── DownloadProcessingSection.tsx
 ```
+
+Note: No separate Downloads page - processing is integrated into Missing Tracks page.
