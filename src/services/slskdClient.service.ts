@@ -53,12 +53,31 @@ export class SlskdClientService {
    */
   static async testConnection(config: SlskdConfig): Promise<boolean> {
     try {
-      const session = await this.request<SlskdSessionResponse>(
-        config,
-        '/api/v0/session',
-        { method: 'GET' }
-      );
-      return session.isLoggedIn;
+      // Try /api/v0/application first - it's a simple endpoint that should work with API key
+      const url = `${config.apiEndpoint}/api/v0/application`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': config.apiKey,
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!response.ok) {
+        console.error('slskd connection test failed:', response.status, response.statusText);
+        return false;
+      }
+
+      // Check content type to ensure we got JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('slskd returned non-JSON response:', contentType);
+        return false;
+      }
+
+      const data = await response.json();
+      // If we got a valid response, connection is working
+      return Boolean(data);
     } catch (error) {
       console.error('slskd connection test failed:', error);
       return false;
