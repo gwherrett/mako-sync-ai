@@ -5,7 +5,15 @@
       "Bash(python -m pip install:*)",
       "Bash(python:*)",
       "Bash(npx vitest:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(git checkout:*)",
+      "Bash(npx eslint:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(lsof:*)",
+      "Bash(netstat:*)",
+      "Bash(npm run build:*)",
+      "Bash(pgrep:*)"
     ]
   }
 }

@@ -3,10 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Download, Music, Users, Filter } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, Download, Music, Users, Filter, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TrackMatchingService } from '@/services/trackMatching.service';
 import { supabase } from '@/integrations/supabase/client';
+import { useSlskdConfig } from '@/hooks/useSlskdConfig';
+import { useSlskdSync } from '@/hooks/useSlskdSync';
+import { SlskdSyncProgress } from '@/components/SlskdSyncProgress';
+import type { SlskdTrackToSync } from '@/types/slskd';
 
 interface MissingTracksAnalyzerProps {
   selectedGenre: string;
@@ -45,6 +50,12 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
   const [user, setUser] = useState<any>(null);
   const { toast } = useToast();
 
+  // slskd integration state
+  const [selectedArtists, setSelectedArtists] = useState<Set<string>>(new Set());
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const { isConfigured } = useSlskdConfig();
+  const { syncToSlskd, isSyncing, syncResult, progress, reset } = useSlskdSync();
+
   // Filter artist groups based on shared search query
   const filteredArtistGroups = sharedSearchQuery
     ? artistGroups.filter(group => {
@@ -69,6 +80,69 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
         );
       })
     : missingTracks;
+
+  // Calculate selected track count based on selected artists
+  const selectedTrackCount = Array.from(selectedArtists).reduce(
+    (count, artist) => {
+      const group = artistGroups.find(g => g.artist === artist);
+      return count + (group?.tracks.length || 0);
+    },
+    0
+  );
+
+  // Artist selection handlers
+  const toggleArtist = (artist: string) => {
+    setSelectedArtists(prev => {
+      const next = new Set(prev);
+      if (next.has(artist)) {
+        next.delete(artist);
+      } else {
+        next.add(artist);
+      }
+      return next;
+    });
+  };
+
+  const selectAllArtists = () => {
+    setSelectedArtists(new Set(filteredArtistGroups.map(g => g.artist)));
+  };
+
+  const deselectAllArtists = () => {
+    setSelectedArtists(new Set());
+  };
+
+  // Push selected artists' tracks to slskd
+  const handlePushToSlskd = () => {
+    const tracksToSync: SlskdTrackToSync[] = Array.from(selectedArtists).flatMap(artist => {
+      const group = artistGroups.find(g => g.artist === artist);
+      if (!group) return [];
+      return group.tracks.map(track => ({
+        id: track.spotifyTrack.id,
+        title: track.spotifyTrack.title,
+        artist: track.spotifyTrack.artist,
+        // Use the full artist as primary since we don't have a separate primary_artist field
+        primary_artist: track.spotifyTrack.artist,
+      }));
+    });
+
+    if (tracksToSync.length === 0) {
+      toast({
+        title: 'No tracks selected',
+        description: 'Select at least one artist to push tracks to slskd.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setShowSyncModal(true);
+    syncToSlskd(tracksToSync);
+  };
+
+  // Close sync modal and reset state
+  const handleCloseSyncModal = () => {
+    setShowSyncModal(false);
+    reset();
+  };
 
   // Get user on mount
   useEffect(() => {
@@ -305,29 +379,89 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
           {/* Artist Groups */}
           <Card>
             <CardHeader>
-              <CardTitle>Missing Tracks by Artist</CardTitle>
-              <CardDescription>
-                Artists with tracks missing from your local collection
-                {sharedSearchQuery && ` (filtered by "${sharedSearchQuery}")`}
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Missing Tracks by Artist</CardTitle>
+                  <CardDescription>
+                    Artists with tracks missing from your local collection
+                    {sharedSearchQuery && ` (filtered by "${sharedSearchQuery}")`}
+                  </CardDescription>
+                </div>
+                {isConfigured && (
+                  <div className="flex items-center gap-2">
+                    {selectedArtists.size > 0 && (
+                      <Badge variant="secondary">
+                        {selectedArtists.size} artist{selectedArtists.size !== 1 ? 's' : ''} ({selectedTrackCount} track{selectedTrackCount !== 1 ? 's' : ''})
+                      </Badge>
+                    )}
+                    <Button
+                      onClick={handlePushToSlskd}
+                      disabled={selectedArtists.size === 0 || isSyncing}
+                      size="sm"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Push to slskd
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {/* Selection controls */}
+              {isConfigured && filteredArtistGroups.length > 0 && (
+                <div className="flex items-center gap-4 mt-3 pt-3 border-t">
+                  <span className="text-sm text-muted-foreground">Select artists:</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={selectAllArtists}
+                    disabled={selectedArtists.size === filteredArtistGroups.length}
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={deselectAllArtists}
+                    disabled={selectedArtists.size === 0}
+                  >
+                    Deselect All
+                  </Button>
+                </div>
+              )}
+              {!isConfigured && filteredArtistGroups.length > 0 && (
+                <p className="text-sm text-muted-foreground mt-3 pt-3 border-t">
+                  Configure slskd in Settings → Security to enable pushing tracks to wishlist.
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <div className="space-y-4 max-h-96 overflow-y-auto">
                 {filteredArtistGroups.map((group) => (
-                  <div 
-                    key={group.artist} 
-                    className="border rounded-lg p-4 hover:bg-accent/50 transition-colors"
+                  <div
+                    key={group.artist}
+                    className={`border rounded-lg p-4 hover:bg-accent/50 transition-colors cursor-pointer ${
+                      selectedArtists.has(group.artist) ? 'bg-accent/30 border-primary' : ''
+                    }`}
+                    onClick={() => isConfigured && toggleArtist(group.artist)}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-lg">{group.artist}</h3>
+                      <div className="flex items-center gap-3">
+                        {isConfigured && (
+                          <Checkbox
+                            checked={selectedArtists.has(group.artist)}
+                            onCheckedChange={() => toggleArtist(group.artist)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                        <h3 className="font-semibold text-lg">{group.artist}</h3>
+                      </div>
                       <Badge variant="secondary">
                         {group.tracks.length} track{group.tracks.length !== 1 ? 's' : ''}
                       </Badge>
                     </div>
-                    
+
                     {/* Genres */}
                     {group.genres.length > 0 && (
-                      <div className="flex gap-1 mb-2 flex-wrap">
+                      <div className={`flex gap-1 mb-2 flex-wrap ${isConfigured ? 'ml-7' : ''}`}>
                         {group.genres.map((genre) => (
                           <Badge key={genre} variant="outline" className="text-xs">
                             {genre}
@@ -337,7 +471,7 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
                     )}
 
                     {/* Track List */}
-                    <div className="space-y-1">
+                    <div className={`space-y-1 ${isConfigured ? 'ml-7' : ''}`}>
                       {group.tracks.map((track, idx) => (
                         <div key={idx} className="text-sm text-muted-foreground">
                           <span className="font-medium">{track.spotifyTrack.title}</span>
@@ -367,6 +501,15 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
           </CardContent>
         </Card>
       )}
+
+      {/* slskd Sync Progress Modal */}
+      <SlskdSyncProgress
+        isOpen={showSyncModal}
+        onClose={handleCloseSyncModal}
+        isSyncing={isSyncing}
+        progress={progress}
+        result={syncResult ?? null}
+      />
     </div>
   );
 };

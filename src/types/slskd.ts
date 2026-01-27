@@ -2,16 +2,19 @@
  * slskd Integration Types
  *
  * Types for interacting with slskd REST API and managing configuration.
+ * Configuration is stored in browser localStorage (not Supabase).
  */
 
 /**
- * User's slskd configuration stored in database
+ * User's slskd configuration stored in localStorage
  */
 export interface SlskdConfig {
-  apiEndpoint: string;
-  apiKey: string;
-  lastConnectionTest?: string;
-  connectionStatus: boolean;
+  apiEndpoint: string;           // e.g., "http://localhost:5030"
+  apiKey: string;                // slskd API key
+  downloadsFolder: string;       // e.g., "D:\Downloads\slskd"
+  searchFormat: 'primary' | 'full';  // Search query format preference
+  lastConnectionTest?: string;   // ISO timestamp
+  connectionStatus: boolean;     // Last known connection status
 }
 
 /**
