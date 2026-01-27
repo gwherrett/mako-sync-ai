@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { NormalizationService } from './normalization.service';
 
 interface LocalTrack {
   id: string;
@@ -25,7 +26,12 @@ interface MissingTrack {
   reason: string;
 }
 
+// Similarity threshold for fuzzy matching (percentage)
+const FUZZY_MATCH_THRESHOLD = 85;
+
 export class TrackMatchingService {
+  private static normalizationService = new NormalizationService();
+
   // Normalize strings for comparison with enhanced artist handling
   private static normalize(str: string | null): string {
     if (!str) return '';
@@ -35,14 +41,28 @@ export class TrackMatchingService {
       .trim();
   }
 
-  // Simplified artist normalization - just basic cleanup since primary_artist is pre-normalized
+  // Extract core title without mix/version info
+  private static extractCoreTitle(title: string | null): string {
+    if (!title) return '';
+    const { core } = this.normalizationService.extractVersionInfo(title);
+    return this.normalize(core);
+  }
+
+  // Simplified artist normalization - strips "The" prefix and normalizes
   private static normalizeArtist(artist: string | null): string {
     if (!artist) return '';
-    
-    return artist.toLowerCase()
+
+    let normalized = artist.toLowerCase()
       .replace(/[^\w\s]/g, '') // Remove special characters
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
+
+    // Strip leading "The " from artist names
+    if (normalized.startsWith('the ')) {
+      normalized = normalized.slice(4);
+    }
+
+    return normalized;
   }
 
   // Compare primary artists (already normalized in DB)
@@ -156,6 +176,7 @@ export class TrackMatchingService {
   }
 
   // Find missing tracks (Spotify tracks not in local collection)
+  // Uses three-tier matching: exact → core title → fuzzy
   static async findMissingTracks(userId: string, superGenreFilter?: string): Promise<MissingTrack[]> {
     const [localTracks, spotifyTracks] = await Promise.all([
       this.fetchLocalTracks(userId),
@@ -163,23 +184,67 @@ export class TrackMatchingService {
     ]);
 
     const missingTracks: MissingTrack[] = [];
-    
-    // Create a set of normalized local track titles + artists for fast lookup
-    const localTracksSet = new Set(
-      localTracks.map(track => 
+
+    // Build lookup structures for local tracks
+    // 1. Exact match set: full normalized title + artist
+    const localExactSet = new Set(
+      localTracks.map(track =>
         `${this.normalize(track.title)}_${this.normalizeArtist(track.primary_artist)}`
       )
     );
 
+    // 2. Core title match set: core title (no mix/version) + artist
+    const localCoreSet = new Set(
+      localTracks.map(track =>
+        `${this.extractCoreTitle(track.title)}_${this.normalizeArtist(track.primary_artist)}`
+      )
+    );
+
+    // 3. For fuzzy matching, keep array of normalized local tracks
+    const localNormalized = localTracks.map(track => ({
+      title: this.normalize(track.title),
+      coreTitle: this.extractCoreTitle(track.title),
+      artist: this.normalizeArtist(track.primary_artist),
+    }));
+
     for (const spotifyTrack of spotifyTracks) {
-      const spotifyKey = `${this.normalize(spotifyTrack.title)}_${this.normalizeArtist(spotifyTrack.primary_artist)}`;
-      
-      if (!localTracksSet.has(spotifyKey)) {
-        missingTracks.push({
-          spotifyTrack,
-          reason: 'No matching local track found'
-        });
+      const spotifyTitle = this.normalize(spotifyTrack.title);
+      const spotifyCoreTitle = this.extractCoreTitle(spotifyTrack.title);
+      const spotifyArtist = this.normalizeArtist(spotifyTrack.primary_artist);
+
+      // Tier 1: Exact match on full title + artist
+      const exactKey = `${spotifyTitle}_${spotifyArtist}`;
+      if (localExactSet.has(exactKey)) {
+        continue; // Found exact match
       }
+
+      // Tier 2: Match on core title (without mix/version) + artist
+      const coreKey = `${spotifyCoreTitle}_${spotifyArtist}`;
+      if (localCoreSet.has(coreKey)) {
+        continue; // Found core title match
+      }
+
+      // Tier 3: Fuzzy matching - check if any local track is similar enough
+      const fuzzyMatch = localNormalized.some(local => {
+        // Artist must match exactly (after normalization)
+        if (local.artist !== spotifyArtist) return false;
+
+        // Check title similarity (try both full title and core title)
+        const titleSimilarity = this.calculateSimilarity(local.title, spotifyTitle);
+        const coreSimilarity = this.calculateSimilarity(local.coreTitle, spotifyCoreTitle);
+
+        return titleSimilarity >= FUZZY_MATCH_THRESHOLD || coreSimilarity >= FUZZY_MATCH_THRESHOLD;
+      });
+
+      if (fuzzyMatch) {
+        continue; // Found fuzzy match
+      }
+
+      // No match found at any tier
+      missingTracks.push({
+        spotifyTrack,
+        reason: 'No matching local track found'
+      });
     }
 
     return missingTracks;
