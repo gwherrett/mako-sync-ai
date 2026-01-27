@@ -56,30 +56,43 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
   const { isConfigured } = useSlskdConfig();
   const { syncToSlskd, isSyncing, syncResult, progress, reset } = useSlskdSync();
 
-  // Filter artist groups based on shared search query
-  const filteredArtistGroups = sharedSearchQuery
-    ? artistGroups.filter(group => {
-        const searchLower = sharedSearchQuery.toLowerCase();
-        // Check if artist name matches
-        if (group.artist.toLowerCase().includes(searchLower)) return true;
-        // Check if any track title or album matches
-        return group.tracks.some(track =>
-          track.spotifyTrack.title.toLowerCase().includes(searchLower) ||
-          (track.spotifyTrack.album?.toLowerCase().includes(searchLower))
-        );
-      })
-    : artistGroups;
+  // Results filter state
+  const [artistFilter, setArtistFilter] = useState<string>('all');
+  const [genreResultsFilter, setGenreResultsFilter] = useState<string>('all');
 
-  const filteredMissingTracks = sharedSearchQuery
-    ? missingTracks.filter(track => {
-        const searchLower = sharedSearchQuery.toLowerCase();
-        return (
-          track.spotifyTrack.title.toLowerCase().includes(searchLower) ||
-          track.spotifyTrack.artist.toLowerCase().includes(searchLower) ||
-          (track.spotifyTrack.album?.toLowerCase().includes(searchLower))
-        );
-      })
-    : missingTracks;
+  // Get unique artists and genres from results for filter dropdowns
+  const uniqueArtists = [...new Set(artistGroups.map(g => g.artist))].sort();
+  const uniqueGenresInResults = [...new Set(
+    missingTracks
+      .map(t => t.spotifyTrack.super_genre)
+      .filter((g): g is string => g !== null)
+  )].sort();
+
+  // Filter artist groups based on shared search query and filters
+  const filteredArtistGroups = artistGroups
+    .filter(group => {
+      // Artist filter
+      if (artistFilter !== 'all' && group.artist !== artistFilter) return false;
+      // Genre filter on results
+      if (genreResultsFilter !== 'all') {
+        const hasGenre = group.tracks.some(t => t.spotifyTrack.super_genre === genreResultsFilter);
+        if (!hasGenre) return false;
+      }
+      return true;
+    })
+    .filter(group => {
+      // Search query filter
+      if (!sharedSearchQuery) return true;
+      const searchLower = sharedSearchQuery.toLowerCase();
+      if (group.artist.toLowerCase().includes(searchLower)) return true;
+      return group.tracks.some(track =>
+        track.spotifyTrack.title.toLowerCase().includes(searchLower) ||
+        (track.spotifyTrack.album?.toLowerCase().includes(searchLower))
+      );
+    });
+
+  // Count filtered tracks
+  const filteredMissingTracks = filteredArtistGroups.flatMap(g => g.tracks);
 
   // Calculate selected track count based on selected artists
   const selectedTrackCount = Array.from(selectedArtists).reduce(
@@ -197,9 +210,13 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
     try {
       console.log('🔍 Starting missing tracks analysis...');
       const missing = await TrackMatchingService.findMissingTracks(user.id, selectedGenre);
-      
+
       setMissingTracks(missing);
       setArtistGroups(groupByArtist(missing));
+      // Reset filters on new analysis
+      setArtistFilter('all');
+      setGenreResultsFilter('all');
+      setSelectedArtists(new Set());
 
       const genreText = selectedGenre === 'all' ? 'collection' : `${selectedGenre} collection`;
       toast({
@@ -333,14 +350,83 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
       {/* Results */}
       {missingTracks.length > 0 && (
         <>
+          {/* Results Filters */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Filter results:</span>
+                </div>
+
+                {/* Artist Filter */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Artist:</span>
+                  <Select value={artistFilter} onValueChange={setArtistFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Artists" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Artists ({uniqueArtists.length})</SelectItem>
+                      {uniqueArtists.map((artist) => (
+                        <SelectItem key={artist} value={artist}>
+                          {artist}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Genre Filter on Results */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Genre:</span>
+                  <Select value={genreResultsFilter} onValueChange={setGenreResultsFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Genres" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Genres ({uniqueGenresInResults.length})</SelectItem>
+                      {uniqueGenresInResults.map((genre) => (
+                        <SelectItem key={genre} value={genre}>
+                          {genre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Clear Filters */}
+                {(artistFilter !== 'all' || genreResultsFilter !== 'all') && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setArtistFilter('all');
+                      setGenreResultsFilter('all');
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Summary Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Missing Tracks{sharedSearchQuery && ' (filtered)'}</p>
-                    <p className="text-2xl font-bold text-primary">{filteredMissingTracks.length}</p>
+                    <p className="text-sm text-muted-foreground">Missing Tracks</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {filteredMissingTracks.length}
+                      {filteredMissingTracks.length !== missingTracks.length && (
+                        <span className="text-sm font-normal text-muted-foreground ml-1">
+                          / {missingTracks.length}
+                        </span>
+                      )}
+                    </p>
                   </div>
                   <Music className="h-8 w-8 text-muted-foreground" />
                 </div>
@@ -351,8 +437,15 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Artists{sharedSearchQuery && ' (filtered)'}</p>
-                    <p className="text-2xl font-bold text-primary">{filteredArtistGroups.length}</p>
+                    <p className="text-sm text-muted-foreground">Artists</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {filteredArtistGroups.length}
+                      {filteredArtistGroups.length !== artistGroups.length && (
+                        <span className="text-sm font-normal text-muted-foreground ml-1">
+                          / {artistGroups.length}
+                        </span>
+                      )}
+                    </p>
                   </div>
                   <Users className="h-8 w-8 text-muted-foreground" />
                 </div>
