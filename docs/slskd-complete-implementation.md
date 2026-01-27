@@ -1,24 +1,91 @@
 # Mako Sync slskd Complete Implementation Guide
 
-**Document Version:** 4.0
-**Last Updated:** January 26, 2026
-**Status:** Ready for Implementation
+**Document Version:** 4.1
+**Last Updated:** January 27, 2026
+**Status:** Phases 1-3 Complete, Matching Algorithm Updated
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Branching Strategy](#branching-strategy)
-3. [slskd Installation (Native Windows)](#slskd-installation-native-windows)
-4. [End-to-End Workflow](#end-to-end-workflow)
-5. [Phase 1: Local Configuration & Storage](#phase-1-local-configuration--storage)
-6. [Phase 2: slskd Wishlist Push](#phase-2-slskd-wishlist-push)
-7. [Phase 3: Artist Selection & Sync UI](#phase-3-artist-selection--sync-ui)
-8. [Phase 4: Download Processing Service](#phase-4-download-processing-service)
-9. [Phase 5: Download Processing UI (Missing Tracks Extension)](#phase-5-download-processing-ui-missing-tracks-extension)
-10. [Testing & Validation](#testing--validation)
-11. [Release Checklist](#release-checklist)
+2. [Track Matching Algorithm](#track-matching-algorithm)
+3. [Branching Strategy](#branching-strategy)
+4. [slskd Installation (Native Windows)](#slskd-installation-native-windows)
+5. [End-to-End Workflow](#end-to-end-workflow)
+6. [Phase 1: Local Configuration & Storage](#phase-1-local-configuration--storage)
+7. [Phase 2: slskd Wishlist Push](#phase-2-slskd-wishlist-push)
+8. [Phase 3: Artist Selection & Sync UI](#phase-3-artist-selection--sync-ui)
+9. [Phase 4: Download Processing Service](#phase-4-download-processing-service)
+10. [Phase 5: Download Processing UI (Missing Tracks Extension)](#phase-5-download-processing-ui-missing-tracks-extension)
+11. [Testing & Validation](#testing--validation)
+12. [Release Checklist](#release-checklist)
+
+---
+
+## Track Matching Algorithm
+
+The matching algorithm determines which Spotify tracks are "missing" from your local collection. It uses a **three-tier matching strategy** to reduce false negatives while maintaining accuracy.
+
+### Matching Tiers
+
+| Tier | Strategy | Description |
+|------|----------|-------------|
+| 1 | **Exact Match** | Full normalized title + artist must match exactly |
+| 2 | **Core Title Match** | Core title (without mix/version info) + artist |
+| 3 | **Fuzzy Match** | 85% similarity threshold on title, exact artist |
+
+### Normalization Rules
+
+Before comparison, all text is normalized:
+
+1. **Unicode normalization** (NFKC) + lowercase
+2. **Remove diacritics** (`Beyoncé` → `beyonce`)
+3. **Unify punctuation** (`and` → `&`, various quotes/hyphens unified)
+4. **Remove special characters** (keep only alphanumeric + spaces)
+5. **Collapse whitespace** (multiple spaces → single space)
+
+### Artist Normalization
+
+- Standard normalization applied
+- **"The" prefix stripped** (`The Beatles` → `beatles`, `The Weeknd` → `weeknd`)
+
+### Core Title Extraction
+
+Mix/version info is extracted and ignored for Tier 2 matching:
+
+| Original Title | Core Title |
+|----------------|------------|
+| `Song (Extended Mix)` | `Song` |
+| `Track [Radio Edit]` | `Track` |
+| `Title - Club Version` | `Title` |
+| `Song (feat. Artist)` | `Song` (feature kept, not mix info) |
+
+**Mix keywords detected:** remix, mix, edit, rework, bootleg, mashup, version, radio, club, extended, vocal, instrumental, dub, original, live, acoustic, unplugged, remaster, demo, vip
+
+### Fuzzy Matching (Tier 3)
+
+Uses Levenshtein distance to calculate similarity:
+- **Threshold:** 85% similarity required
+- **Artist must match exactly** (after normalization)
+- Checks both full title and core title similarity
+
+### Example Matches
+
+| Spotify Track | Local Track | Tier | Match? |
+|---------------|-------------|------|--------|
+| `Don't Stop - The Beatles` | `Dont Stop - Beatles` | 3 (fuzzy) | ✅ |
+| `Song (Club Mix) - Artist` | `Song - Artist` | 2 (core) | ✅ |
+| `Track [Remastered] - Band` | `Track - Band` | 2 (core) | ✅ |
+| `Title - The Weeknd` | `Title - Weeknd` | 1 (exact after "The" strip) | ✅ |
+| `Completely Different - Artist` | `Song - Artist` | - | ❌ |
+
+### Configuration
+
+```typescript
+// src/services/trackMatching.service.ts
+const FUZZY_MATCH_THRESHOLD = 85; // Percentage similarity required
+```
 
 ---
 
