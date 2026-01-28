@@ -224,11 +224,30 @@ export class TrackMatchingService {
 
     // Debug: Log local tracks matching debug criteria
     if (DEBUG_MATCHING) {
+      // Search in raw local tracks (before normalization) to see actual DB values
+      const debugRawLocalTracks = localTracks.filter(t => {
+        const combined = `${t.title || ''} ${t.artist || ''} ${t.primary_artist || ''}`.toLowerCase();
+        return DEBUG_TRACKS.some(term => combined.includes(term.toLowerCase()));
+      });
+      if (debugRawLocalTracks.length > 0) {
+        console.log('🔍 DEBUG: Raw local tracks from DB matching debug criteria:');
+        debugRawLocalTracks.forEach(t => {
+          console.log(`  📀 Title: "${t.title}"`);
+          console.log(`     Artist field: "${t.artist}"`);
+          console.log(`     Primary_artist field: "${t.primary_artist}"`);
+          console.log(`     File: "${t.file_path}"`);
+        });
+      } else {
+        console.log('🔍 DEBUG: No local tracks found in DB matching debug criteria');
+        console.log(`   Searched for: ${DEBUG_TRACKS.join(', ')}`);
+        console.log(`   Total local tracks in DB: ${localTracks.length}`);
+      }
+
       const debugLocalTracks = localNormalized.filter(t =>
         shouldDebug(t.originalTitle || '', t.originalArtist || '')
       );
       if (debugLocalTracks.length > 0) {
-        console.log('🔍 DEBUG: Local tracks matching debug criteria:');
+        console.log('🔍 DEBUG: Normalized local tracks matching debug criteria:');
         debugLocalTracks.forEach(t => {
           console.log(`  📀 Original: "${t.originalTitle}" by "${t.originalArtist}"`);
           console.log(`     Normalized title: "${t.title}"`);
