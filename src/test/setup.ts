@@ -11,6 +11,14 @@ vi.stubGlobal('window', {
   }
 });
 
+// Mock navigator (not available in Node.js < 21)
+vi.stubGlobal('navigator', {
+  userAgent: 'Mozilla/5.0 (Test Environment)',
+  language: 'en-US',
+  languages: ['en-US', 'en'],
+  onLine: true,
+});
+
 // Mock Supabase client
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
@@ -46,6 +54,7 @@ vi.mock('@/integrations/supabase/client', () => ({
     functions: {
       invoke: vi.fn(),
     },
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   },
 }));
 
