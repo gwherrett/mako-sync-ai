@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Filter } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Music, FolderOpen } from 'lucide-react';
 import MissingTracksAnalyzer from '@/components/MissingTracksAnalyzer';
+import { DownloadProcessingSection } from '@/components/DownloadProcessingSection';
 import { TrackMatchingService } from '@/services/trackMatching.service';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -40,14 +40,32 @@ const SyncAnalysis = ({ sharedSearchQuery = '', sharedSuperGenre = '' }: SyncAna
     loadData();
   }, []);
 
-  return <div className="space-y-6">
-      {/* Missing Tracks Analyzer as main content */}
-      <MissingTracksAnalyzer
-        selectedGenre={effectiveGenre}
-        setSelectedGenre={setSelectedGenre}
-        superGenres={superGenres}
-        sharedSearchQuery={sharedSearchQuery}
-      />
-    </div>;
+  return (
+    <Tabs defaultValue="missing" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="missing" className="flex items-center gap-2">
+          <Music className="h-4 w-4" />
+          Missing Tracks
+        </TabsTrigger>
+        <TabsTrigger value="downloads" className="flex items-center gap-2">
+          <FolderOpen className="h-4 w-4" />
+          Process Downloads
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="missing" className="space-y-6">
+        <MissingTracksAnalyzer
+          selectedGenre={effectiveGenre}
+          setSelectedGenre={setSelectedGenre}
+          superGenres={superGenres}
+          sharedSearchQuery={sharedSearchQuery}
+        />
+      </TabsContent>
+
+      <TabsContent value="downloads">
+        <DownloadProcessingSection />
+      </TabsContent>
+    </Tabs>
+  );
 };
 export default SyncAnalysis;

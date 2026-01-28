@@ -71,3 +71,64 @@ export interface SlskdTrackToSync {
   artist: string;
   primary_artist?: string;
 }
+
+// =============================================================================
+// Phase 4: Download Processing Types
+// =============================================================================
+
+/**
+ * Status of a processed file
+ */
+export type ProcessedFileStatus = 'mapped' | 'unmapped' | 'error';
+
+/**
+ * A single processed MP3 file with extracted metadata and genre mapping
+ */
+export interface ProcessedFile {
+  /** Original filename */
+  filename: string;
+  /** Relative path from selected folder (via webkitRelativePath) */
+  relativePath: string;
+  /** Extracted artist from ID3 tags */
+  artist: string;
+  /** Extracted title from ID3 tags */
+  title: string;
+  /** Extracted album from ID3 tags */
+  album: string | null;
+  /** All genre tags found in the file */
+  genres: string[];
+  /** Mapped SuperGenre (null if unmapped) */
+  superGenre: string | null;
+  /** Processing status */
+  status: ProcessedFileStatus;
+  /** Error message if status is 'error' */
+  error?: string;
+  /** Reference to original File object for future tag writing */
+  file: File;
+}
+
+/**
+ * Result of processing a batch of downloaded files
+ */
+export interface ProcessingResult {
+  /** All processed files */
+  files: ProcessedFile[];
+  /** Unique genres that couldn't be mapped to a SuperGenre */
+  unmappedGenres: string[];
+  /** Summary counts */
+  summary: {
+    total: number;
+    mapped: number;
+    unmapped: number;
+    errors: number;
+  };
+}
+
+/**
+ * Progress callback for batch processing
+ */
+export interface ProcessingProgress {
+  current: number;
+  total: number;
+  currentFile: string;
+}
