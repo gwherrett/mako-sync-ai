@@ -122,7 +122,7 @@ describe('downloadProcessor.service', () => {
         album: 'Album 3',
         genres: [],
         superGenre: null,
-        status: 'mapped', // No genres = considered mapped
+        status: 'unmapped', // No genres = unmapped (needs manual assignment)
         file: new File([''], 'track3.mp3'),
       },
       {
@@ -153,8 +153,8 @@ describe('downloadProcessor.service', () => {
       expect(result.files[1].superGenre).toBeNull();
       expect(result.files[1].status).toBe('unmapped');
 
-      // File with no genres stays mapped
-      expect(result.files[2].status).toBe('mapped');
+      // File with no genres is unmapped (needs manual assignment)
+      expect(result.files[2].status).toBe('unmapped');
 
       // Error files stay as errors
       expect(result.files[3].status).toBe('error');
@@ -167,8 +167,8 @@ describe('downloadProcessor.service', () => {
 
       expect(result.summary).toEqual({
         total: 4,
-        mapped: 2, // track1 now mapped + track3 (no genres)
-        unmapped: 1, // track2 still unmapped
+        mapped: 1, // track1 now mapped
+        unmapped: 2, // track2 still unmapped + track3 (no genres)
         errors: 1, // error.mp3
       });
     });
@@ -186,11 +186,10 @@ describe('downloadProcessor.service', () => {
 
       const result = reprocessWithUpdatedMap(initialFiles, emptyMap);
 
-      // Files with genres should be unmapped
+      // All files without a SuperGenre should be unmapped
       expect(result.files[0].status).toBe('unmapped');
       expect(result.files[1].status).toBe('unmapped');
-      // File with no genres stays mapped
-      expect(result.files[2].status).toBe('mapped');
+      expect(result.files[2].status).toBe('unmapped'); // No genres = unmapped
     });
   });
 

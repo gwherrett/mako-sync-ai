@@ -98,7 +98,15 @@ export function DownloadProcessingSection() {
     file: ProcessedFile,
     superGenre: string
   ) => {
-    if (file.genres.length === 0) return;
+    // For files with no genre tags, just update local state (no mapping to save)
+    if (file.genres.length === 0) {
+      updateFileSuperGenre(file.filename, superGenre);
+      toast({
+        title: 'SuperGenre Assigned',
+        description: `Assigned ${superGenre} to "${file.artist} - ${file.title}"`,
+      });
+      return;
+    }
 
     const genreToMap = file.genres[0]; // Use first genre for mapping
     setSavingGenre(genreToMap);
@@ -366,10 +374,7 @@ export function DownloadProcessingSection() {
                               onValueChange={(value) =>
                                 handleSaveMapping(file, value)
                               }
-                              disabled={
-                                savingGenre === file.genres[0] ||
-                                file.genres.length === 0
-                              }
+                              disabled={savingGenre === file.genres[0]}
                             >
                               <SelectTrigger className="w-36 h-8">
                                 <SelectValue placeholder="Select..." />

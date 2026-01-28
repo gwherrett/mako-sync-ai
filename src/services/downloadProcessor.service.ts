@@ -113,12 +113,9 @@ async function processFile(
     const metadata = await extractFileMetadata(file);
     const superGenre = mapToSuperGenre(metadata.genres, genreMap);
 
-    let status: ProcessedFileStatus = 'mapped';
-    if (!superGenre) {
-      status = metadata.genres.length > 0 ? 'unmapped' : 'mapped';
-      // Files with no genre tags are considered "mapped" (nothing to map)
-      // Files with genres that don't match are "unmapped"
-    }
+    // Files are only "mapped" if they have a SuperGenre assigned
+    // Files with no genre tags OR unrecognized genres are "unmapped"
+    const status: ProcessedFileStatus = superGenre ? 'mapped' : 'unmapped';
 
     return {
       filename: file.name,
@@ -248,9 +245,10 @@ export function reprocessWithUpdatedMap(
     // Re-attempt mapping
     const superGenre = mapToSuperGenre(file.genres, genreMap);
 
-    let status: ProcessedFileStatus = 'mapped';
+    // Files are only "mapped" if they have a SuperGenre assigned
+    const status: ProcessedFileStatus = superGenre ? 'mapped' : 'unmapped';
+
     if (!superGenre && file.genres.length > 0) {
-      status = 'unmapped';
       file.genres.forEach((genre) => {
         unmappedGenresSet.add(genre.toLowerCase().trim());
       });
