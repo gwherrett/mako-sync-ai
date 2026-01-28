@@ -163,16 +163,28 @@ export class TrackMatchingService {
     return data || [];
   }
 
-  // Fetch Spotify tracks for user with optional genre filter
-  static async fetchSpotifyTracks(userId: string, superGenreFilter?: string): Promise<SpotifyTrack[]> {
+  // Fetch Spotify tracks for user with optional cascading filters
+  static async fetchSpotifyTracks(
+    userId: string,
+    superGenreFilter?: string,
+    genreFilter?: string,
+    artistFilter?: string
+  ): Promise<SpotifyTrack[]> {
     let query = supabase
       .from('spotify_liked')
       .select('id, title, artist, primary_artist, album, genre, super_genre')
       .eq('user_id', userId)
       .limit(50000); // Override default 1000 limit to handle large collections
 
+    // Apply cascading filters
     if (superGenreFilter && superGenreFilter !== 'all') {
       query = query.eq('super_genre', superGenreFilter as any);
+    }
+    if (genreFilter && genreFilter !== 'all') {
+      query = query.eq('genre', genreFilter as any);
+    }
+    if (artistFilter && artistFilter !== 'all') {
+      query = query.eq('artist', artistFilter as any);
     }
 
     const { data, error } = await query;
@@ -181,17 +193,27 @@ export class TrackMatchingService {
       throw new Error(`Failed to fetch Spotify tracks: ${error.message}`);
     }
 
-    const genreText = superGenreFilter && superGenreFilter !== 'all' ? ` (${superGenreFilter} genre)` : '';
-    console.log(`🎵 Fetched ${data?.length || 0} Spotify tracks for matching${genreText}`);
+    // Build filter description for logging
+    const filterParts = [];
+    if (superGenreFilter && superGenreFilter !== 'all') filterParts.push(`supergenre: ${superGenreFilter}`);
+    if (genreFilter && genreFilter !== 'all') filterParts.push(`genre: ${genreFilter}`);
+    if (artistFilter && artistFilter !== 'all') filterParts.push(`artist: ${artistFilter}`);
+    const filterText = filterParts.length > 0 ? ` (${filterParts.join(', ')})` : '';
+    console.log(`🎵 Fetched ${data?.length || 0} Spotify tracks for matching${filterText}`);
     return data || [];
   }
 
   // Find missing tracks (Spotify tracks not in local collection)
   // Uses three-tier matching: exact → core title → fuzzy
-  static async findMissingTracks(userId: string, superGenreFilter?: string): Promise<MissingTrack[]> {
+  static async findMissingTracks(
+    userId: string,
+    superGenreFilter?: string,
+    genreFilter?: string,
+    artistFilter?: string
+  ): Promise<MissingTrack[]> {
     const [localTracks, spotifyTracks] = await Promise.all([
       this.fetchLocalTracks(userId),
-      this.fetchSpotifyTracks(userId, superGenreFilter)
+      this.fetchSpotifyTracks(userId, superGenreFilter, genreFilter, artistFilter)
     ]);
 
     const missingTracks: MissingTrack[] = [];

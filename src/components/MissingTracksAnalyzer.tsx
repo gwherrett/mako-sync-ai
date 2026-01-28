@@ -60,24 +60,58 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
   const [genreFilter, setGenreFilter] = useState<string>('all');
   const [artistFilter, setArtistFilter] = useState<string>('all');
 
-  // Get unique genres from results (filtered by selected supergenre if set)
-  const uniqueGenresInResults = [...new Set(
-    missingTracks
-      .filter(t => selectedGenre === 'all' || t.spotifyTrack.super_genre === selectedGenre)
-      .map(t => t.spotifyTrack.genre)
-      .filter((g): g is string => g !== null)
-  )].sort();
+  // Pre-loaded filter options from Spotify library (before analysis)
+  const [availableGenres, setAvailableGenres] = useState<string[]>([]);
+  const [availableArtists, setAvailableArtists] = useState<string[]>([]);
+  const [isLoadingFilters, setIsLoadingFilters] = useState(false);
 
-  // Get unique artists from results (filtered by selected genre if set)
-  const uniqueArtistsInResults = [...new Set(
-    missingTracks
-      .filter(t => {
-        if (selectedGenre !== 'all' && t.spotifyTrack.super_genre !== selectedGenre) return false;
-        if (genreFilter !== 'all' && t.spotifyTrack.genre !== genreFilter) return false;
-        return true;
-      })
-      .map(t => t.spotifyTrack.artist)
-  )].sort();
+  // Load available genres and artists from Spotify library based on supergenre filter
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      if (!user) return;
+
+      setIsLoadingFilters(true);
+      try {
+        // Build query for genres
+        let genreQuery = supabase
+          .from('spotify_liked')
+          .select('genre')
+          .eq('user_id', user.id)
+          .not('genre', 'is', null);
+
+        if (selectedGenre !== 'all') {
+          genreQuery = genreQuery.eq('super_genre', selectedGenre);
+        }
+
+        const { data: genreData } = await genreQuery.limit(50000);
+        const genres = [...new Set(genreData?.map(d => d.genre).filter(Boolean) || [])].sort();
+        setAvailableGenres(genres as string[]);
+
+        // Build query for artists based on selected genre
+        let artistQuery = supabase
+          .from('spotify_liked')
+          .select('artist')
+          .eq('user_id', user.id);
+
+        if (selectedGenre !== 'all') {
+          artistQuery = artistQuery.eq('super_genre', selectedGenre);
+        }
+        if (genreFilter !== 'all') {
+          artistQuery = artistQuery.eq('genre', genreFilter);
+        }
+
+        const { data: artistData } = await artistQuery.limit(50000);
+        const artists = [...new Set(artistData?.map(d => d.artist).filter(Boolean) || [])].sort();
+        setAvailableArtists(artists as string[]);
+      } catch (error) {
+        console.error('Error loading filter options:', error);
+      } finally {
+        setIsLoadingFilters(false);
+      }
+    };
+
+    loadFilterOptions();
+  }, [user, selectedGenre, genreFilter]);
 
   // Reset dependent filters when parent filter changes
   useEffect(() => {
@@ -91,22 +125,8 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
     setArtistFilter('all');
   }, [genreFilter]);
 
-  // Filter artist groups based on cascading filters and search query
+  // Filter artist groups based on search query only (cascading filters are applied at query level)
   const filteredArtistGroups = artistGroups
-    .filter(group => {
-      // Apply cascading filters to tracks within the group
-      const matchingTracks = group.tracks.filter(track => {
-        // Supergenre filter (already applied in query, but verify)
-        if (selectedGenre !== 'all' && track.spotifyTrack.super_genre !== selectedGenre) return false;
-        // Genre filter
-        if (genreFilter !== 'all' && track.spotifyTrack.genre !== genreFilter) return false;
-        return true;
-      });
-      // Artist filter
-      if (artistFilter !== 'all' && group.artist !== artistFilter) return false;
-      // Only include group if it has matching tracks
-      return matchingTracks.length > 0;
-    })
     .filter(group => {
       // Search query filter
       if (!sharedSearchQuery) return true;
@@ -236,16 +256,24 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
     setIsLoading(true);
     try {
       console.log('🔍 Starting missing tracks analysis...');
-      const missing = await TrackMatchingService.findMissingTracks(user.id, selectedGenre);
+      // Pass all filter criteria to the matching service
+      const missing = await TrackMatchingService.findMissingTracks(
+        user.id,
+        selectedGenre,
+        genreFilter,
+        artistFilter
+      );
 
       setMissingTracks(missing);
       setArtistGroups(groupByArtist(missing));
-      // Reset dependent filters on new analysis (supergenre stays as selected)
-      setGenreFilter('all');
-      setArtistFilter('all');
       setSelectedArtists(new Set());
 
-      const genreText = selectedGenre === 'all' ? 'collection' : `${selectedGenre} collection`;
+      // Build description of applied filters
+      const filterParts = [];
+      if (selectedGenre !== 'all') filterParts.push(selectedGenre);
+      if (genreFilter !== 'all') filterParts.push(genreFilter);
+      if (artistFilter !== 'all') filterParts.push(artistFilter);
+      const genreText = filterParts.length > 0 ? filterParts.join(' → ') : 'collection';
       toast({
         title: "Analysis Complete",
         description: `Found ${missing.length} tracks missing from your local ${genreText}.`,
@@ -353,14 +381,14 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
               <Select
                 value={genreFilter}
                 onValueChange={setGenreFilter}
-                disabled={missingTracks.length === 0}
+                disabled={isLoadingFilters}
               >
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All ({uniqueGenresInResults.length})</SelectItem>
-                  {uniqueGenresInResults.map((genre) => (
+                  <SelectItem value="all">All ({availableGenres.length})</SelectItem>
+                  {availableGenres.map((genre) => (
                     <SelectItem key={genre} value={genre}>
                       {genre}
                     </SelectItem>
@@ -375,14 +403,14 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
               <Select
                 value={artistFilter}
                 onValueChange={setArtistFilter}
-                disabled={missingTracks.length === 0}
+                disabled={isLoadingFilters}
               >
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All ({uniqueArtistsInResults.length})</SelectItem>
-                  {uniqueArtistsInResults.map((artist) => (
+                  <SelectItem value="all">All ({availableArtists.length})</SelectItem>
+                  {availableArtists.map((artist) => (
                     <SelectItem key={artist} value={artist}>
                       {artist}
                     </SelectItem>
