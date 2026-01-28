@@ -56,29 +56,56 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
   const { isConfigured } = useSlskdConfig();
   const { syncToSlskd, isSyncing, syncResult, progress, reset } = useSlskdSync();
 
-  // Results filter state
+  // Cascading filter state: supergenre -> genre -> artist
+  const [genreFilter, setGenreFilter] = useState<string>('all');
   const [artistFilter, setArtistFilter] = useState<string>('all');
-  const [genreResultsFilter, setGenreResultsFilter] = useState<string>('all');
 
-  // Get unique artists and genres from results for filter dropdowns
-  const uniqueArtists = [...new Set(artistGroups.map(g => g.artist))].sort();
+  // Get unique genres from results (filtered by selected supergenre if set)
   const uniqueGenresInResults = [...new Set(
     missingTracks
+      .filter(t => selectedGenre === 'all' || t.spotifyTrack.super_genre === selectedGenre)
       .map(t => t.spotifyTrack.genre)
       .filter((g): g is string => g !== null)
   )].sort();
 
-  // Filter artist groups based on shared search query and filters
+  // Get unique artists from results (filtered by selected genre if set)
+  const uniqueArtistsInResults = [...new Set(
+    missingTracks
+      .filter(t => {
+        if (selectedGenre !== 'all' && t.spotifyTrack.super_genre !== selectedGenre) return false;
+        if (genreFilter !== 'all' && t.spotifyTrack.genre !== genreFilter) return false;
+        return true;
+      })
+      .map(t => t.spotifyTrack.artist)
+  )].sort();
+
+  // Reset dependent filters when parent filter changes
+  useEffect(() => {
+    // When supergenre changes, reset genre and artist filters
+    setGenreFilter('all');
+    setArtistFilter('all');
+  }, [selectedGenre]);
+
+  useEffect(() => {
+    // When genre changes, reset artist filter
+    setArtistFilter('all');
+  }, [genreFilter]);
+
+  // Filter artist groups based on cascading filters and search query
   const filteredArtistGroups = artistGroups
     .filter(group => {
+      // Apply cascading filters to tracks within the group
+      const matchingTracks = group.tracks.filter(track => {
+        // Supergenre filter (already applied in query, but verify)
+        if (selectedGenre !== 'all' && track.spotifyTrack.super_genre !== selectedGenre) return false;
+        // Genre filter
+        if (genreFilter !== 'all' && track.spotifyTrack.genre !== genreFilter) return false;
+        return true;
+      });
       // Artist filter
       if (artistFilter !== 'all' && group.artist !== artistFilter) return false;
-      // Genre filter on results (uses raw Spotify genre, not super_genre)
-      if (genreResultsFilter !== 'all') {
-        const hasGenre = group.tracks.some(t => t.spotifyTrack.genre === genreResultsFilter);
-        if (!hasGenre) return false;
-      }
-      return true;
+      // Only include group if it has matching tracks
+      return matchingTracks.length > 0;
     })
     .filter(group => {
       // Search query filter
@@ -213,9 +240,9 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
 
       setMissingTracks(missing);
       setArtistGroups(groupByArtist(missing));
-      // Reset filters on new analysis
+      // Reset dependent filters on new analysis (supergenre stays as selected)
+      setGenreFilter('all');
       setArtistFilter('all');
-      setGenreResultsFilter('all');
       setSelectedArtists(new Set());
 
       const genreText = selectedGenre === 'all' ? 'collection' : `${selectedGenre} collection`;
@@ -295,30 +322,94 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Genre Filter */}
-          <div className="flex items-center gap-4">
+          {/* Cascading Filters: Supergenre -> Genre -> Artist */}
+          <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Filter by Supergenre:</span>
+              <span className="text-sm font-medium">Filters:</span>
             </div>
-            <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Select genre" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Supergenres</SelectItem>
-                {superGenres.map((genre) => (
-                  <SelectItem key={genre} value={genre}>
-                    {genre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+            {/* Supergenre Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Supergenre:</span>
+              <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All ({superGenres.length})</SelectItem>
+                  {superGenres.map((genre) => (
+                    <SelectItem key={genre} value={genre}>
+                      {genre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Genre Filter (filtered by supergenre) */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Genre:</span>
+              <Select
+                value={genreFilter}
+                onValueChange={setGenreFilter}
+                disabled={missingTracks.length === 0}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All ({uniqueGenresInResults.length})</SelectItem>
+                  {uniqueGenresInResults.map((genre) => (
+                    <SelectItem key={genre} value={genre}>
+                      {genre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Artist Filter (filtered by genre) */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Artist:</span>
+              <Select
+                value={artistFilter}
+                onValueChange={setArtistFilter}
+                disabled={missingTracks.length === 0}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All ({uniqueArtistsInResults.length})</SelectItem>
+                  {uniqueArtistsInResults.map((artist) => (
+                    <SelectItem key={artist} value={artist}>
+                      {artist}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Clear Filters */}
+            {(selectedGenre !== 'all' || genreFilter !== 'all' || artistFilter !== 'all') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedGenre('all');
+                  setGenreFilter('all');
+                  setArtistFilter('all');
+                }}
+              >
+                Clear All
+              </Button>
+            )}
           </div>
 
           {/* Action Buttons */}
           <div className="flex gap-4">
-            <Button 
+            <Button
               onClick={analyzeMissingTracks}
               disabled={isLoading}
               className="bg-primary hover:bg-primary/90"
@@ -332,9 +423,9 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
                 'Analyze Missing Tracks'
               )}
             </Button>
-            
+
             {missingTracks.length > 0 && (
-              <Button 
+              <Button
                 onClick={exportToCSV}
                 variant="outline"
                 className="flex items-center gap-2"
@@ -350,68 +441,6 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
       {/* Results */}
       {missingTracks.length > 0 && (
         <>
-          {/* Results Filters */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Filter results:</span>
-                </div>
-
-                {/* Artist Filter */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Artist:</span>
-                  <Select value={artistFilter} onValueChange={setArtistFilter}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="All Artists" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Artists ({uniqueArtists.length})</SelectItem>
-                      {uniqueArtists.map((artist) => (
-                        <SelectItem key={artist} value={artist}>
-                          {artist}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Genre Filter on Results */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Genre:</span>
-                  <Select value={genreResultsFilter} onValueChange={setGenreResultsFilter}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="All Genres" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Genres ({uniqueGenresInResults.length})</SelectItem>
-                      {uniqueGenresInResults.map((genre) => (
-                        <SelectItem key={genre} value={genre}>
-                          {genre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Clear Filters */}
-                {(artistFilter !== 'all' || genreResultsFilter !== 'all') && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setArtistFilter('all');
-                      setGenreResultsFilter('all');
-                    }}
-                  >
-                    Clear Filters
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Summary Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>

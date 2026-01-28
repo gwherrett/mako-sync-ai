@@ -15,7 +15,10 @@
       "Bash(npm run build:*)",
       "Bash(pgrep:*)",
       "Bash(git push:*)",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Bash(ss:*)",
+      "Bash(curl:*)",
+      "Bash(npm run dev:*)"
     ]
   }
 }
