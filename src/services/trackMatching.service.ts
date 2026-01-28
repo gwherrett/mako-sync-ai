@@ -147,20 +147,35 @@ export class TrackMatchingService {
     return maxLength === 0 ? 100 : ((maxLength - distance) / maxLength) * 100;
   }
 
-  // Fetch local tracks for user
+  // Fetch local tracks for user with pagination to handle large collections
   static async fetchLocalTracks(userId: string): Promise<LocalTrack[]> {
-    const { data, error } = await supabase
-      .from('local_mp3s')
-      .select('id, title, artist, primary_artist, album, genre, file_path')
-      .eq('user_id', userId)
-      .limit(50000); // Override default 1000 limit to handle large collections
+    const PAGE_SIZE = 1000;
+    const allTracks: LocalTrack[] = [];
+    let offset = 0;
+    let hasMore = true;
 
-    if (error) {
-      throw new Error(`Failed to fetch local tracks: ${error.message}`);
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('local_mp3s')
+        .select('id, title, artist, primary_artist, album, genre, file_path')
+        .eq('user_id', userId)
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (error) {
+        throw new Error(`Failed to fetch local tracks: ${error.message}`);
+      }
+
+      if (data && data.length > 0) {
+        allTracks.push(...data);
+        offset += data.length;
+        hasMore = data.length === PAGE_SIZE;
+      } else {
+        hasMore = false;
+      }
     }
 
-    console.log(`📀 Fetched ${data?.length || 0} local tracks for matching`);
-    return data || [];
+    console.log(`📀 Fetched ${allTracks.length} local tracks for matching`);
+    return allTracks;
   }
 
   // Fetch Spotify tracks for user with optional cascading filters
