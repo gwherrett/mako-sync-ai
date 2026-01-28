@@ -13,7 +13,9 @@
       "Bash(lsof:*)",
       "Bash(netstat:*)",
       "Bash(npm run build:*)",
-      "Bash(pgrep:*)"
+      "Bash(pgrep:*)",
+      "Bash(git push:*)",
+      "Bash(npx supabase:*)"
     ]
   }
 }
