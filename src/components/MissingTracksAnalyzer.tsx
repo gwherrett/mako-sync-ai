@@ -64,7 +64,7 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
   const uniqueArtists = [...new Set(artistGroups.map(g => g.artist))].sort();
   const uniqueGenresInResults = [...new Set(
     missingTracks
-      .map(t => t.spotifyTrack.super_genre)
+      .map(t => t.spotifyTrack.genre)
       .filter((g): g is string => g !== null)
   )].sort();
 
@@ -73,9 +73,9 @@ const MissingTracksAnalyzer: React.FC<MissingTracksAnalyzerProps> = ({
     .filter(group => {
       // Artist filter
       if (artistFilter !== 'all' && group.artist !== artistFilter) return false;
-      // Genre filter on results
+      // Genre filter on results (uses raw Spotify genre, not super_genre)
       if (genreResultsFilter !== 'all') {
-        const hasGenre = group.tracks.some(t => t.spotifyTrack.super_genre === genreResultsFilter);
+        const hasGenre = group.tracks.some(t => t.spotifyTrack.genre === genreResultsFilter);
         if (!hasGenre) return false;
       }
       return true;
