@@ -197,17 +197,18 @@ export class TrackMatchingService {
     const missingTracks: MissingTrack[] = [];
 
     // Build lookup structures for local tracks
+    // Note: Fallback to artist field if primary_artist is null (legacy data)
     // 1. Exact match set: full normalized title + artist
     const localExactSet = new Set(
       localTracks.map(track =>
-        `${this.normalize(track.title)}_${this.normalizeArtist(track.primary_artist)}`
+        `${this.normalize(track.title)}_${this.normalizeArtist(track.primary_artist || track.artist)}`
       )
     );
 
     // 2. Core title match set: core title (no mix/version) + artist
     const localCoreSet = new Set(
       localTracks.map(track =>
-        `${this.extractCoreTitle(track.title)}_${this.normalizeArtist(track.primary_artist)}`
+        `${this.extractCoreTitle(track.title)}_${this.normalizeArtist(track.primary_artist || track.artist)}`
       )
     );
 
@@ -215,10 +216,10 @@ export class TrackMatchingService {
     const localNormalized = localTracks.map(track => ({
       title: this.normalize(track.title),
       coreTitle: this.extractCoreTitle(track.title),
-      artist: this.normalizeArtist(track.primary_artist),
+      artist: this.normalizeArtist(track.primary_artist || track.artist),
       // Keep original values for debugging
       originalTitle: track.title,
-      originalArtist: track.primary_artist,
+      originalArtist: track.primary_artist || track.artist,
     }));
 
     // Debug: Log local tracks matching debug criteria
@@ -240,7 +241,8 @@ export class TrackMatchingService {
     for (const spotifyTrack of spotifyTracks) {
       const spotifyTitle = this.normalize(spotifyTrack.title);
       const spotifyCoreTitle = this.extractCoreTitle(spotifyTrack.title);
-      const spotifyArtist = this.normalizeArtist(spotifyTrack.primary_artist);
+      // Fallback to artist field if primary_artist is null (legacy data)
+      const spotifyArtist = this.normalizeArtist(spotifyTrack.primary_artist || spotifyTrack.artist);
 
       const debug = shouldDebug(spotifyTrack.title, spotifyTrack.primary_artist || spotifyTrack.artist);
 
