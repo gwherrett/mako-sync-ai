@@ -242,13 +242,27 @@ export function reprocessWithUpdatedMap(
       return file;
     }
 
-    // Re-attempt mapping
+    // For files with no genre tags, preserve any manually assigned SuperGenre
+    if (file.genres.length === 0) {
+      // Keep existing superGenre if it was manually assigned
+      if (file.superGenre) {
+        return file; // Already mapped manually, keep as-is
+      }
+      // Still unmapped, no genres to map
+      return {
+        ...file,
+        superGenre: null,
+        status: 'unmapped' as ProcessedFileStatus,
+      };
+    }
+
+    // Re-attempt mapping for files with genres
     const superGenre = mapToSuperGenre(file.genres, genreMap);
 
     // Files are only "mapped" if they have a SuperGenre assigned
     const status: ProcessedFileStatus = superGenre ? 'mapped' : 'unmapped';
 
-    if (!superGenre && file.genres.length > 0) {
+    if (!superGenre) {
       file.genres.forEach((genre) => {
         unmappedGenresSet.add(genre.toLowerCase().trim());
       });

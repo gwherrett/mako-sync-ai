@@ -191,6 +191,48 @@ describe('downloadProcessor.service', () => {
       expect(result.files[1].status).toBe('unmapped');
       expect(result.files[2].status).toBe('unmapped'); // No genres = unmapped
     });
+
+    it('preserves manually assigned SuperGenre for files with no genres', () => {
+      // Simulate a file with no genres that was manually assigned a SuperGenre
+      const filesWithManualAssignment: ProcessedFile[] = [
+        {
+          filename: 'manual.mp3',
+          relativePath: 'folder/manual.mp3',
+          artist: 'Artist',
+          title: 'Manual Track',
+          album: 'Album',
+          genres: [], // No genres
+          superGenre: 'Techno', // Manually assigned
+          status: 'mapped',
+          file: new File([''], 'manual.mp3'),
+        },
+        {
+          filename: 'unassigned.mp3',
+          relativePath: 'folder/unassigned.mp3',
+          artist: 'Artist 2',
+          title: 'Unassigned Track',
+          album: 'Album 2',
+          genres: [], // No genres, not assigned yet
+          superGenre: null,
+          status: 'unmapped',
+          file: new File([''], 'unassigned.mp3'),
+        },
+      ];
+
+      const genreMap = new Map<string, string>();
+      const result = reprocessWithUpdatedMap(filesWithManualAssignment, genreMap);
+
+      // Manually assigned should be preserved
+      expect(result.files[0].superGenre).toBe('Techno');
+      expect(result.files[0].status).toBe('mapped');
+
+      // Unassigned should stay unmapped
+      expect(result.files[1].superGenre).toBeNull();
+      expect(result.files[1].status).toBe('unmapped');
+
+      expect(result.summary.mapped).toBe(1);
+      expect(result.summary.unmapped).toBe(1);
+    });
   });
 
   describe('processDownloads', () => {
