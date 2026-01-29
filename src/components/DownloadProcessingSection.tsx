@@ -6,8 +6,7 @@
  * - Extracts metadata and maps genres to SuperGenre
  * - Inline genre mapping for unmapped genres
  * - Saves new mappings to spotify_genre_map_overrides
- *
- * Tag writing (TXXX:CUSTOM1) is deferred to a future update.
+ * - Writes SuperGenre to TXXX:CUSTOM1 ID3 tag and downloads tagged files
  */
 
 import { useState, useRef } from 'react';
@@ -46,8 +45,10 @@ import {
   XCircle,
   RefreshCw,
   Music,
+  Download,
 } from 'lucide-react';
 import { useDownloadProcessor } from '@/hooks/useDownloadProcessor';
+import { writeTagsAndDownload } from '@/services/downloadProcessor.service';
 import { useSlskdConfig } from '@/hooks/useSlskdConfig';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -67,6 +68,12 @@ export function DownloadProcessingSection() {
   const { config } = useSlskdConfig();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [savingGenre, setSavingGenre] = useState<string | null>(null);
+  const [isWritingTags, setIsWritingTags] = useState(false);
+  const [writeProgress, setWriteProgress] = useState<{
+    current: number;
+    total: number;
+    filename: string;
+  } | null>(null);
 
   const {
     processFiles,
@@ -157,6 +164,44 @@ export function DownloadProcessingSection() {
       });
     } finally {
       setSavingGenre(null);
+    }
+  };
+
+  // Handle writing tags and downloading files
+  const handleWriteTagsAndDownload = async () => {
+    if (!result || result.summary.mapped === 0) return;
+
+    setIsWritingTags(true);
+    setWriteProgress(null);
+
+    try {
+      const { success, errors } = await writeTagsAndDownload(
+        result.files,
+        (progress) => setWriteProgress(progress)
+      );
+
+      if (errors.length > 0) {
+        toast({
+          title: 'Tag Writing Complete (with errors)',
+          description: `${success} files tagged successfully, ${errors.length} failed`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Tag Writing Complete',
+          description: `${success} files tagged and downloaded`,
+        });
+      }
+    } catch (error) {
+      console.error('Tag writing failed:', error);
+      toast({
+        title: 'Tag Writing Failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsWritingTags(false);
+      setWriteProgress(null);
     }
   };
 
@@ -289,18 +334,52 @@ export function DownloadProcessingSection() {
                 <XCircle className="h-4 w-4" />
                 <span>Errors: {result.summary.errors}</span>
               </div>
-              {result.summary.unmapped > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={reprocessFiles}
-                  className="ml-auto"
-                >
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Re-check Mappings
-                </Button>
-              )}
+              <div className="ml-auto flex gap-2">
+                {result.summary.unmapped > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={reprocessFiles}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Re-check Mappings
+                  </Button>
+                )}
+                {result.summary.mapped > 0 && (
+                  <Button
+                    size="sm"
+                    onClick={handleWriteTagsAndDownload}
+                    disabled={isWritingTags}
+                  >
+                    {isWritingTags ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-1" />
+                    )}
+                    Write Tags & Download ({result.summary.mapped})
+                  </Button>
+                )}
+              </div>
             </div>
+
+            {/* Tag writing progress */}
+            {isWritingTags && writeProgress && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">
+                    Writing tags: {writeProgress.current} of {writeProgress.total}...
+                  </span>
+                </div>
+                <Progress
+                  value={(writeProgress.current / writeProgress.total) * 100}
+                  className="h-2"
+                />
+                <p className="text-xs text-muted-foreground truncate">
+                  {writeProgress.filename}
+                </p>
+              </div>
+            )}
 
             {/* Unmapped genres alert */}
             {result.unmappedGenres.length > 0 && (
@@ -406,10 +485,10 @@ export function DownloadProcessingSection() {
               </div>
             )}
 
-            {/* MediaMonkey instructions */}
+            {/* Instructions */}
             <p className="text-sm text-muted-foreground">
-              After reviewing, use MediaMonkey to organize files into your
-              Supercrates/[genre]/ folders, then re-scan in Mako Sync.
+              Click "Write Tags & Download" to save SuperGenre to TXXX:CUSTOM1 tag.
+              Then use MediaMonkey to organize files into Supercrates/[genre]/ folders.
             </p>
           </>
         )}

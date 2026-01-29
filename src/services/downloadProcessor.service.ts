@@ -4,12 +4,12 @@
  * Processes downloaded MP3 files from slskd:
  * - Extracts metadata (artist, title, album, genre) using music-metadata-browser
  * - Maps ID3 genre tags to SuperGenre using the effective genre map
+ * - Writes SuperGenre to TXXX:CUSTOM1 ID3 tag using browser-id3-writer
  * - Collects unmapped genres for inline mapping in UI
- *
- * Tag writing is deferred to Phase 5 (using browser-id3-writer).
  */
 
 import { parseBlob } from 'music-metadata-browser';
+import ID3Writer from 'browser-id3-writer';
 import { Buffer } from 'buffer';
 import { withTimeout } from '@/utils/promiseUtils';
 import type {
@@ -289,10 +289,89 @@ export function reprocessWithUpdatedMap(
   };
 }
 
+/**
+ * Write SuperGenre to TXXX:CUSTOM1 ID3 tag
+ *
+ * @param file - The original MP3 file
+ * @param superGenre - The SuperGenre to write
+ * @returns A new Blob with the updated ID3 tag
+ */
+async function writeSuperGenreTag(file: File, superGenre: string): Promise<Blob> {
+  const arrayBuffer = await file.arrayBuffer();
+  const writer = new ID3Writer(arrayBuffer);
+
+  // Write SuperGenre to TXXX frame with description "CUSTOM1"
+  // This is the tag MediaMonkey and other tools can read
+  writer.setFrame('TXXX', {
+    description: 'CUSTOM1',
+    value: superGenre,
+  });
+
+  writer.addTag();
+  return writer.getBlob();
+}
+
+/**
+ * Write SuperGenre tags to all mapped files and trigger download
+ *
+ * @param files - Array of processed files to write tags to
+ * @param onProgress - Optional callback for progress updates
+ * @returns Object with success count and any errors
+ */
+export async function writeTagsAndDownload(
+  files: ProcessedFile[],
+  onProgress?: (progress: { current: number; total: number; filename: string }) => void
+): Promise<{ success: number; errors: Array<{ filename: string; error: string }> }> {
+  const mappedFiles = files.filter((f) => f.status === 'mapped' && f.superGenre);
+  const errors: Array<{ filename: string; error: string }> = [];
+  let success = 0;
+
+  console.log(`📝 Writing tags to ${mappedFiles.length} files...`);
+
+  for (let i = 0; i < mappedFiles.length; i++) {
+    const file = mappedFiles[i];
+
+    if (onProgress) {
+      onProgress({
+        current: i + 1,
+        total: mappedFiles.length,
+        filename: file.filename,
+      });
+    }
+
+    try {
+      const taggedBlob = await writeSuperGenreTag(file.file, file.superGenre!);
+
+      // Create download link and trigger download
+      const url = URL.createObjectURL(taggedBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      success++;
+    } catch (error) {
+      console.error(`Failed to write tag to ${file.filename}:`, error);
+      errors.push({
+        filename: file.filename,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  console.log(`✅ Tag writing complete: ${success} success, ${errors.length} errors`);
+
+  return { success, errors };
+}
+
 // Export for testing
 export const _testExports = {
   extractFileMetadata,
   mapToSuperGenre,
   processFile,
   filterMp3Files,
+  writeSuperGenreTag,
 };
